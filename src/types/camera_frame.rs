@@ -1,0 +1,1 @@
+{implement_camera_types_frame_part}
