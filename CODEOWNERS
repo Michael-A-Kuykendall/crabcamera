@@ -1,0 +1,14 @@
+# This file defines code review ownership for CrabCamera.
+# All changes require approval from the lead maintainer to preserve
+# cross-platform compatibility and project vision.
+
+# Require maintainer review for everything
+*   @Michael-A-Kuykendall
+
+# Critical infrastructure requires extra scrutiny
+/src/platform/     @Michael-A-Kuykendall
+/src/commands/     @Michael-A-Kuykendall
+/src/camera.rs     @Michael-A-Kuykendall
+/src/permissions.rs @Michael-A-Kuykendall
+/Cargo.toml       @Michael-A-Kuykendall
+/README.md        @Michael-A-Kuykendall
