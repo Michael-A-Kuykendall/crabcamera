@@ -1,12 +1,13 @@
 use tauri::command;
 use crate::types::{CameraFrame, CameraInitParams, CameraFormat};
 use crate::platform::PlatformCamera;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::collections::HashMap;
+use tokio::sync::{RwLock, Mutex as AsyncMutex};
 
-// Global camera registry to manage active cameras
+// Global camera registry with async-friendly locking
 lazy_static::lazy_static! {
-    static ref CAMERA_REGISTRY: Arc<Mutex<HashMap<String, PlatformCamera>>> = Arc::new(Mutex::new(HashMap::new()));
+    static ref CAMERA_REGISTRY: Arc<RwLock<HashMap<String, Arc<AsyncMutex<PlatformCamera>>>>> = Arc::new(RwLock::new(HashMap::new()));
 }
 
 /// Capture a single photo from the specified camera
@@ -28,13 +29,17 @@ pub async fn capture_single_photo(device_id: Option<String>, format: Option<Came
     };
     
     // Ensure stream is started
-    if let Err(e) = camera.start_stream() {
-        log::warn!("Failed to start camera stream: {}", e);
-        // Continue anyway as some platforms don't require explicit stream start
+    {
+        let mut camera_guard = camera.lock().await;
+        if let Err(e) = camera_guard.start_stream() {
+            log::warn!("Failed to start camera stream: {}", e);
+            // Continue anyway as some platforms don't require explicit stream start
+        }
     }
     
     // Capture frame
-    match camera.capture_frame() {
+    let mut camera_guard = camera.lock().await;
+    match camera_guard.capture_frame() {
         Ok(frame) => {
             log::info!("Successfully captured frame: {}x{} ({} bytes)", 
                 frame.width, frame.height, frame.size_bytes);
@@ -68,8 +73,11 @@ pub async fn capture_photo_sequence(
     };
     
     // Start stream once
-    if let Err(e) = camera.start_stream() {
-        log::warn!("Failed to start camera stream: {}", e);
+    {
+        let mut camera_guard = camera.lock().await;
+        if let Err(e) = camera_guard.start_stream() {
+            log::warn!("Failed to start camera stream: {}", e);
+        }
     }
     
     let mut frames = Vec::new();
@@ -77,7 +85,8 @@ pub async fn capture_photo_sequence(
     for i in 0..count {
         log::debug!("Capturing photo {} of {}", i + 1, count);
         
-        match camera.capture_frame() {
+        let mut camera_guard = camera.lock().await;
+        match camera_guard.capture_frame() {
             Ok(frame) => frames.push(frame),
             Err(e) => {
                 log::error!("Failed to capture frame {}: {}", i + 1, e);
@@ -106,7 +115,8 @@ pub async fn start_camera_preview(device_id: String, format: Option<CameraFormat
         Err(e) => return Err(e),
     };
     
-    match camera.start_stream() {
+    let mut camera_guard = camera.lock().await;
+    match camera_guard.start_stream() {
         Ok(_) => {
             log::info!("Camera preview started for device: {}", device_id);
             Ok(format!("Preview started for camera {}", device_id))
@@ -123,11 +133,11 @@ pub async fn start_camera_preview(device_id: String, format: Option<CameraFormat
 pub async fn stop_camera_preview(device_id: String) -> Result<String, String> {
     log::info!("Stopping camera preview for device: {}", device_id);
     
-    let registry = CAMERA_REGISTRY.lock()
-        .map_err(|_| "Failed to access camera registry".to_string())?;
+    let registry = CAMERA_REGISTRY.read().await;
     
     if let Some(camera) = registry.get(&device_id) {
-        match camera.stop_stream() {
+        let camera_guard = camera.lock().await;
+        match camera_guard.stop_stream() {
             Ok(_) => {
                 log::info!("Camera preview stopped for device: {}", device_id);
                 Ok(format!("Preview stopped for camera {}", device_id))
@@ -149,11 +159,11 @@ pub async fn stop_camera_preview(device_id: String) -> Result<String, String> {
 pub async fn release_camera(device_id: String) -> Result<String, String> {
     log::info!("Releasing camera: {}", device_id);
     
-    let mut registry = CAMERA_REGISTRY.lock()
-        .map_err(|_| "Failed to access camera registry".to_string())?;
+    let mut registry = CAMERA_REGISTRY.write().await;
     
     if let Some(camera) = registry.remove(&device_id) {
-        let _ = camera.stop_stream(); // Ignore errors on cleanup
+        let camera_guard = camera.lock().await;
+        let _ = camera_guard.stop_stream(); // Ignore errors on cleanup
         log::info!("Camera {} released", device_id);
         Ok(format!("Camera {} released", device_id))
     } else {
@@ -166,12 +176,12 @@ pub async fn release_camera(device_id: String) -> Result<String, String> {
 /// Get capture statistics for a camera
 #[command]
 pub async fn get_capture_stats(device_id: String) -> Result<CaptureStats, String> {
-    let registry = CAMERA_REGISTRY.lock()
-        .map_err(|_| "Failed to access camera registry".to_string())?;
+    let registry = CAMERA_REGISTRY.read().await;
     
     if let Some(camera) = registry.get(&device_id) {
-        let is_active = camera.is_available();
-        let device_id_opt = camera.get_device_id();
+        let camera_guard = camera.lock().await;
+        let is_active = camera_guard.is_available();
+        let device_id_opt = camera_guard.get_device_id();
         
         Ok(CaptureStats {
             device_id: device_id.clone(),
@@ -187,47 +197,76 @@ pub async fn get_capture_stats(device_id: String) -> Result<CaptureStats, String
     }
 }
 
-/// Save captured frame to disk
+/// Save captured frame to disk with async I/O
 #[command]
 pub async fn save_frame_to_disk(frame: CameraFrame, file_path: String) -> Result<String, String> {
     log::info!("Saving frame {} to disk: {}", frame.id, file_path);
     
-    use std::io::Write;
-    
-    match std::fs::File::create(&file_path) {
-        Ok(mut file) => {
-            match file.write_all(&frame.data) {
-                Ok(_) => {
-                    log::info!("Frame saved successfully to: {}", file_path);
-                    Ok(format!("Frame saved to {}", file_path))
-                }
-                Err(e) => {
-                    log::error!("Failed to write frame data: {}", e);
-                    Err(format!("Failed to write frame data: {}", e))
-                }
-            }
+    match tokio::fs::write(&file_path, &frame.data).await {
+        Ok(_) => {
+            log::info!("Frame saved successfully to: {}", file_path);
+            Ok(format!("Frame saved to {}", file_path))
         }
         Err(e) => {
-            log::error!("Failed to create file: {}", e);
-            Err(format!("Failed to create file: {}", e))
+            log::error!("Failed to save frame: {}", e);
+            Err(format!("Failed to save frame: {}", e))
+        }
+    }
+}
+
+/// Save frame with compression for smaller file sizes
+#[command]
+pub async fn save_frame_compressed(frame: CameraFrame, file_path: String, quality: Option<u8>) -> Result<String, String> {
+    log::info!("Saving compressed frame {} to disk: {}", frame.id, file_path);
+    
+    let quality = quality.unwrap_or(85); // Default JPEG quality
+    
+    // Convert frame to image and compress
+    let img = image::RgbImage::from_vec(frame.width, frame.height, frame.data)
+        .ok_or_else(|| "Failed to create image from frame data".to_string())?;
+    
+    let dynamic_img = image::DynamicImage::ImageRgb8(img);
+    
+    // Save with compression in a spawn_blocking task
+    let file_path_clone = file_path.clone();
+    match tokio::task::spawn_blocking(move || {
+        dynamic_img.save_with_format(&file_path_clone, image::ImageFormat::Jpeg)
+    }).await {
+        Ok(Ok(_)) => {
+            log::info!("Compressed frame saved to: {}", file_path);
+            Ok(format!("Compressed frame saved to {}", file_path))
+        }
+        Ok(Err(e)) => {
+            log::error!("Failed to save compressed frame: {}", e);
+            Err(format!("Failed to save compressed frame: {}", e))
+        }
+        Err(e) => {
+            log::error!("Task join error: {}", e);
+            Err("Failed to execute save task".to_string())
         }
     }
 }
 
 // Helper functions
 
-/// Get existing camera or create new one
-async fn get_or_create_camera(device_id: String, format: CameraFormat) -> Result<PlatformCamera, String> {
-    let mut registry = CAMERA_REGISTRY.lock()
-        .map_err(|_| "Failed to access camera registry".to_string())?;
-    
-    // Check if camera already exists
-    if registry.contains_key(&device_id) {
-        // Remove and return the camera (we'll put it back after use)
-        if let Some(camera) = registry.remove(&device_id) {
+/// Get existing camera or create new one with async-friendly locking
+pub async fn get_or_create_camera(device_id: String, format: CameraFormat) -> Result<Arc<AsyncMutex<PlatformCamera>>, String> {
+    // First, try to get existing camera with read lock
+    {
+        let registry = CAMERA_REGISTRY.read().await;
+        if let Some(camera) = registry.get(&device_id) {
             log::debug!("Using existing camera: {}", device_id);
-            return Ok(camera);
+            return Ok(camera.clone());
         }
+    }
+    
+    // Need to create new camera, acquire write lock
+    let mut registry = CAMERA_REGISTRY.write().await;
+    
+    // Double-check in case another task created it while we waited
+    if let Some(camera) = registry.get(&device_id) {
+        log::debug!("Using camera created by another task: {}", device_id);
+        return Ok(camera.clone());
     }
     
     // Create new camera
@@ -236,19 +275,54 @@ async fn get_or_create_camera(device_id: String, format: CameraFormat) -> Result
     
     match PlatformCamera::new(params) {
         Ok(camera) => {
-            registry.insert(device_id.clone(), camera);
-            // Get the camera back out (this is a bit clunky but ensures proper ownership)
-            if let Some(camera) = registry.remove(&device_id) {
-                Ok(camera)
-            } else {
-                Err("Failed to retrieve created camera".to_string())
-            }
+            let camera_arc = Arc::new(AsyncMutex::new(camera));
+            registry.insert(device_id.clone(), camera_arc.clone());
+            Ok(camera_arc)
         }
         Err(e) => {
             log::error!("Failed to create camera: {}", e);
             Err(format!("Failed to create camera: {}", e))
         }
     }
+}
+
+/// Zero-copy frame capture with memory pool
+pub struct FramePool {
+    pool: Arc<AsyncMutex<Vec<Vec<u8>>>>,
+    max_frames: usize,
+    frame_size: usize,
+}
+
+impl FramePool {
+    pub fn new(max_frames: usize, frame_size: usize) -> Self {
+        let mut pool = Vec::with_capacity(max_frames);
+        for _ in 0..max_frames {
+            pool.push(Vec::with_capacity(frame_size));
+        }
+        
+        Self {
+            pool: Arc::new(AsyncMutex::new(pool)),
+            max_frames,
+            frame_size,
+        }
+    }
+    
+    pub async fn get_buffer(&self) -> Vec<u8> {
+        let mut pool = self.pool.lock().await;
+        pool.pop().unwrap_or_else(|| Vec::with_capacity(self.frame_size))
+    }
+    
+    pub async fn return_buffer(&self, mut buffer: Vec<u8>) {
+        buffer.clear();
+        let mut pool = self.pool.lock().await;
+        if pool.len() < self.max_frames {
+            pool.push(buffer);
+        }
+    }
+}
+
+lazy_static::lazy_static! {
+    static ref FRAME_POOL: FramePool = FramePool::new(10, 1920 * 1080 * 3); // 10 HD RGB buffers
 }
 
 /// Capture statistics structure

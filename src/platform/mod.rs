@@ -148,6 +148,102 @@ impl PlatformCamera {
             PlatformCamera::Unsupported => None,
         }
     }
+
+    /// Apply camera controls
+    pub fn apply_controls(&mut self, controls: &crate::types::CameraControls) -> Result<(), CameraError> {
+        match self {
+            #[cfg(target_os = "windows")]
+            PlatformCamera::Windows(_camera) => {
+                // TODO: Implement Windows camera controls
+                log::warn!("Windows camera controls not yet implemented");
+                Ok(())
+            }
+            
+            #[cfg(target_os = "macos")]
+            PlatformCamera::MacOS(camera) => camera.apply_controls(controls),
+            
+            #[cfg(target_os = "linux")]
+            PlatformCamera::Linux(camera) => camera.apply_controls(controls),
+            
+            #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+            PlatformCamera::Unsupported => Err(CameraError::InitializationError("Unsupported platform".to_string())),
+        }
+    }
+
+    /// Get current camera controls
+    pub fn get_controls(&self) -> Result<crate::types::CameraControls, CameraError> {
+        match self {
+            #[cfg(target_os = "windows")]
+            PlatformCamera::Windows(_camera) => {
+                // Return default controls for Windows
+                Ok(crate::types::CameraControls::default())
+            }
+            
+            #[cfg(target_os = "macos")]
+            PlatformCamera::MacOS(camera) => camera.get_controls(),
+            
+            #[cfg(target_os = "linux")]
+            PlatformCamera::Linux(camera) => camera.get_controls(),
+            
+            #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+            PlatformCamera::Unsupported => Err(CameraError::InitializationError("Unsupported platform".to_string())),
+        }
+    }
+
+    /// Test camera capabilities
+    pub fn test_capabilities(&self) -> Result<crate::types::CameraCapabilities, CameraError> {
+        match self {
+            #[cfg(target_os = "windows")]
+            PlatformCamera::Windows(_camera) => {
+                // Return basic Windows capabilities
+                Ok(crate::types::CameraCapabilities {
+                    supports_auto_focus: true,
+                    supports_manual_focus: false,
+                    supports_auto_exposure: true,
+                    supports_manual_exposure: false,
+                    supports_white_balance: true,
+                    supports_zoom: false,
+                    supports_flash: false,
+                    supports_burst_mode: true,
+                    supports_hdr: false,
+                    max_resolution: (1920, 1080),
+                    max_fps: 30.0,
+                    exposure_range: None,
+                    iso_range: None,
+                    focus_range: None,
+                })
+            }
+            
+            #[cfg(target_os = "macos")]
+            PlatformCamera::MacOS(camera) => camera.test_capabilities(),
+            
+            #[cfg(target_os = "linux")]
+            PlatformCamera::Linux(camera) => camera.test_capabilities(),
+            
+            #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+            PlatformCamera::Unsupported => Err(CameraError::InitializationError("Unsupported platform".to_string())),
+        }
+    }
+
+    /// Get performance metrics
+    pub fn get_performance_metrics(&self) -> Result<crate::types::CameraPerformanceMetrics, CameraError> {
+        match self {
+            #[cfg(target_os = "windows")]
+            PlatformCamera::Windows(_camera) => {
+                // Return basic metrics for Windows
+                Ok(crate::types::CameraPerformanceMetrics::default())
+            }
+            
+            #[cfg(target_os = "macos")]
+            PlatformCamera::MacOS(camera) => camera.get_performance_metrics(),
+            
+            #[cfg(target_os = "linux")]
+            PlatformCamera::Linux(camera) => camera.get_performance_metrics(),
+            
+            #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+            PlatformCamera::Unsupported => Err(CameraError::InitializationError("Unsupported platform".to_string())),
+        }
+    }
 }
 
 // Cleanup implementation

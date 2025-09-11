@@ -166,6 +166,7 @@ pub fn create_mock_frame(device_id: &str) -> CameraFrame {
         format: "RGB8".to_string(),
         data,
         size_bytes: (width * height * 3) as usize,
+        metadata: crate::types::FrameMetadata::default(),
     }
 }
 
@@ -182,6 +183,7 @@ pub fn create_mock_frame_with_size(device_id: &str, width: u32, height: u32) -> 
         format: "RGB8".to_string(),
         data,
         size_bytes: (width * height * 3) as usize,
+        metadata: crate::types::FrameMetadata::default(),
     }
 }
 

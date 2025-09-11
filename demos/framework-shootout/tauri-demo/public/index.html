@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CrabCamera Tauri Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: #ecf0f1;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .app-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #4682b4;
+            margin-bottom: 8px;
+        }
+        
+        .status {
+            font-size: 14px;
+            color: #2ecc71;
+        }
+        
+        .main-content {
+            display: flex;
+            gap: 30px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        .camera-preview {
+            width: 400px;
+            height: 300px;
+            background: #1e1e1e;
+            border: 2px solid #4682b4;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+        }
+        
+        .controls-panel {
+            flex: 1;
+            max-width: 300px;
+        }
+        
+        .panel-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #6495ed;
+            margin-bottom: 15px;
+        }
+        
+        .control-group {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .control-label {
+            font-size: 16px;
+            margin-bottom: 8px;
+            display: block;
+        }
+        
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .slider {
+            flex: 1;
+            height: 6px;
+            border-radius: 3px;
+            background: #34495e;
+            outline: none;
+            cursor: pointer;
+        }
+        
+        .slider::-webkit-slider-thumb {
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #4682b4;
+            cursor: pointer;
+        }
+        
+        .value-display {
+            min-width: 80px;
+            text-align: right;
+            font-weight: 500;
+        }
+        
+        .dropdown {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #4682b4;
+            border-radius: 4px;
+            background: #34495e;
+            color: #ecf0f1;
+            font-size: 14px;
+        }
+        
+        .capture-btn {
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            font-weight: 600;
+            background: #2ecc71;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .capture-btn:hover {
+            background: #27ae60;
+        }
+        
+        .capture-btn:active {
+            transform: translateY(1px);
+        }
+        
+        .metrics {
+            font-size: 14px;
+        }
+        
+        .metrics-title {
+            font-size: 16px;
+            color: #6495ed;
+            margin-bottom: 8px;
+        }
+        
+        .metric {
+            margin-bottom: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="app-title">CrabCamera Professional Controls</div>
+        <div class="status" id="status">Camera Connected | 1280x720 | 60.0 FPS</div>
+    </div>
+    
+    <div class="main-content">
+        <div class="camera-preview">
+            📷 Live Camera Preview
+        </div>
+        
+        <div class="controls-panel">
+            <div class="panel-title">Camera Controls</div>
+            
+            <div class="control-group">
+                <label class="control-label">Focus Control</label>
+                <div class="control-row">
+                    <input type="range" class="slider" id="focus" min="0" max="100" value="50" step="1">
+                    <span class="value-display" id="focus-value">50%</span>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <label class="control-label">ISO Sensitivity</label>
+                <div class="control-row">
+                    <input type="range" class="slider" id="iso" min="100" max="3200" value="400" step="100">
+                    <span class="value-display" id="iso-value">ISO 400</span>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <label class="control-label">Shutter Speed</label>
+                <div class="control-row">
+                    <input type="range" class="slider" id="exposure" min="0.0005" max="0.0667" value="0.0167" step="0.001">
+                    <span class="value-display" id="exposure-value">1/60s</span>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <label class="control-label">White Balance</label>
+                <select class="dropdown" id="white-balance">
+                    <option value="Auto">Auto</option>
+                    <option value="Daylight">Daylight</option>
+                    <option value="Cloudy">Cloudy</option>
+                    <option value="Tungsten">Tungsten</option>
+                    <option value="Fluorescent">Fluorescent</option>
+                </select>
+            </div>
+            
+            <button class="capture-btn" id="capture-btn">📸 Capture Photo</button>
+            
+            <div class="control-group metrics">
+                <div class="metrics-title">Performance Metrics</div>
+                <div class="metric">Photos Captured: <span id="photos-count">0</span></div>
+                <div class="metric">Memory Usage: <span id="memory">22.4 MB</span></div>
+                <div class="metric">CPU Usage: <span id="cpu">5.8%</span></div>
+                <div class="metric">Frame Latency: <span id="latency">16.7ms</span></div>
+                <div class="metric">Real FPS: <span id="fps">60.0</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Import Tauri API
+        const { invoke } = window.__TAURI__.core;
+        
+        // State tracking
+        let photosCount = 0;
+        let lastFrame = performance.now();
+        
+        // DOM elements
+        const focusSlider = document.getElementById('focus');
+        const isoSlider = document.getElementById('iso');
+        const exposureSlider = document.getElementById('exposure');
+        const whiteBalanceSelect = document.getElementById('white-balance');
+        const captureBtn = document.getElementById('capture-btn');
+        
+        const focusValue = document.getElementById('focus-value');
+        const isoValue = document.getElementById('iso-value');
+        const exposureValue = document.getElementById('exposure-value');
+        const photosCountDisplay = document.getElementById('photos-count');
+        const fpsDisplay = document.getElementById('fps');
+        
+        // Control event handlers
+        focusSlider.addEventListener('input', async (e) => {
+            const value = parseFloat(e.target.value);
+            focusValue.textContent = `${value}%`;
+            await invoke('set_focus', { value });
+        });
+        
+        isoSlider.addEventListener('input', async (e) => {
+            const value = parseInt(e.target.value);
+            isoValue.textContent = `ISO ${value}`;
+            await invoke('set_iso', { value });
+        });
+        
+        exposureSlider.addEventListener('input', async (e) => {
+            const value = parseFloat(e.target.value);
+            const shutterSpeed = Math.round(1.0 / value);
+            exposureValue.textContent = `1/${shutterSpeed}s`;
+            await invoke('set_exposure', { value });
+        });
+        
+        whiteBalanceSelect.addEventListener('change', async (e) => {
+            await invoke('set_white_balance', { value: e.target.value });
+        });
+        
+        captureBtn.addEventListener('click', async () => {
+            const count = await invoke('capture_photo');
+            photosCountDisplay.textContent = count;
+        });
+        
+        // FPS counter
+        function updateFPS() {
+            const now = performance.now();
+            const elapsed = now - lastFrame;
+            const fps = 1000 / elapsed;
+            fpsDisplay.textContent = fps.toFixed(1);
+            lastFrame = now;
+            requestAnimationFrame(updateFPS);
+        }
+        
+        // Initialize
+        updateFPS();
+        
+        // Update performance metrics periodically
+        setInterval(async () => {
+            try {
+                const metrics = await invoke('get_performance_metrics');
+                document.getElementById('memory').textContent = metrics.memory_usage;
+                document.getElementById('cpu').textContent = metrics.cpu_usage;
+                document.getElementById('latency').textContent = metrics.frame_latency;
+            } catch (error) {
+                console.error('Failed to get performance metrics:', error);
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

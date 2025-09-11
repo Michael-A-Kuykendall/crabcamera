@@ -1,5 +1,7 @@
 # Rust build artifacts
 /target/
+*/target/
+**/target/
 Cargo.lock
 
 # IDE files
@@ -19,3 +21,6 @@ Thumbs.db
 __pycache__/
 *.pyc
 *.pyo
+
+# Claude Code configuration (contains project-specific instructions)
+CLAUDE.md

@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CrabCamera v0.2.0 - Plant Photography Studio</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Taurus, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: #ecf0f1;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .header {
+            background: rgba(46, 204, 113, 0.1);
+            border-bottom: 2px solid #2ecc71;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .crab-icon {
+            font-size: 2rem;
+        }
+        
+        .app-title {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: #2ecc71;
+        }
+        
+        .version-badge {
+            background: #e74c3c;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .main-container {
+            display: grid;
+            grid-template-columns: 300px 1fr 320px;
+            gap: 1rem;
+            padding: 1rem;
+            max-width: 1400px;
+            margin: 0 auto;
+            min-height: calc(100vh - 80px);
+        }
+        
+        .sidebar {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            height: fit-content;
+        }
+        
+        .camera-viewport {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .controls-panel {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            height: fit-content;
+        }
+        
+        .section-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #3498db;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 0.5rem;
+        }
+        
+        .camera-preview {
+            aspect-ratio: 4/3;
+            background: #000;
+            border-radius: 8px;
+            border: 2px solid #34495e;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .preview-placeholder {
+            text-align: center;
+            color: #7f8c8d;
+        }
+        
+        .preview-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .camera-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+        }
+        
+        .control-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .control-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #bdc3c7;
+        }
+        
+        .control-input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #34495e;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #ecf0f1;
+            font-size: 0.9rem;
+        }
+        
+        .control-input:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+        }
+        
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #2ecc71, #27ae60);
+            color: white;
+        }
+        
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(46, 204, 113, 0.3);
+        }
+        
+        .btn-warning {
+            background: linear-gradient(135deg, #f39c12, #e67e22);
+            color: white;
+        }
+        
+        .btn-warning:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(243, 156, 18, 0.3);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: white;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+        
+        .status-connected {
+            background: rgba(46, 204, 113, 0.2);
+            border: 1px solid #2ecc71;
+            color: #2ecc71;
+        }
+        
+        .status-disconnected {
+            background: rgba(231, 76, 60, 0.2);
+            border: 1px solid #e74c3c;
+            color: #e74c3c;
+        }
+        
+        .capture-gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        
+        .capture-thumbnail {
+            aspect-ratio: 1;
+            border-radius: 6px;
+            background: #34495e;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            overflow: hidden;
+        }
+        
+        .capture-thumbnail:hover {
+            transform: scale(1.05);
+        }
+        
+        .capture-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .performance-metrics {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.85rem;
+        }
+        
+        .metric-value {
+            font-weight: 600;
+            color: #3498db;
+        }
+        
+        .advanced-controls {
+            display: none;
+        }
+        
+        .advanced-controls.visible {
+            display: block;
+        }
+        
+        .slider-container {
+            margin-bottom: 1rem;
+        }
+        
+        .slider {
+            width: 100%;
+            margin-top: 0.5rem;
+        }
+        
+        .slider-value {
+            float: right;
+            font-size: 0.8rem;
+            color: #3498db;
+        }
+        
+        .burst-progress {
+            background: rgba(52, 152, 219, 0.2);
+            border-radius: 4px;
+            height: 8px;
+            margin: 0.5rem 0;
+            overflow: hidden;
+        }
+        
+        .burst-progress-bar {
+            background: #3498db;
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .log-console {
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 8px;
+            padding: 1rem;
+            height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            border: 1px solid #34495e;
+        }
+        
+        .log-entry {
+            margin-bottom: 0.25rem;
+            opacity: 0.8;
+        }
+        
+        .log-timestamp {
+            color: #7f8c8d;
+        }
+        
+        .log-level-info {
+            color: #3498db;
+        }
+        
+        .log-level-success {
+            color: #2ecc71;
+        }
+        
+        .log-level-warning {
+            color: #f39c12;
+        }
+        
+        .log-level-error {
+            color: #e74c3c;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .pulse {
+            animation: pulse 1s infinite;
+        }
+        
+        .feature-highlight {
+            background: linear-gradient(135deg, rgba(155, 89, 182, 0.2), rgba(142, 68, 173, 0.2));
+            border: 1px solid #9b59b6;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .feature-tag {
+            display: inline-block;
+            background: #9b59b6;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">
+            <div class="crab-icon">🦀</div>
+            <div class="app-title">CrabCamera Plant Photography Studio</div>
+        </div>
+        <div class="version-badge">v0.2.0 DEMO</div>
+    </div>
+
+    <div class="main-container">
+        <!-- Left Sidebar - Camera Selection & System Info -->
+        <div class="sidebar">
+            <div class="section-title">📷 Camera System</div>
+            
+            <div id="camera-status" class="status-indicator status-disconnected">
+                <span>●</span>
+                <span>Disconnected</span>
+            </div>
+            
+            <div class="control-group">
+                <label class="control-label">Select Camera</label>
+                <select id="camera-select" class="control-input">
+                    <option value="">Loading cameras...</option>
+                </select>
+            </div>
+            
+            <button id="initialize-btn" class="btn btn-primary">Initialize Camera System</button>
+            <button id="test-system-btn" class="btn btn-warning">Test System</button>
+            
+            <div class="feature-highlight">
+                <div class="feature-tag">NEW v0.2.0</div>
+                <strong>Advanced Camera Controls</strong><br>
+                Professional manual focus, exposure, white balance, and specialized plant photography optimizations.
+            </div>
+            
+            <div class="section-title">📊 Performance</div>
+            <div class="performance-metrics">
+                <div class="metric-row">
+                    <span>Capture Latency:</span>
+                    <span class="metric-value" id="latency-metric">-- ms</span>
+                </div>
+                <div class="metric-row">
+                    <span>Actual FPS:</span>
+                    <span class="metric-value" id="fps-metric">--</span>
+                </div>
+                <div class="metric-row">
+                    <span>Quality Score:</span>
+                    <span class="metric-value" id="quality-metric">--</span>
+                </div>
+                <div class="metric-row">
+                    <span>Memory Usage:</span>
+                    <span class="metric-value" id="memory-metric">-- MB</span>
+                </div>
+            </div>
+            
+            <div class="section-title">📋 Console Log</div>
+            <div class="log-console" id="log-console">
+                <div class="log-entry">
+                    <span class="log-timestamp">[00:00:00]</span>
+                    <span class="log-level-info">[INFO]</span>
+                    CrabCamera Demo Started
+                </div>
+            </div>
+        </div>
+
+        <!-- Center - Camera Viewport -->
+        <div class="camera-viewport">
+            <div class="section-title">🌿 Plant Photography Viewport</div>
+            
+            <div class="camera-preview">
+                <div class="preview-placeholder" id="preview-placeholder">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">📷</div>
+                    <div>No camera preview</div>
+                    <div style="font-size: 0.8rem; margin-top: 0.5rem; opacity: 0.7;">
+                        Initialize camera system to begin
+                    </div>
+                </div>
+                <img id="preview-image" class="preview-image" style="display: none;" alt="Camera Preview">
+            </div>
+            
+            <div class="camera-controls">
+                <button id="capture-btn" class="btn btn-success" disabled>📸 Capture Photo</button>
+                <button id="plant-optimize-btn" class="btn btn-success" disabled>🌱 Optimize for Plants</button>
+                <button id="hdr-btn" class="btn btn-warning" disabled>✨ HDR Burst</button>
+                <button id="focus-stack-btn" class="btn btn-warning" disabled>🔍 Focus Stack</button>
+                <button id="start-preview-btn" class="btn btn-primary" disabled>▶️ Start Preview</button>
+                <button id="stop-preview-btn" class="btn btn-danger" disabled>⏹️ Stop Preview</button>
+            </div>
+            
+            <div class="burst-progress" id="burst-progress" style="display: none;">
+                <div class="burst-progress-bar" id="burst-progress-bar"></div>
+            </div>
+            
+            <div class="section-title">🖼️ Captured Photos</div>
+            <div class="capture-gallery" id="capture-gallery">
+                <!-- Thumbnails will be added here -->
+            </div>
+        </div>
+
+        <!-- Right Sidebar - Advanced Controls -->
+        <div class="controls-panel">
+            <div class="section-title">⚙️ Professional Controls</div>
+            
+            <div class="feature-highlight">
+                <div class="feature-tag">PLANT PHOTOGRAPHY</div>
+                <strong>Botanical Optimization</strong><br>
+                Specialized settings for plant documentation: deep DOF, enhanced contrast, boosted greens.
+            </div>
+            
+            <button id="toggle-advanced" class="btn btn-primary">Show Advanced Controls</button>
+            
+            <div class="advanced-controls" id="advanced-controls">
+                <!-- Focus Controls -->
+                <div class="control-group">
+                    <label class="control-label">Focus Mode</label>
+                    <select id="focus-mode" class="control-input">
+                        <option value="auto">Auto Focus</option>
+                        <option value="manual">Manual Focus</option>
+                    </select>
+                </div>
+                
+                <div class="slider-container">
+                    <label class="control-label">
+                        Focus Distance
+                        <span class="slider-value" id="focus-value">0.5</span>
+                    </label>
+                    <input type="range" id="focus-slider" class="slider" 
+                           min="0" max="1" step="0.01" value="0.5" disabled>
+                </div>
+                
+                <!-- Exposure Controls -->
+                <div class="control-group">
+                    <label class="control-label">Exposure Mode</label>
+                    <select id="exposure-mode" class="control-input">
+                        <option value="auto">Auto Exposure</option>
+                        <option value="manual">Manual Exposure</option>
+                    </select>
+                </div>
+                
+                <div class="slider-container">
+                    <label class="control-label">
+                        Exposure Time
+                        <span class="slider-value" id="exposure-value">1/125s</span>
+                    </label>
+                    <input type="range" id="exposure-slider" class="slider" 
+                           min="-10" max="2" step="0.1" value="-6.97" disabled>
+                </div>
+                
+                <div class="slider-container">
+                    <label class="control-label">
+                        ISO Sensitivity
+                        <span class="slider-value" id="iso-value">400</span>
+                    </label>
+                    <input type="range" id="iso-slider" class="slider" 
+                           min="50" max="3200" step="50" value="400" disabled>
+                </div>
+                
+                <!-- White Balance -->
+                <div class="control-group">
+                    <label class="control-label">White Balance</label>
+                    <select id="white-balance" class="control-input">
+                        <option value="auto">Auto</option>
+                        <option value="daylight">Daylight</option>
+                        <option value="fluorescent">Fluorescent</option>
+                        <option value="incandescent">Incandescent</option>
+                        <option value="flash">Flash</option>
+                        <option value="cloudy">Cloudy</option>
+                        <option value="shade">Shade</option>
+                    </select>
+                </div>
+                
+                <!-- Image Enhancement -->
+                <div class="slider-container">
+                    <label class="control-label">
+                        Brightness
+                        <span class="slider-value" id="brightness-value">0.0</span>
+                    </label>
+                    <input type="range" id="brightness-slider" class="slider" 
+                           min="-1" max="1" step="0.1" value="0">
+                </div>
+                
+                <div class="slider-container">
+                    <label class="control-label">
+                        Contrast
+                        <span class="slider-value" id="contrast-value">0.0</span>
+                    </label>
+                    <input type="range" id="contrast-slider" class="slider" 
+                           min="-1" max="1" step="0.1" value="0">
+                </div>
+                
+                <div class="slider-container">
+                    <label class="control-label">
+                        Saturation
+                        <span class="slider-value" id="saturation-value">0.0</span>
+                    </label>
+                    <input type="range" id="saturation-slider" class="slider" 
+                           min="-1" max="1" step="0.1" value="0">
+                </div>
+                
+                <div class="slider-container">
+                    <label class="control-label">
+                        Sharpness
+                        <span class="slider-value" id="sharpness-value">0.0</span>
+                    </label>
+                    <input type="range" id="sharpness-slider" class="slider" 
+                           min="-1" max="1" step="0.1" value="0">
+                </div>
+                
+                <!-- Burst Mode Settings -->
+                <div class="section-title" style="margin-top: 2rem;">📷 Burst Settings</div>
+                
+                <div class="control-group">
+                    <label class="control-label">Burst Count</label>
+                    <input type="number" id="burst-count" class="control-input" 
+                           min="1" max="20" value="3">
+                </div>
+                
+                <div class="control-group">
+                    <label class="control-label">Interval (ms)</label>
+                    <input type="number" id="burst-interval" class="control-input" 
+                           min="50" max="5000" value="500">
+                </div>
+                
+                <button id="custom-burst-btn" class="btn btn-warning" disabled>🔥 Custom Burst</button>
+            </div>
+            
+            <div class="section-title">🛠️ Quick Actions</div>
+            <button id="get-capabilities-btn" class="btn btn-primary" disabled>📋 Camera Capabilities</button>
+            <button id="performance-test-btn" class="btn btn-primary" disabled>⚡ Performance Test</button>
+            <button id="save-settings-btn" class="btn btn-success" disabled>💾 Save Settings</button>
+            <button id="reset-settings-btn" class="btn btn-danger">🔄 Reset to Defaults</button>
+        </div>
+    </div>
+
+    <script type="module">
+        // Mock CrabCamera API for demo purposes
+        const CrabCameraAPI = {
+            cameras: [
+                {
+                    id: "0",
+                    name: "Plant Photography Camera Pro",
+                    description: "High-resolution camera optimized for botanical documentation",
+                    is_available: true,
+                    supports_formats: [
+                        { width: 2592, height: 1944, fps: 15.0, format_type: "RAW" },
+                        { width: 1920, height: 1080, fps: 30.0, format_type: "RGB8" },
+                        { width: 1280, height: 720, fps: 60.0, format_type: "RGB8" }
+                    ],
+                    capabilities: {
+                        supports_manual_focus: true,
+                        supports_manual_exposure: true,
+                        supports_white_balance: true,
+                        supports_burst_mode: true,
+                        supports_hdr: true,
+                        max_resolution: [2592, 1944],
+                        max_fps: 60.0
+                    }
+                },
+                {
+                    id: "1", 
+                    name: "Standard Webcam",
+                    description: "Basic USB camera for general use",
+                    is_available: true,
+                    supports_formats: [
+                        { width: 1280, height: 720, fps: 30.0, format_type: "RGB8" },
+                        { width: 640, height: 480, fps: 30.0, format_type: "RGB8" }
+                    ],
+                    capabilities: {
+                        supports_manual_focus: false,
+                        supports_manual_exposure: false,
+                        supports_white_balance: true,
+                        supports_burst_mode: true,
+                        supports_hdr: false,
+                        max_resolution: [1280, 720],
+                        max_fps: 30.0
+                    }
+                }
+            ],
+            
+            async initialize_camera_system() {
+                await this.delay(800);
+                return { success: true, message: "Camera system initialized with DirectShow/MediaFoundation" };
+            },
+            
+            async get_available_cameras() {
+                await this.delay(500);
+                return this.cameras;
+            },
+            
+            async capture_single_photo(deviceId, format) {
+                await this.delay(200);
+                return {
+                    id: `frame_${Date.now()}`,
+                    device_id: deviceId,
+                    timestamp: new Date().toISOString(),
+                    width: format?.width || 1920,
+                    height: format?.height || 1080,
+                    format: "RGB8",
+                    size_bytes: (format?.width || 1920) * (format?.height || 1080) * 3,
+                    metadata: {
+                        exposure_time: 1/125,
+                        iso_sensitivity: 400,
+                        white_balance: "Auto",
+                        capture_settings: null
+                    }
+                };
+            },
+            
+            async capture_burst_sequence(deviceId, config) {
+                const frames = [];
+                for (let i = 0; i < config.count; i++) {
+                    await this.delay(config.interval_ms);
+                    frames.push(await this.capture_single_photo(deviceId));
+                    // Update progress
+                    const progress = ((i + 1) / config.count) * 100;
+                    updateBurstProgress(progress);
+                }
+                return frames;
+            },
+            
+            async capture_hdr_sequence(deviceId) {
+                return await this.capture_burst_sequence(deviceId, {
+                    count: 3,
+                    interval_ms: 200,
+                    bracketing: { stops: [-1.0, 0.0, 1.0], base_exposure: 1/125 }
+                });
+            },
+            
+            async capture_focus_stack(deviceId, stackCount) {
+                return await this.capture_burst_sequence(deviceId, {
+                    count: stackCount,
+                    interval_ms: 1000,
+                    focus_stacking: true
+                });
+            },
+            
+            async set_camera_controls(deviceId, controls) {
+                await this.delay(100);
+                return { success: true, message: `Controls applied to camera ${deviceId}` };
+            },
+            
+            async optimize_for_plants(deviceId) {
+                await this.delay(300);
+                return { success: true, message: "Camera optimized for plant photography" };
+            },
+            
+            async get_camera_performance(deviceId) {
+                await this.delay(100);
+                return {
+                    capture_latency_ms: 45.2 + Math.random() * 10,
+                    processing_time_ms: 12.8 + Math.random() * 5,
+                    memory_usage_mb: 28.5 + Math.random() * 10,
+                    fps_actual: 29.7 + Math.random() * 0.6,
+                    dropped_frames: Math.floor(Math.random() * 3),
+                    buffer_overruns: 0,
+                    quality_score: 0.92 + Math.random() * 0.07
+                };
+            },
+            
+            async test_camera_capabilities(deviceId) {
+                await this.delay(200);
+                const camera = this.cameras.find(c => c.id === deviceId);
+                return camera ? camera.capabilities : null;
+            },
+            
+            async test_camera_system() {
+                await this.delay(1000);
+                return {
+                    platform: "Windows",
+                    cameras_found: this.cameras.length,
+                    test_results: this.cameras.map(cam => [cam.id, "Success"])
+                };
+            },
+            
+            delay(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+        };
+
+        // DOM Elements
+        const cameraSelect = document.getElementById('camera-select');
+        const cameraStatus = document.getElementById('camera-status');
+        const initializeBtn = document.getElementById('initialize-btn');
+        const testSystemBtn = document.getElementById('test-system-btn');
+        const captureBtn = document.getElementById('capture-btn');
+        const plantOptimizeBtn = document.getElementById('plant-optimize-btn');
+        const hdrBtn = document.getElementById('hdr-btn');
+        const focusStackBtn = document.getElementById('focus-stack-btn');
+        const startPreviewBtn = document.getElementById('start-preview-btn');
+        const stopPreviewBtn = document.getElementById('stop-preview-btn');
+        const toggleAdvancedBtn = document.getElementById('toggle-advanced');
+        const advancedControls = document.getElementById('advanced-controls');
+        const captureGallery = document.getElementById('capture-gallery');
+        const logConsole = document.getElementById('log-console');
+        const burstProgress = document.getElementById('burst-progress');
+        const burstProgressBar = document.getElementById('burst-progress-bar');
+
+        // State
+        let currentCamera = null;
+        let isPreviewActive = false;
+        let capturedFrames = [];
+        let performanceInterval = null;
+
+        // Logging
+        function log(level, message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            logEntry.innerHTML = `
+                <span class="log-timestamp">[${timestamp}]</span>
+                <span class="log-level-${level}">[${level.toUpperCase()}]</span>
+                ${message}
+            `;
+            logConsole.appendChild(logEntry);
+            logConsole.scrollTop = logConsole.scrollHeight;
+            
+            // Keep only last 50 entries
+            while (logConsole.children.length > 50) {
+                logConsole.removeChild(logConsole.firstChild);
+            }
+        }
+
+        // Camera status
+        function updateCameraStatus(connected, message) {
+            if (connected) {
+                cameraStatus.className = 'status-indicator status-connected';
+                cameraStatus.innerHTML = '<span>●</span><span>Connected</span>';
+            } else {
+                cameraStatus.className = 'status-indicator status-disconnected';
+                cameraStatus.innerHTML = '<span>●</span><span>Disconnected</span>';
+            }
+            
+            if (message) log(connected ? 'success' : 'error', message);
+        }
+
+        // Performance metrics
+        function updatePerformanceMetrics(metrics) {
+            document.getElementById('latency-metric').textContent = `${metrics.capture_latency_ms.toFixed(1)} ms`;
+            document.getElementById('fps-metric').textContent = metrics.fps_actual.toFixed(1);
+            document.getElementById('quality-metric').textContent = metrics.quality_score.toFixed(3);
+            document.getElementById('memory-metric').textContent = `${metrics.memory_usage_mb.toFixed(1)} MB`;
+        }
+
+        // Burst progress
+        function updateBurstProgress(percentage) {
+            burstProgressBar.style.width = `${percentage}%`;
+            if (percentage >= 100) {
+                setTimeout(() => {
+                    burstProgress.style.display = 'none';
+                    burstProgressBar.style.width = '0%';
+                }, 1000);
+            }
+        }
+
+        // Add captured frame to gallery
+        function addCapturedFrame(frame) {
+            capturedFrames.push(frame);
+            
+            const thumbnail = document.createElement('div');
+            thumbnail.className = 'capture-thumbnail';
+            
+            // Create a mock image representation
+            const canvas = document.createElement('canvas');
+            canvas.width = 80;
+            canvas.height = 80;
+            const ctx = canvas.getContext('2d');
+            
+            // Generate a mock plant image pattern
+            const gradient = ctx.createRadialGradient(40, 40, 0, 40, 40, 40);
+            gradient.addColorStop(0, '#4CAF50');
+            gradient.addColorStop(0.5, '#2E7D32');
+            gradient.addColorStop(1, '#1B5E20');
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 80, 80);
+            
+            // Add some mock "plant details"
+            ctx.fillStyle = '#81C784';
+            for (let i = 0; i < 8; i++) {
+                const x = Math.random() * 60 + 10;
+                const y = Math.random() * 60 + 10;
+                const size = Math.random() * 8 + 2;
+                ctx.beginPath();
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            const img = document.createElement('img');
+            img.src = canvas.toDataURL();
+            img.alt = `Capture ${frame.id}`;
+            img.onclick = () => {
+                log('info', `Viewing capture ${frame.id} - ${frame.width}x${frame.height} (${frame.size_bytes} bytes)`);
+            };
+            
+            thumbnail.appendChild(img);
+            captureGallery.appendChild(thumbnail);
+            
+            // Scroll to show new thumbnail
+            thumbnail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        // Event handlers
+        initializeBtn.onclick = async () => {
+            log('info', 'Initializing camera system...');
+            initializeBtn.disabled = true;
+            initializeBtn.classList.add('pulse');
+            
+            try {
+                const result = await CrabCameraAPI.initialize_camera_system();
+                updateCameraStatus(true, result.message);
+                
+                const cameras = await CrabCameraAPI.get_available_cameras();
+                cameraSelect.innerHTML = '<option value="">Select a camera...</option>';
+                cameras.forEach(camera => {
+                    const option = document.createElement('option');
+                    option.value = camera.id;
+                    option.textContent = `${camera.name} (${camera.id})`;
+                    cameraSelect.appendChild(option);
+                });
+                
+                log('success', `Found ${cameras.length} cameras`);
+                
+                // Enable controls
+                document.querySelectorAll('.btn[disabled]').forEach(btn => {
+                    if (btn !== initializeBtn) btn.disabled = false;
+                });
+                
+            } catch (error) {
+                log('error', `Initialization failed: ${error.message}`);
+                updateCameraStatus(false, 'Initialization failed');
+            } finally {
+                initializeBtn.disabled = false;
+                initializeBtn.classList.remove('pulse');
+            }
+        };
+
+        cameraSelect.onchange = async (e) => {
+            if (e.target.value) {
+                currentCamera = e.target.value;
+                log('info', `Selected camera: ${e.target.options[e.target.selectedIndex].text}`);
+                
+                // Start performance monitoring
+                if (performanceInterval) clearInterval(performanceInterval);
+                performanceInterval = setInterval(async () => {
+                    if (currentCamera) {
+                        const metrics = await CrabCameraAPI.get_camera_performance(currentCamera);
+                        updatePerformanceMetrics(metrics);
+                    }
+                }, 2000);
+            } else {
+                currentCamera = null;
+                if (performanceInterval) clearInterval(performanceInterval);
+            }
+        };
+
+        captureBtn.onclick = async () => {
+            if (!currentCamera) {
+                log('warning', 'No camera selected');
+                return;
+            }
+            
+            log('info', 'Capturing photo...');
+            captureBtn.classList.add('pulse');
+            
+            try {
+                const frame = await CrabCameraAPI.capture_single_photo(currentCamera);
+                addCapturedFrame(frame);
+                log('success', `Photo captured: ${frame.width}x${frame.height}`);
+            } catch (error) {
+                log('error', `Capture failed: ${error.message}`);
+            } finally {
+                captureBtn.classList.remove('pulse');
+            }
+        };
+
+        plantOptimizeBtn.onclick = async () => {
+            if (!currentCamera) return;
+            
+            log('info', 'Optimizing camera for plant photography...');
+            plantOptimizeBtn.classList.add('pulse');
+            
+            try {
+                await CrabCameraAPI.optimize_for_plants(currentCamera);
+                log('success', 'Camera optimized for plant photography');
+                
+                // Update UI to reflect plant photography settings
+                document.getElementById('exposure-mode').value = 'manual';
+                document.getElementById('iso-slider').value = '100';
+                document.getElementById('iso-value').textContent = '100';
+                document.getElementById('white-balance').value = 'daylight';
+                document.getElementById('contrast-slider').value = '0.3';
+                document.getElementById('contrast-value').textContent = '0.3';
+                document.getElementById('saturation-slider').value = '0.4';
+                document.getElementById('saturation-value').textContent = '0.4';
+                document.getElementById('sharpness-slider').value = '0.5';
+                document.getElementById('sharpness-value').textContent = '0.5';
+                
+            } catch (error) {
+                log('error', `Optimization failed: ${error.message}`);
+            } finally {
+                plantOptimizeBtn.classList.remove('pulse');
+            }
+        };
+
+        hdrBtn.onclick = async () => {
+            if (!currentCamera) return;
+            
+            log('info', 'Capturing HDR sequence...');
+            hdrBtn.classList.add('pulse');
+            burstProgress.style.display = 'block';
+            
+            try {
+                const frames = await CrabCameraAPI.capture_hdr_sequence(currentCamera);
+                frames.forEach(frame => addCapturedFrame(frame));
+                log('success', `HDR sequence captured: ${frames.length} frames`);
+            } catch (error) {
+                log('error', `HDR capture failed: ${error.message}`);
+            } finally {
+                hdrBtn.classList.remove('pulse');
+            }
+        };
+
+        focusStackBtn.onclick = async () => {
+            if (!currentCamera) return;
+            
+            const stackCount = 5;
+            log('info', `Capturing focus stack: ${stackCount} frames...`);
+            focusStackBtn.classList.add('pulse');
+            burstProgress.style.display = 'block';
+            
+            try {
+                const frames = await CrabCameraAPI.capture_focus_stack(currentCamera, stackCount);
+                frames.forEach(frame => addCapturedFrame(frame));
+                log('success', `Focus stack captured: ${frames.length} frames`);
+            } catch (error) {
+                log('error', `Focus stack failed: ${error.message}`);
+            } finally {
+                focusStackBtn.classList.remove('pulse');
+            }
+        };
+
+        document.getElementById('custom-burst-btn').onclick = async () => {
+            if (!currentCamera) return;
+            
+            const count = parseInt(document.getElementById('burst-count').value);
+            const interval = parseInt(document.getElementById('burst-interval').value);
+            
+            log('info', `Custom burst: ${count} frames at ${interval}ms intervals`);
+            burstProgress.style.display = 'block';
+            
+            try {
+                const frames = await CrabCameraAPI.capture_burst_sequence(currentCamera, {
+                    count,
+                    interval_ms: interval,
+                    bracketing: null,
+                    focus_stacking: false,
+                    auto_save: false,
+                    save_directory: null
+                });
+                frames.forEach(frame => addCapturedFrame(frame));
+                log('success', `Burst completed: ${frames.length} frames`);
+            } catch (error) {
+                log('error', `Burst failed: ${error.message}`);
+            }
+        };
+
+        toggleAdvancedBtn.onclick = () => {
+            advancedControls.classList.toggle('visible');
+            toggleAdvancedBtn.textContent = advancedControls.classList.contains('visible') 
+                ? 'Hide Advanced Controls' 
+                : 'Show Advanced Controls';
+        };
+
+        testSystemBtn.onclick = async () => {
+            log('info', 'Running camera system test...');
+            testSystemBtn.classList.add('pulse');
+            
+            try {
+                const result = await CrabCameraAPI.test_camera_system();
+                log('success', `System test completed: ${result.cameras_found} cameras on ${result.platform}`);
+                result.test_results.forEach(([cameraId, status]) => {
+                    log('info', `Camera ${cameraId}: ${status}`);
+                });
+            } catch (error) {
+                log('error', `System test failed: ${error.message}`);
+            } finally {
+                testSystemBtn.classList.remove('pulse');
+            }
+        };
+
+        document.getElementById('get-capabilities-btn').onclick = async () => {
+            if (!currentCamera) return;
+            
+            try {
+                const capabilities = await CrabCameraAPI.test_camera_capabilities(currentCamera);
+                log('info', `Camera capabilities:`);
+                log('info', `- Manual focus: ${capabilities.supports_manual_focus}`);
+                log('info', `- Manual exposure: ${capabilities.supports_manual_exposure}`);
+                log('info', `- Burst mode: ${capabilities.supports_burst_mode}`);
+                log('info', `- HDR: ${capabilities.supports_hdr}`);
+                log('info', `- Max resolution: ${capabilities.max_resolution[0]}x${capabilities.max_resolution[1]}`);
+                log('info', `- Max FPS: ${capabilities.max_fps}`);
+            } catch (error) {
+                log('error', `Failed to get capabilities: ${error.message}`);
+            }
+        };
+
+        // Setup slider value updates
+        ['focus', 'exposure', 'iso', 'brightness', 'contrast', 'saturation', 'sharpness'].forEach(control => {
+            const slider = document.getElementById(`${control}-slider`);
+            const valueSpan = document.getElementById(`${control}-value`);
+            
+            if (slider && valueSpan) {
+                slider.oninput = () => {
+                    let value = slider.value;
+                    if (control === 'exposure') {
+                        // Convert to exposure time
+                        const expTime = Math.pow(2, parseFloat(value));
+                        value = `1/${Math.round(1/expTime)}s`;
+                    }
+                    valueSpan.textContent = value;
+                };
+            }
+        });
+
+        // Enable/disable manual controls based on mode
+        document.getElementById('focus-mode').onchange = (e) => {
+            document.getElementById('focus-slider').disabled = e.target.value === 'auto';
+        };
+
+        document.getElementById('exposure-mode').onchange = (e) => {
+            const isManual = e.target.value === 'manual';
+            document.getElementById('exposure-slider').disabled = !isManual;
+            document.getElementById('iso-slider').disabled = !isManual;
+        };
+
+        // Initialize demo
+        log('info', 'CrabCamera v0.2.0 Demo Ready');
+        log('info', 'Click "Initialize Camera System" to begin');
+        
+        // Auto-scroll log to bottom
+        const observer = new MutationObserver(() => {
+            logConsole.scrollTop = logConsole.scrollHeight;
+        });
+        observer.observe(logConsole, { childList: true });
+    </script>
+</body>
+</html>

@@ -24,8 +24,8 @@ mod tests {
         
         // Test basic initialization parameters
         assert_eq!(init_params.device_id, device.id);
-        assert!(init_params.auto_focus);
-        assert!(init_params.auto_exposure);
+        assert_eq!(init_params.controls.auto_focus, Some(true));
+        assert_eq!(init_params.controls.auto_exposure, Some(true));
         assert_eq!(init_params.format, CameraFormat::standard());
     }
 
@@ -41,8 +41,8 @@ mod tests {
         
         assert_eq!(params.device_id, device_id);
         assert_eq!(params.format, custom_format);
-        assert!(!params.auto_focus);
-        assert!(params.auto_exposure);
+        assert_eq!(params.controls.auto_focus, Some(false));
+        assert_eq!(params.controls.auto_exposure, Some(true));
     }
 
     #[tokio::test]
@@ -276,8 +276,8 @@ mod tests {
             assert!(format.fps <= 60.0);
             
             // Test initialization params
-            assert!(params.auto_focus); // Critical for plant detail
-            assert!(params.auto_exposure); // Helps with varying lighting
+            assert_eq!(params.controls.auto_focus, Some(true)); // Critical for plant detail
+            assert_eq!(params.controls.auto_exposure, Some(true)); // Helps with varying lighting
         }
     }
 
