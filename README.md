@@ -49,7 +49,7 @@
 
 ```toml
 [dependencies]
-crabcamera = "0.1"
+crabcamera = "0.2.0"
 tauri = { version = "2.0", features = ["protocol-asset"] }
 ```
 
