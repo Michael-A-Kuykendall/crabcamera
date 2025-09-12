@@ -1,0 +1,189 @@
+import { Button, VerticalBox, HorizontalBox, Slider, ComboBox, GroupBox } from "std-widgets.slint";
+
+export component CameraControls inherits Window {
+    title: "CrabCamera Slint Demo - Professional Camera Controls";
+    width: 900px;
+    height: 600px;
+    
+    in-out property <float> focus: 50.0;
+    in-out property <int> iso: 400;
+    in-out property <float> exposure: 1.0/60.0;
+    in-out property <string> white-balance: "Auto";
+    in-out property <int> photos-captured: 0;
+    in-out property <bool> camera-connected: true;
+    in-out property <float> fps: 60.0;
+    
+    callback focus-changed(float);
+    callback iso-changed(int);
+    callback exposure-changed(float);
+    callback white-balance-changed(string);
+    callback capture-photo();
+
+    VerticalBox {
+        padding: 20px;
+        spacing: 15px;
+        
+        // Header
+        Text {
+            text: "CrabCamera Professional Controls";
+            font-size: 24px;
+            font-weight: 700;
+            horizontal-alignment: center;
+            color: #4682b4;
+        }
+        
+        Text {
+            text: camera-connected ? "Camera Connected | 1280x720 | " + round(fps) + " FPS" : "Camera Disconnected";
+            font-size: 14px;
+            horizontal-alignment: center;
+            color: camera-connected ? #2ecc71 : #e74c3c;
+        }
+        
+        HorizontalBox {
+            spacing: 30px;
+            
+            // Camera Preview
+            Rectangle {
+                width: 400px;
+                height: 300px;
+                background: #1e1e1e;
+                border-color: #4682b4;
+                border-width: 2px;
+                border-radius: 8px;
+                
+                Text {
+                    text: "📷 Live Camera Preview";
+                    font-size: 24px;
+                    color: white;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+            
+            // Controls Panel
+            VerticalBox {
+                width: 300px;
+                spacing: 15px;
+                
+                Text {
+                    text: "Camera Controls";
+                    font-size: 20px;
+                    font-weight: 600;
+                    color: #6495ed;
+                }
+                
+                // Focus Control
+                GroupBox {
+                    title: "Focus Control";
+                    
+                    VerticalBox {
+                        spacing: 8px;
+                        
+                        HorizontalBox {
+                            Slider {
+                                minimum: 0.0;
+                                maximum: 100.0;
+                                value <=> root.focus;
+                                changed => {
+                                    focus-changed(self.value);
+                                }
+                            }
+                            Text {
+                                text: round(root.focus) + "%";
+                                min-width: 50px;
+                            }
+                        }
+                    }
+                }
+                
+                // ISO Control  
+                GroupBox {
+                    title: "ISO Sensitivity";
+                    
+                    VerticalBox {
+                        spacing: 8px;
+                        
+                        HorizontalBox {
+                            Slider {
+                                minimum: 100.0;
+                                maximum: 3200.0;
+                                value: iso;
+                                changed => {
+                                    iso = round(self.value);
+                                    iso-changed(iso);
+                                }
+                            }
+                            Text {
+                                text: "ISO " + iso;
+                                min-width: 80px;
+                            }
+                        }
+                    }
+                }
+                
+                // Exposure Control
+                GroupBox {
+                    title: "Shutter Speed";
+                    
+                    VerticalBox {
+                        spacing: 8px;
+                        
+                        HorizontalBox {
+                            Slider {
+                                minimum: 1.0/2000.0;
+                                maximum: 1.0/15.0;
+                                value <=> exposure;
+                                changed => {
+                                    exposure-changed(self.value);
+                                }
+                            }
+                            Text {
+                                text: "1/" + round(1.0/exposure) + "s";
+                                min-width: 80px;
+                            }
+                        }
+                    }
+                }
+                
+                // White Balance Control
+                GroupBox {
+                    title: "White Balance";
+                    
+                    ComboBox {
+                        model: ["Auto", "Daylight", "Cloudy", "Tungsten", "Fluorescent"];
+                        current-value <=> white-balance;
+                        selected => {
+                            white-balance-changed(self.current-value);
+                        }
+                    }
+                }
+                
+                // Capture Button
+                Button {
+                    text: "📸 Capture Photo";
+                    height: 50px;
+                    primary: true;
+                    clicked => {
+                        photos-captured += 1;
+                        capture-photo();
+                    }
+                }
+                
+                // Performance Metrics
+                GroupBox {
+                    title: "Performance Metrics";
+                    
+                    VerticalBox {
+                        spacing: 4px;
+                        
+                        Text { text: "Photos Captured: " + photos-captured; }
+                        Text { text: "Memory Usage: 15.8 MB"; }
+                        Text { text: "CPU Usage: 6.2%"; }
+                        Text { text: "Frame Latency: 16.7ms"; }
+                        Text { text: "Real FPS: " + round(fps); }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,3 +1,4 @@
+#[derive(Default)]
 pub struct Camera;
 
 impl Camera {

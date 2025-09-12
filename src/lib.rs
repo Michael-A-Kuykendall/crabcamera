@@ -43,7 +43,7 @@ pub mod platform;
 #[cfg(feature = "contextlite")]
 pub mod contextlite;
 
-#[cfg(test)]
+// Tests module - available for external tests
 pub mod tests;
 
 // Re-exports for convenience
@@ -80,6 +80,19 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::capture::release_camera,
             commands::capture::get_capture_stats,
             commands::capture::save_frame_to_disk,
+            commands::capture::save_frame_compressed,
+            
+            // Advanced camera commands
+            commands::advanced::set_camera_controls,
+            commands::advanced::get_camera_controls,
+            commands::advanced::capture_burst_sequence,
+            commands::advanced::set_manual_focus,
+            commands::advanced::set_manual_exposure,
+            commands::advanced::set_white_balance,
+            commands::advanced::capture_hdr_sequence,
+            commands::advanced::capture_focus_stack,
+            commands::advanced::get_camera_performance,
+            commands::advanced::test_camera_capabilities,
         ])
         .build()
 }
