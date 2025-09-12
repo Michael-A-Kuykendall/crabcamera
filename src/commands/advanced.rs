@@ -1,5 +1,5 @@
 use tauri::command;
-use crate::types::{CameraControls, BurstConfig, CameraFrame, FrameMetadata, WhiteBalance};
+use crate::types::{CameraControls, BurstConfig, CameraFrame, WhiteBalance};
 use crate::commands::capture::get_or_create_camera;
 use std::time::Instant;
 
@@ -168,7 +168,7 @@ pub async fn set_manual_exposure(
         return Err("Exposure time must be between 0.0 and 10.0 seconds".to_string());
     }
     
-    if iso_sensitivity < 50 || iso_sensitivity > 12800 {
+    if !(50..=12800).contains(&iso_sensitivity) {
         return Err("ISO sensitivity must be between 50 and 12800".to_string());
     }
     
@@ -207,7 +207,7 @@ pub async fn capture_hdr_sequence(device_id: String) -> Result<Vec<CameraFrame>,
 pub async fn capture_focus_stack(device_id: String, stack_count: u32) -> Result<Vec<CameraFrame>, String> {
     log::info!("Capturing focus stack: {} frames from device {}", stack_count, device_id);
     
-    if stack_count < 3 || stack_count > 20 {
+    if !(3..=20).contains(&stack_count) {
         return Err("Focus stack count must be between 3 and 20".to_string());
     }
     
@@ -312,6 +312,7 @@ async fn save_burst_sequence(frames: &[CameraFrame], save_dir: &str) -> Result<(
 }
 
 /// Calculate optimal exposure settings for current lighting
+#[allow(dead_code)]
 async fn calculate_optimal_exposure(camera: &mut crate::platform::PlatformCamera) -> Result<(f32, u32), String> {
     // Take a test shot to analyze lighting
     let test_frame = camera.capture_frame()

@@ -44,7 +44,9 @@ pub struct ExposureSettings {
 #[derive(Debug, Clone)]
 pub struct PlantPhotoAnalyzer {
     #[cfg(feature = "contextlite")]
+    #[allow(dead_code)]
     client: ContextLiteClient,
+    #[allow(dead_code)]
     workspace_id: String,
 }
 
@@ -336,7 +338,7 @@ fn extract_health_indicators(analysis: &str) -> Vec<HealthIndicator> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::camera::{ExposureSettings, CameraSettings};
+    use super::{ExposureSettings, CameraSettings};
     use chrono::Utc;
 
     #[tokio::test]

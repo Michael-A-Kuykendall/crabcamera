@@ -1,0 +1,6 @@
+{
+    "minimum_coverage": 80.0,
+    "enforce_on_commit": true,
+    "exclude_files": ["target/*", "*/tests/*", "demos/*"],
+    "timeout_seconds": 300
+}

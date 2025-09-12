@@ -2,13 +2,49 @@ use nokhwa::{Camera, query, pixel_format::RgbFormat, utils::{RequestedFormat, Re
 use crate::types::{CameraDeviceInfo, CameraFormat, CameraFrame};
 use crate::errors::CameraError;
 
-/// List available cameras on Windows
+/// List available cameras on Windows  
 pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
-    let cameras = query(nokhwa::utils::ApiBackend::Auto)
-        .map_err(|e| CameraError::InitializationError(format!("Failed to query cameras: {}", e)))?;
+    let mut all_cameras = Vec::new();
+    
+    // Try multiple backends to detect all camera types including OBS Virtual Camera
+    let backends = vec![
+        nokhwa::utils::ApiBackend::MediaFoundation,
+        // DirectShow not available in current nokhwa version
+        nokhwa::utils::ApiBackend::Auto,
+    ];
+    
+    for backend in backends {
+        match query(backend) {
+            Ok(cameras) => {
+                log::debug!("Found {} cameras using {:?} backend", cameras.len(), backend);
+                
+                // Filter duplicates based on camera name to avoid double-listing
+                for camera_info in cameras {
+                    let name = camera_info.human_name();
+                    
+                    // Check if we already have this camera (avoid duplicates across backends)
+                    if !all_cameras.iter().any(|existing: &nokhwa::utils::CameraInfo| {
+                        existing.human_name() == name
+                    }) {
+                        all_cameras.push(camera_info);
+                    }
+                }
+            }
+            Err(e) => {
+                log::debug!("Backend {:?} failed: {}", backend, e);
+                // Continue trying other backends
+            }
+        }
+    }
+    
+    if all_cameras.is_empty() {
+        return Err(CameraError::InitializationError(
+            "No cameras found on any backend".to_string()
+        ));
+    }
     
     let mut device_list = Vec::new();
-    for camera_info in cameras {
+    for camera_info in all_cameras {
         let mut device = CameraDeviceInfo::new(
             camera_info.index().to_string(),
             camera_info.human_name(),

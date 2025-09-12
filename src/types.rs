@@ -316,7 +316,7 @@ impl Default for CameraCapabilities {
 }
 
 /// Extended metadata for camera frames
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct FrameMetadata {
     pub exposure_time: Option<f32>,
     pub iso_sensitivity: Option<u32>,
@@ -328,20 +328,6 @@ pub struct FrameMetadata {
     pub capture_settings: Option<CameraControls>,
 }
 
-impl Default for FrameMetadata {
-    fn default() -> Self {
-        Self {
-            exposure_time: None,
-            iso_sensitivity: None,
-            white_balance: None,
-            focus_distance: None,
-            aperture: None,
-            flash_fired: None,
-            scene_mode: None,
-            capture_settings: None,
-        }
-    }
-}
 
 /// Performance metrics for camera operations
 #[derive(Debug, Clone, Serialize, Deserialize)]
