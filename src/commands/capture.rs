@@ -17,10 +17,10 @@ pub async fn capture_single_photo(device_id: Option<String>, format: Option<Came
     
     // Use default camera if none specified
     let camera_id = device_id.unwrap_or_else(|| "0".to_string());
-    let capture_format = format.unwrap_or_else(|| CameraFormat::standard());
+    let capture_format = format.unwrap_or_else(CameraFormat::standard);
     
     // Try to get existing camera or create new one
-    let mut camera = match get_or_create_camera(camera_id.clone(), capture_format).await {
+    let camera = match get_or_create_camera(camera_id.clone(), capture_format).await {
         Ok(cam) => cam,
         Err(e) => {
             log::error!("Failed to get/create camera: {}", e);
@@ -30,7 +30,7 @@ pub async fn capture_single_photo(device_id: Option<String>, format: Option<Came
     
     // Ensure stream is started
     {
-        let mut camera_guard = camera.lock().await;
+        let camera_guard = camera.lock().await;
         if let Err(e) = camera_guard.start_stream() {
             log::warn!("Failed to start camera stream: {}", e);
             // Continue anyway as some platforms don't require explicit stream start
@@ -66,15 +66,15 @@ pub async fn capture_photo_sequence(
         return Err("Invalid photo count (must be 1-20)".to_string());
     }
     
-    let capture_format = format.unwrap_or_else(|| CameraFormat::standard());
-    let mut camera = match get_or_create_camera(device_id.clone(), capture_format).await {
+    let capture_format = format.unwrap_or_else(CameraFormat::standard);
+    let camera = match get_or_create_camera(device_id.clone(), capture_format).await {
         Ok(cam) => cam,
         Err(e) => return Err(e),
     };
     
     // Start stream once
     {
-        let mut camera_guard = camera.lock().await;
+        let camera_guard = camera.lock().await;
         if let Err(e) = camera_guard.start_stream() {
             log::warn!("Failed to start camera stream: {}", e);
         }
@@ -109,13 +109,13 @@ pub async fn capture_photo_sequence(
 pub async fn start_camera_preview(device_id: String, format: Option<CameraFormat>) -> Result<String, String> {
     log::info!("Starting camera preview for device: {}", device_id);
     
-    let capture_format = format.unwrap_or_else(|| CameraFormat::standard());
+    let capture_format = format.unwrap_or_else(CameraFormat::standard);
     let camera = match get_or_create_camera(device_id.clone(), capture_format).await {
         Ok(cam) => cam,
         Err(e) => return Err(e),
     };
     
-    let mut camera_guard = camera.lock().await;
+    let camera_guard = camera.lock().await;
     match camera_guard.start_stream() {
         Ok(_) => {
             log::info!("Camera preview started for device: {}", device_id);
@@ -219,7 +219,7 @@ pub async fn save_frame_to_disk(frame: CameraFrame, file_path: String) -> Result
 pub async fn save_frame_compressed(frame: CameraFrame, file_path: String, quality: Option<u8>) -> Result<String, String> {
     log::info!("Saving compressed frame {} to disk: {}", frame.id, file_path);
     
-    let quality = quality.unwrap_or(85); // Default JPEG quality
+    let _quality = quality.unwrap_or(85); // Default JPEG quality
     
     // Convert frame to image and compress
     let img = image::RgbImage::from_vec(frame.width, frame.height, frame.data)

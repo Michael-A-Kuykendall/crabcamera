@@ -43,7 +43,7 @@ pub mod platform;
 #[cfg(feature = "contextlite")]
 pub mod contextlite;
 
-#[cfg(test)]
+// Tests module - available for external tests
 pub mod tests;
 
 // Re-exports for convenience
