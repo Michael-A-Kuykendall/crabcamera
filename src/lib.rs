@@ -39,6 +39,8 @@ pub mod camera;
 pub mod permissions;
 pub mod errors;
 pub mod platform;
+pub mod webrtc;
+pub mod quality;
 
 #[cfg(feature = "contextlite")]
 pub mod contextlite;
@@ -93,6 +95,36 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::advanced::capture_focus_stack,
             commands::advanced::get_camera_performance,
             commands::advanced::test_camera_capabilities,
+            
+            // WebRTC streaming commands
+            commands::webrtc::start_webrtc_stream,
+            commands::webrtc::stop_webrtc_stream,
+            commands::webrtc::get_webrtc_stream_status,
+            commands::webrtc::update_webrtc_config,
+            commands::webrtc::list_webrtc_streams,
+            commands::webrtc::create_peer_connection,
+            commands::webrtc::create_webrtc_offer,
+            commands::webrtc::create_webrtc_answer,
+            commands::webrtc::set_remote_description,
+            commands::webrtc::add_ice_candidate,
+            commands::webrtc::get_local_ice_candidates,
+            commands::webrtc::create_data_channel,
+            commands::webrtc::send_data_channel_message,
+            commands::webrtc::get_peer_connection_status,
+            commands::webrtc::close_peer_connection,
+            commands::webrtc::list_peer_connections,
+            commands::webrtc::get_webrtc_system_status,
+            
+            // Quality validation commands
+            commands::quality::validate_frame_quality,
+            commands::quality::validate_provided_frame,
+            commands::quality::analyze_frame_blur,
+            commands::quality::analyze_frame_exposure,
+            commands::quality::update_quality_config,
+            commands::quality::get_quality_config,
+            commands::quality::capture_best_quality_frame,
+            commands::quality::auto_capture_with_quality,
+            commands::quality::analyze_quality_trends,
         ])
         .build()
 }

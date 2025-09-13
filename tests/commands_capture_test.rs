@@ -8,7 +8,6 @@ mod commands_capture_tests {
     use crabcamera::tests::{set_mock_camera_mode, MockCaptureMode};
     use crabcamera::types::{CameraFormat, CameraFrame};
     use std::sync::Arc;
-    use tokio::sync::Mutex;
 
     // Helper function to create a test frame
     fn create_test_frame() -> CameraFrame {
@@ -300,7 +299,8 @@ mod commands_capture_tests {
     #[tokio::test]
     async fn test_save_frame_to_disk_invalid_path() {
         let frame = create_test_frame();
-        let invalid_path = "/invalid/path/that/does/not/exist/test.bin";
+        // Use a Windows-style invalid path with invalid characters
+        let invalid_path = "Z:\\invalid\\path\\with<>invalid|chars\\test.bin";
 
         let result = save_frame_to_disk(frame, invalid_path.to_string()).await;
         assert!(result.is_err(), "Should fail with invalid path");

@@ -1,3 +1,4 @@
+#![allow(unused_variables)] // TODO: Remove when COM interface implementations are complete
 use crate::types::{CameraControls, CameraCapabilities, WhiteBalance};
 use crate::errors::CameraError;
 use windows::Win32::Media::DirectShow::{
