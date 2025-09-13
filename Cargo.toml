@@ -1,6 +1,6 @@
 [package]
 name = "crabcamera"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "Advanced cross-platform camera integration for Tauri applications"
 license = "MIT OR Apache-2.0"
@@ -31,7 +31,13 @@ default = []
 contextlite = ["dep:contextlite-client"]
 
 [target.'cfg(target_os = "windows")'.dependencies]
-windows = { version = "0.58", features = ["Win32_Media_MediaFoundation"] }
+windows = { version = "0.58", features = [
+    "Win32_Media_MediaFoundation", 
+    "Win32_Media_DirectShow",
+    "Win32_System_Com",
+    "Win32_Foundation",
+    "implement"
+] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = "0.26"

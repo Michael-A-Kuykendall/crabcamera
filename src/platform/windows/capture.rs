@@ -66,7 +66,7 @@ pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
     Ok(device_list)
 }
 
-/// Initialize camera on Windows with DirectShow/MediaFoundation backend
+/// Initialize camera on Windows with MediaFoundation backend
 pub fn initialize_camera(device_id: &str, _format: CameraFormat) -> Result<Camera, CameraError> {
     let device_index = device_id.parse::<u32>()
         .map_err(|_| CameraError::InitializationError("Invalid device ID".to_string()))?;

@@ -49,7 +49,7 @@
 
 ```toml
 [dependencies]
-crabcamera = "0.2.0"
+crabcamera = "0.3.0"
 tauri = { version = "2.0", features = ["protocol-asset"] }
 ```
 
@@ -108,11 +108,11 @@ const photo = await invoke('capture_single_photo', {
 - **Error Recovery**: Robust handling of device disconnection and errors
 
 ### 🖥️ Cross-Platform Native 🦀
-- **Windows**: DirectShow and MediaFoundation backends
+- **Windows**: DirectShow/MediaFoundation with advanced camera controls
 - **macOS**: AVFoundation with Metal acceleration support
 - **Linux**: V4L2 with comprehensive device support
 - **Unified API**: Same code works across all platforms
-- **Platform Optimization**: Best settings for each operating system
+- **Professional Controls**: Focus, exposure, white balance on all platforms
 
 ### ⚡ Performance & Memory 🦀
 - **Zero-Copy Operations**: Minimal memory allocations where possible
@@ -167,6 +167,21 @@ stop_camera_preview() -> Result<()>
 save_frame_to_disk(frame: CameraFrame, path: String) -> Result<()>
 ```
 
+### Professional Camera Controls (NEW in v0.3.0!)
+```rust
+// Apply camera controls (focus, exposure, white balance, etc.)
+apply_camera_controls(device_id: String, controls: CameraControls) -> Result<()>
+
+// Get current camera control values
+get_camera_controls(device_id: String) -> Result<CameraControls>
+
+// Test what controls are supported by camera
+test_camera_capabilities(device_id: String) -> Result<CameraCapabilities>
+
+// Get performance metrics
+get_camera_performance(device_id: String) -> Result<CameraPerformanceMetrics>
+```
+
 ### Permissions & Security
 ```rust
 // Handle camera permissions properly
@@ -195,15 +210,31 @@ I built CrabCamera because desktop applications deserve native camera access wit
 
 ## 🏗️ Technical Architecture 🦀
 
+### Hybrid Capture + Controls Architecture
 ```
-🦀 Rust Memory Safety + 📷 Camera Hardware = ❤️ Perfect Match
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   nokhwa        │    │ Platform Controls│    │  CrabCamera     │
+│   (Capture)     │    │ (Advanced)       │    │  (Unified API)  │
+├─────────────────┤    ├──────────────────┤    ├─────────────────┤
+│ • Frame capture │    │ • Focus control  │    │ • Generic types │
+│ • Resolution    │    │ • Exposure       │    │ • Error handling│
+│ • Format        │    │ • White balance  │    │ • Cross-platform│
+│ • Start/Stop    │    │ • Brightness     │    │ • Thread safety │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
 ```
 
+### Platform-Specific Implementations
+- **Windows**: nokhwa capture + MediaFoundation controls (NEW in v0.3.0!)
+- **macOS**: AVFoundation for both capture and controls
+- **Linux**: nokhwa capture + V4L2 controls
+- **Unified API**: Same control interface across all platforms
+
+### Key Technologies
 - **Rust + Tokio**: Memory-safe, async performance
-- **nokhwa Backend**: Cross-platform camera abstraction
-- **Tauri 2.0 Plugin**: Modern plugin architecture
-- **Platform Backends**: DirectShow, AVFoundation, V4L2
-- **Zero unsafe code**: Memory safety guaranteed
+- **Tauri 2.0 Plugin**: Modern plugin architecture  
+- **Platform Backends**: MediaFoundation, AVFoundation, V4L2
+- **COM Interface Management**: Thread-safe Windows controls
+- **Zero unsafe code**: Memory safety guaranteed (except platform COM interfaces)
 
 ## 📚 API Reference 🦀
 
@@ -230,6 +261,27 @@ pub struct CameraFrame {
     pub height: u32,
     pub format: String,
     pub timestamp: DateTime<Utc>,
+}
+
+pub struct CameraControls {
+    pub auto_focus: Option<bool>,
+    pub focus_distance: Option<f32>,     // 0.0 = infinity, 1.0 = closest
+    pub auto_exposure: Option<bool>,
+    pub exposure_time: Option<f32>,      // seconds
+    pub white_balance: Option<WhiteBalance>,
+    pub brightness: Option<f32>,         // -1.0 to 1.0
+    pub contrast: Option<f32>,           // -1.0 to 1.0
+    pub saturation: Option<f32>,         // -1.0 to 1.0
+}
+
+pub struct CameraCapabilities {
+    pub supports_auto_focus: bool,
+    pub supports_manual_focus: bool,
+    pub supports_auto_exposure: bool,
+    pub supports_manual_exposure: bool,
+    pub supports_white_balance: bool,
+    pub focus_range: Option<(f32, f32)>,
+    pub exposure_range: Option<(f32, f32)>,
 }
 ```
 
@@ -319,6 +371,25 @@ for (const camera of cameras) {
 MIT License - forever and always.
 
 **Philosophy**: Desktop applications deserve native camera access. 🦀 CrabCamera is camera infrastructure. 📷
+
+## 🚀 What's New in v0.3.0
+
+### 🎉 **Major Feature: Windows MediaFoundation Camera Controls**
+- **Professional Windows Controls**: Full focus, exposure, white balance, brightness, contrast, and saturation control
+- **Hybrid Architecture**: nokhwa capture + MediaFoundation controls for best of both worlds
+- **Thread-Safe COM**: Proper Windows COM interface management for Tauri async commands
+- **Capability Detection**: Runtime testing of which controls each camera supports
+- **Unified API**: Same control interface across Windows, macOS, and Linux
+
+### 🔧 **Technical Improvements**
+- **WindowsCamera Struct**: Combines nokhwa capture with MediaFoundation controls
+- **MediaFoundationControls**: Full COM interface wrapper with resource management
+- **Platform Integration**: Updated PlatformCamera enum to use Windows-specific implementation
+- **Error Handling**: Graceful degradation when controls aren't supported
+- **Documentation**: Comprehensive technical architecture documentation
+
+### 🏆 **Cross-Platform Parity Achieved**
+Windows users now get the same professional camera control experience as macOS and Linux users!
 
 ---
 

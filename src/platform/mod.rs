@@ -138,7 +138,7 @@ impl MockCamera {
 /// Unified camera interface that abstracts platform differences
 pub enum PlatformCamera {
     #[cfg(target_os = "windows")]
-    Windows(nokhwa::Camera),
+    Windows(windows::WindowsCamera),
     
     #[cfg(target_os = "macos")]
     MacOS(macos::MacOSCamera),
@@ -167,7 +167,7 @@ impl PlatformCamera {
         match Platform::current() {
             #[cfg(target_os = "windows")]
             Platform::Windows => {
-                let camera = windows::initialize_camera(&params.device_id, params.format)?;
+                let camera = windows::WindowsCamera::new(params.device_id, params.format)?;
                 Ok(PlatformCamera::Windows(camera))
             }
             
@@ -191,7 +191,7 @@ impl PlatformCamera {
     pub fn capture_frame(&mut self) -> Result<CameraFrame, CameraError> {
         match self {
             #[cfg(target_os = "windows")]
-            PlatformCamera::Windows(camera) => windows::capture_frame(camera),
+            PlatformCamera::Windows(camera) => camera.capture_frame(),
             
             #[cfg(target_os = "macos")]
             PlatformCamera::MacOS(camera) => camera.capture_frame(),
@@ -211,10 +211,7 @@ impl PlatformCamera {
     pub fn start_stream(&self) -> Result<(), CameraError> {
         match self {
             #[cfg(target_os = "windows")]
-            PlatformCamera::Windows(_) => {
-                // Windows implementation doesn't need explicit stream start
-                Ok(())
-            }
+            PlatformCamera::Windows(camera) => camera.start_stream(),
             
             #[cfg(target_os = "macos")]
             PlatformCamera::MacOS(camera) => camera.start_stream(),
@@ -234,10 +231,7 @@ impl PlatformCamera {
     pub fn stop_stream(&self) -> Result<(), CameraError> {
         match self {
             #[cfg(target_os = "windows")]
-            PlatformCamera::Windows(_) => {
-                // Windows implementation doesn't need explicit stream stop
-                Ok(())
-            }
+            PlatformCamera::Windows(camera) => camera.stop_stream(),
             
             #[cfg(target_os = "macos")]
             PlatformCamera::MacOS(camera) => camera.stop_stream(),
@@ -257,7 +251,7 @@ impl PlatformCamera {
     pub fn is_available(&self) -> bool {
         match self {
             #[cfg(target_os = "windows")]
-            PlatformCamera::Windows(_) => true, // Windows cameras are available when initialized
+            PlatformCamera::Windows(camera) => camera.is_available(),
             
             #[cfg(target_os = "macos")]
             PlatformCamera::MacOS(camera) => camera.is_available(),
@@ -277,7 +271,7 @@ impl PlatformCamera {
     pub fn get_device_id(&self) -> Option<&str> {
         match self {
             #[cfg(target_os = "windows")]
-            PlatformCamera::Windows(_) => None, // Windows implementation needs updating
+            PlatformCamera::Windows(camera) => Some(camera.get_device_id()),
             
             #[cfg(target_os = "macos")]
             PlatformCamera::MacOS(camera) => Some(camera.get_device_id()),
@@ -297,10 +291,17 @@ impl PlatformCamera {
     pub fn apply_controls(&mut self, controls: &crate::types::CameraControls) -> Result<(), CameraError> {
         match self {
             #[cfg(target_os = "windows")]
-            PlatformCamera::Windows(_camera) => {
-                // TODO: Implement Windows camera controls
-                log::warn!("Windows camera controls not yet implemented");
-                Ok(())
+            PlatformCamera::Windows(camera) => {
+                // Apply controls using MediaFoundation
+                match camera.apply_controls(controls) {
+                    Ok(unsupported) => {
+                        if !unsupported.is_empty() {
+                            log::info!("Some Windows controls not supported: {:?}", unsupported);
+                        }
+                        Ok(())
+                    }
+                    Err(e) => Err(e)
+                }
             }
             
             #[cfg(target_os = "macos")]
@@ -321,10 +322,7 @@ impl PlatformCamera {
     pub fn get_controls(&self) -> Result<crate::types::CameraControls, CameraError> {
         match self {
             #[cfg(target_os = "windows")]
-            PlatformCamera::Windows(_camera) => {
-                // Return default controls for Windows
-                Ok(crate::types::CameraControls::default())
-            }
+            PlatformCamera::Windows(camera) => camera.get_controls(),
             
             #[cfg(target_os = "macos")]
             PlatformCamera::MacOS(camera) => camera.get_controls(),
@@ -344,25 +342,7 @@ impl PlatformCamera {
     pub fn test_capabilities(&self) -> Result<crate::types::CameraCapabilities, CameraError> {
         match self {
             #[cfg(target_os = "windows")]
-            PlatformCamera::Windows(_camera) => {
-                // Return basic Windows capabilities
-                Ok(crate::types::CameraCapabilities {
-                    supports_auto_focus: true,
-                    supports_manual_focus: false,
-                    supports_auto_exposure: true,
-                    supports_manual_exposure: false,
-                    supports_white_balance: true,
-                    supports_zoom: false,
-                    supports_flash: false,
-                    supports_burst_mode: true,
-                    supports_hdr: false,
-                    max_resolution: (1920, 1080),
-                    max_fps: 30.0,
-                    exposure_range: None,
-                    iso_range: None,
-                    focus_range: None,
-                })
-            }
+            PlatformCamera::Windows(camera) => camera.test_capabilities(),
             
             #[cfg(target_os = "macos")]
             PlatformCamera::MacOS(camera) => camera.test_capabilities(),
@@ -383,7 +363,7 @@ impl PlatformCamera {
         match self {
             #[cfg(target_os = "windows")]
             PlatformCamera::Windows(_camera) => {
-                // Return basic metrics for Windows
+                // Return basic metrics for Windows (WindowsCamera doesn't implement this yet)
                 Ok(crate::types::CameraPerformanceMetrics::default())
             }
             
