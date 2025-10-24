@@ -38,13 +38,9 @@ pub fn initialize_camera(params: CameraInitParams) -> Result<LinuxCamera, Camera
     let device_index = params.device_id.parse::<u32>()
         .map_err(|_| CameraError::InitializationError("Invalid device ID".to_string()))?;
     
-    // Create requested format - prefer YUYV for Linux compatibility
+    // Simple format request for V4L2
     let requested_format = RequestedFormat::new::<RgbFormat>(
-        RequestedFormatType::Exact(nokhwa::utils::FrameFormat::new(
-            nokhwa::utils::Resolution::new(params.format.width, params.format.height),
-            nokhwa::utils::FrameRate::new(params.format.fps as u32),
-            nokhwa::pixel_format::RgbFormat::Rgb,
-        ))
+        RequestedFormatType::None
     );
     
     let camera = Camera::new(nokhwa::utils::CameraIndex::Index(device_index), requested_format)
@@ -147,20 +143,22 @@ impl LinuxCamera {
     }
 
     /// Get camera controls (stub for Linux - not yet implemented)
-    pub fn get_controls(&self) -> Result<Vec<crate::commands::advanced::CameraControl>, CameraError> {
+    pub fn get_controls(&self) -> Result<crate::types::CameraControls, CameraError> {
         // Linux V4L2 controls would be queried here
-        // For now, return empty list
-        Ok(Vec::new())
+        // For now, return default controls
+        Ok(crate::types::CameraControls::default())
+    }
+
+    /// Apply camera controls (stub for Linux - not yet implemented)
+    pub fn apply_controls(&mut self, _controls: &crate::types::CameraControls) -> Result<(), CameraError> {
+        // Linux V4L2 control application would happen here
+        Ok(())
     }
 
     /// Test camera capabilities (stub for Linux)
     pub fn test_capabilities(&self) -> Result<crate::types::CameraCapabilities, CameraError> {
         // Linux V4L2 capabilities query
-        Ok(crate::types::CameraCapabilities {
-            formats: self.get_supported_formats()?,
-            controls: Vec::new(),
-            features: Vec::new(),
-        })
+        Ok(crate::types::CameraCapabilities::default())
     }
 
     /// Get performance metrics (stub for Linux)
