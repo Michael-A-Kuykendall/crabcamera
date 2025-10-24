@@ -2,7 +2,6 @@
 /// 
 /// Provides real-time streaming capabilities for camera previews
 /// using WebRTC technology for low-latency browser integration.
-
 pub mod streaming;
 pub mod peer;
 

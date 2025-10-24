@@ -89,7 +89,7 @@ pub struct IceCandidate {
 /// WebRTC peer connection manager
 pub struct PeerConnection {
     id: String,
-    config: RTCConfiguration,
+    _config: RTCConfiguration, // Stored for future use when real WebRTC integration is added
     state: Arc<RwLock<ConnectionState>>,
     local_description: Arc<RwLock<Option<SessionDescription>>>,
     remote_description: Arc<RwLock<Option<SessionDescription>>>,
@@ -121,7 +121,7 @@ impl PeerConnection {
     pub fn new(id: String, config: RTCConfiguration) -> Self {
         Self {
             id,
-            config,
+            _config: config, // Prefix with underscore - will be used when real WebRTC is integrated
             state: Arc::new(RwLock::new(ConnectionState::New)),
             local_description: Arc::new(RwLock::new(None)),
             remote_description: Arc::new(RwLock::new(None)),

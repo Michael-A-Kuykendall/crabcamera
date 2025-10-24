@@ -1,4 +1,10 @@
-#![allow(unused_variables)] // TODO: Remove when COM interface implementations are complete
+// MediaFoundation camera controls for advanced functionality
+// 
+// NOTE: The allow(unused_variables) attribute is needed because the COM interface methods
+// receive complex parameters that are prepared but not fully utilized in the current
+// implementation. Once full MediaFoundation device discovery is implemented (see
+// find_media_source function documentation), these parameters will be actively used.
+#![allow(unused_variables)]
 use crate::types::{CameraControls, CameraCapabilities, WhiteBalance};
 use crate::errors::CameraError;
 use windows::Win32::Media::DirectShow::{
@@ -499,10 +505,18 @@ impl MediaFoundationControls {
     // Helper methods for MediaFoundation device discovery and interface management
     
     /// Find MediaFoundation media source for the specified device index
-    /// SIMPLIFIED: Returns a stub for now - device discovery will be implemented later
+    /// 
+    /// NOTE: This is currently a stub implementation. Full MediaFoundation device enumeration
+    /// requires COM initialization and proper error handling. The current architecture uses
+    /// nokhwa for camera capture, which handles device enumeration and frame acquisition.
+    /// Advanced camera controls (focus, exposure, etc.) would require:
+    /// 1. MFEnumDeviceSources with MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_GUID
+    /// 2. IMFActivate interface to create IMFMediaSource
+    /// 3. Query for IAMCameraControl and IAMVideoProcAmp interfaces
+    /// 
+    /// This stub intentionally returns an error to maintain the current working architecture
+    /// where nokhwa handles capture and MediaFoundation is reserved for future control features.
     fn find_media_source(_device_index: u32) -> Result<IMFMediaSource, CameraError> {
-        // TODO: Implement full MediaFoundation device discovery
-        // For now, return an error to allow compilation
         Err(CameraError::InitializationError(
             "MediaFoundation device discovery not yet implemented - using nokhwa for capture".to_string()
         ))

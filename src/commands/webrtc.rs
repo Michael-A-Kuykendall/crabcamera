@@ -353,8 +353,8 @@ mod tests {
         let status = get_webrtc_system_status().await;
         assert!(status.is_ok());
         
-        let status = status.unwrap();
-        assert!(status.total_streams >= 0);
-        assert!(status.total_peers >= 0);
+        let _status = status.unwrap();
+        // total_streams is u32, always >= 0
+        // total_peers is u32, always >= 0
     }
 }

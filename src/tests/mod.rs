@@ -24,11 +24,7 @@ pub enum MockCaptureMode {
 
 impl MockCameraSystem {
     pub fn new() -> Self {
-        Self {
-            devices: Arc::new(Mutex::new(Vec::new())),
-            capture_mode: Arc::new(Mutex::new(MockCaptureMode::Success)),
-            error_mode: Arc::new(Mutex::new(None)),
-        }
+        Self::default()
     }
     
     pub async fn add_mock_devices(&self, platform: Platform) {
@@ -66,6 +62,16 @@ impl MockCameraSystem {
     
     pub fn set_error_mode(&self, error: Option<CameraError>) {
         *self.error_mode.lock().unwrap() = error;
+    }
+}
+
+impl Default for MockCameraSystem {
+    fn default() -> Self {
+        Self {
+            devices: Arc::new(Mutex::new(Vec::new())),
+            capture_mode: Arc::new(Mutex::new(MockCaptureMode::Success)),
+            error_mode: Arc::new(Mutex::new(None)),
+        }
     }
 }
 

@@ -127,21 +127,12 @@ impl Default for ValidationConfig {
     }
 }
 
-/// Comprehensive quality validator
+/// Quality validator for automated frame assessment
+#[derive(Default)]
 pub struct QualityValidator {
     blur_detector: BlurDetector,
     exposure_analyzer: ExposureAnalyzer,
     config: ValidationConfig,
-}
-
-impl Default for QualityValidator {
-    fn default() -> Self {
-        Self {
-            blur_detector: BlurDetector::default(),
-            exposure_analyzer: ExposureAnalyzer::default(),
-            config: ValidationConfig::default(),
-        }
-    }
 }
 
 impl QualityValidator {
@@ -239,7 +230,7 @@ impl QualityValidator {
                 let b3 = rgb_data[i + 8] as f32;
                 
                 // Calculate local variance
-                let pixels = vec![
+                let pixels = [
                     (r1 + g1 + b1) / 3.0,
                     (r2 + g2 + b2) / 3.0,
                     (r3 + g3 + b3) / 3.0,
@@ -306,7 +297,7 @@ impl QualityValidator {
         let saturation_mean = saturation_sum / pixel_count as f32;
         
         // Calculate color balance score (how balanced are the R, G, B channels)
-        let color_means = vec![red_mean, green_mean, blue_mean];
+        let color_means = [red_mean, green_mean, blue_mean];
         let mean_of_means = color_means.iter().sum::<f32>() / 3.0;
         let color_variance = color_means.iter()
             .map(|&x| (x - mean_of_means).powi(2))
@@ -324,8 +315,9 @@ impl QualityValidator {
     }
     
     /// Analyze composition quality
-    fn analyze_composition(&self, frame: &CameraFrame, technical: &TechnicalDetails) -> f32 {
-        let mut composition_score = 0.5; // Base score
+    fn analyze_composition(&self, _frame: &CameraFrame, technical: &TechnicalDetails) -> f32 {
+        // Composition analysis based on technical quality
+        // Future: Add rule-of-thirds detection, subject placement analysis
         
         // Resolution score
         let resolution_score = if technical.resolution.0 >= self.config.min_resolution.0 && 
@@ -346,10 +338,17 @@ impl QualityValidator {
         // Color balance score
         let color_score = technical.color_distribution.color_balance_score;
         
-        // Combine scores
-        composition_score = (resolution_score * 0.4 + aspect_ratio_score * 0.3 + color_score * 0.3).clamp(0.0, 1.0);
+        // Noise penalty
+        let noise_factor = if technical.noise_estimate > self.config.max_noise_level {
+            0.8
+        } else {
+            1.0
+        };
         
-        composition_score
+        // Combine scores
+        let composition_score = (resolution_score * 0.4 + aspect_ratio_score * 0.3 + color_score * 0.3) * noise_factor;
+        
+        composition_score.clamp(0.0, 1.0)
     }
     
     /// Generate quality improvement recommendations
@@ -492,8 +491,10 @@ mod tests {
     
     #[test]
     fn test_low_resolution_rejection() {
-        let mut config = ValidationConfig::default();
-        config.min_resolution = (1920, 1080); // Require HD
+        let config = ValidationConfig {
+            min_resolution: (1920, 1080), // Require HD
+            ..Default::default()
+        };
         
         let validator = QualityValidator::new(config);
         let low_res_frame = create_test_frame(640, 480, 128);

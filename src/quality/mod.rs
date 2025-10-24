@@ -2,7 +2,6 @@
 /// 
 /// Provides automated quality assessment for captured frames including
 /// blur detection, exposure analysis, and overall image quality scoring.
-
 pub mod blur;
 pub mod exposure;
 pub mod validator;

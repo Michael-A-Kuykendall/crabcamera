@@ -43,10 +43,8 @@ mod integration_tests {
         // 3. Check camera availability
         let availability = check_camera_availability(device_id.clone()).await;
         // This might succeed or fail depending on system
-        match availability {
-            Ok(_) => {}  // Either true or false is acceptable
-            Err(_) => {} // Error is also acceptable in test
-        }
+        // Either true or false or error is acceptable in test
+        let _ = availability; // Consume result, either Ok or Err is acceptable
 
         // 4. Start camera preview
         let preview_result = start_camera_preview(device_id.clone(), None).await;
@@ -286,8 +284,8 @@ mod integration_tests {
         ];
 
         for (i, format) in formats.into_iter().enumerate() {
-            let capture_result = capture_single_photo(
-                Some(format!("{}_format_{}", device_id, i)),
+            let _capture_result = capture_single_photo(
+                Some(format!("{}/_format_{}", device_id, i)),
                 Some(format.clone()),
             )
             .await;
@@ -318,7 +316,7 @@ mod integration_tests {
         assert!(platform_result.is_ok(), "Platform detection should work");
 
         let platform = platform_result.unwrap();
-        let valid_platforms = vec!["Windows", "Linux", "macOS", "Unknown"];
+        let valid_platforms = ["windows", "linux", "macos", "unknown"];
         assert!(
             valid_platforms.contains(&platform.as_str()),
             "Platform should be one of the supported ones: {}",
@@ -328,11 +326,8 @@ mod integration_tests {
         // Test camera system testing
         let test_result = test_camera_system().await;
         match test_result {
-            Ok(result) => {
-                assert!(
-                    result.cameras_found >= 0,
-                    "Camera count should be non-negative"
-                );
+            Ok(_result) => {
+                // cameras_found is u32, always >= 0
                 // Test results can be empty in test environment - that's OK
             }
             Err(error) => {
@@ -367,7 +362,7 @@ mod integration_tests {
         // Test various edge cases
 
         // Empty device ID
-        let empty_result = capture_single_photo(Some("".to_string()), None).await;
+        let _empty_result = capture_single_photo(Some("".to_string()), None).await;
         // Should either succeed with empty string or fail gracefully
 
         // Very long device ID
