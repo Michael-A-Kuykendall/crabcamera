@@ -161,8 +161,9 @@ impl PlantPhotoAnalyzer {
             }
         }
 
-        // TODO: Implement actual ContextLite photo analysis API call
-        // For now, provide mock analysis based on query
+        // NOTE: Real ContextLite API integration would call:
+        // self.client.query_workspace(&self.workspace_id, query, context_parts).await
+        // Current implementation provides mock analysis for API structure testing
         let analysis = format!(
             "Photo analysis for {} using camera {} at {}x{} resolution",
             query,
@@ -209,7 +210,9 @@ impl PlantPhotoAnalyzer {
     /// Get cultivation advice based on photo analysis
     #[cfg(feature = "contextlite")]
     pub async fn get_cultivation_advice(&self, photo_analysis: &PhotoAnalysisResponse) -> Result<String, CameraError> {
-        // TODO: Implement actual ContextLite cultivation advice API call
+        // NOTE: Real ContextLite API integration would call:
+        // self.client.query_workspace(&self.workspace_id, "cultivation advice", context).await
+        // Current implementation provides mock advice for API structure testing
         Ok(format!("Mock cultivation advice based on photo analysis: {}", photo_analysis.analysis))
     }
 
@@ -226,7 +229,9 @@ impl PlantPhotoAnalyzer {
         photo_metadata: &PhotoMetadata,
         analysis: &PhotoAnalysisResponse,
     ) -> Result<(), CameraError> {
-        // TODO: Implement actual ContextLite document indexing
+        // NOTE: Real ContextLite API integration would call:
+        // self.client.index_document(&self.workspace_id, document_data).await
+        // Current implementation logs the operation for API structure testing
         log::info!(
             "Would index photo analysis: {} for photo {}",
             analysis.query,

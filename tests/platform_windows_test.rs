@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod platform_windows_tests {
     use crabcamera::errors::CameraError;
-    use crabcamera::platform::windows::{capture_frame, initialize_camera, list_cameras};
+    use crabcamera::platform::windows::{initialize_camera, list_cameras};
     use crabcamera::types::CameraFormat;
 
     #[test]
@@ -13,7 +13,7 @@ mod platform_windows_tests {
         match result {
             Ok(cameras) => {
                 // If successful, cameras should be a valid Vec
-                assert!(cameras.len() >= 0); // Could be empty if no cameras
+                // cameras.len() is usize, always >= 0; could be empty if no cameras
 
                 // Test each camera device info
                 for camera in cameras {
@@ -89,7 +89,7 @@ mod platform_windows_tests {
 
         // This may succeed or fail depending on hardware, but should be handled gracefully
         match result {
-            Ok(camera) => {
+            Ok(_camera) => {
                 // If successful, we got a valid camera object
                 // We can't test much without actually using the camera
             }

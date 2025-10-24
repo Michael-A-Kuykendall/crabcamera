@@ -22,5 +22,19 @@ __pycache__/
 *.pyc
 *.pyo
 
+# Local build artifacts often accidentally checked in
+*.pdb
+*.exe
+*.dll
+*.lib
+*.rcgu.o
+*.d
+*.profraw
+*.profdata
+target/package/
+demos/**/target/
+examples/**/target/
+*/.rustc_info.json
+
 # Claude Code configuration (contains project-specific instructions)
 CLAUDE.md

@@ -1,0 +1,18 @@
+PUNCH Quality Report: Code Quality Analysis - crabcamera
+Generated: 2025-09-19 10:26:39
+
+SUMMARY
+=======
+Total Components: 449
+Average Score: 77.8
+Median Score: 77.8
+Total Issues: 331
+
+GRADE DISTRIBUTION
+==================
+F: 3 (0.7%)
+D+: 4 (0.9%)
+D: 1 (0.2%)
+C+: 320 (71.3%)
+B: 91 (20.3%)
+C: 30 (6.7%)

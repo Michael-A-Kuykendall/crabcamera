@@ -17,6 +17,11 @@ pub mod macos;
 #[cfg(target_os = "linux")]
 pub mod linux;
 
+// Device monitoring module
+pub mod device_monitor;
+
+pub use device_monitor::{DeviceMonitor, DeviceEvent};
+
 // Mock camera implementation for testing
 // Mock camera for testing - always available
 use std::sync::{Arc, Mutex};

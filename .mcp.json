@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "greased-lightnin-contextlite": {
+      "command": "py",
+      "args": [
+        "C:\\Users\\micha\\repos\\greased-lightnin\\simple-mcp-server.py",
+        "--mode",
+        "stdio"
+      ]
+    }
+  }
+}

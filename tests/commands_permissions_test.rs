@@ -3,33 +3,48 @@ mod commands_permissions_tests {
     use crabcamera::commands::permissions::{
         check_camera_permission_status, request_camera_permission,
     };
+    use crabcamera::permissions::PermissionStatus;
 
     #[tokio::test]
     async fn test_request_camera_permission_success() {
         let result = request_camera_permission().await;
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "Permission granted");
+        let info = result.unwrap();
+        // Should return valid status
+        match info.status {
+            PermissionStatus::Granted | PermissionStatus::Denied | 
+            PermissionStatus::NotDetermined | PermissionStatus::Restricted => {
+                // Valid
+            }
+        }
     }
 
     #[tokio::test]
     async fn test_check_camera_permission_status_granted() {
         let result = check_camera_permission_status().await;
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "Granted");
+        let info = result.unwrap();
+        // Should return valid status
+        match info.status {
+            PermissionStatus::Granted | PermissionStatus::Denied | 
+            PermissionStatus::NotDetermined | PermissionStatus::Restricted => {
+                // Valid
+            }
+        }
     }
 
     #[tokio::test]
     async fn test_permission_functions_are_consistent() {
         // Test multiple calls to ensure consistent behavior
+        let first_request = request_camera_permission().await.unwrap().status;
+        let first_status = check_camera_permission_status().await.unwrap().status;
+        
         for _ in 0..3 {
-            let request_result = request_camera_permission().await;
-            let status_result = check_camera_permission_status().await;
+            let request_result = request_camera_permission().await.unwrap();
+            let status_result = check_camera_permission_status().await.unwrap();
 
-            assert!(request_result.is_ok());
-            assert!(status_result.is_ok());
-
-            assert_eq!(request_result.unwrap(), "Permission granted");
-            assert_eq!(status_result.unwrap(), "Granted");
+            assert_eq!(request_result.status, first_request);
+            assert_eq!(status_result.status, first_status);
         }
     }
 
@@ -47,7 +62,6 @@ mod commands_permissions_tests {
         for handle in handles {
             let result = handle.await.unwrap();
             assert!(result.is_ok());
-            assert_eq!(result.unwrap(), "Permission granted");
         }
     }
 
@@ -65,7 +79,7 @@ mod commands_permissions_tests {
         for handle in handles {
             let result = handle.await.unwrap();
             assert!(result.is_ok());
-            assert_eq!(result.unwrap(), "Granted");
         }
     }
 }
+

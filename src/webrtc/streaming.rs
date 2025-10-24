@@ -175,8 +175,8 @@ impl WebRTCStreamer {
             };
             
             // Send frame to subscribers
-            if let Err(_) = self.frame_sender.send(encoded_frame) {
-                log::debug!("No subscribers for stream {}", self.stream_id);
+            if self.frame_sender.send(encoded_frame).is_err() {
+                log::warn!("No subscribers for frame on stream {}", device_id);
             }
             
             frame_counter += 1;
@@ -191,7 +191,8 @@ impl WebRTCStreamer {
     }
     
     /// Create mock encoded frame data
-    /// TODO: Replace with actual video encoding
+    /// NOTE: Actual video encoding requires libwebrtc or WebCodecs integration
+    /// Current implementation provides placeholder frame data for API structure
     async fn create_mock_encoded_frame(&self, config: &StreamConfig, frame_type: &FrameType) -> Vec<u8> {
         let base_size = match frame_type {
             FrameType::Keyframe => config.bitrate / (8 * config.max_fps), // Full frame
@@ -215,13 +216,15 @@ pub struct StreamStats {
 }
 
 /// Convert camera frame to WebRTC-compatible format
+/// NOTE: Image resizing requires additional dependency (image crate resize feature)
+/// Current implementation returns original data - implement when real WebRTC integration is added
 pub fn prepare_frame_for_webrtc(frame: &CameraFrame, config: &StreamConfig) -> Result<Vec<u8>, String> {
     // Resize frame if needed
     if frame.width != config.width || frame.height != config.height {
         log::debug!("Resizing frame from {}x{} to {}x{}", 
                    frame.width, frame.height, config.width, config.height);
         
-        // TODO: Implement actual image resizing
+        // NOTE: Implement with image::imageops::resize() when needed
         // For now, just return the original data
         Ok(frame.data.clone())
     } else {

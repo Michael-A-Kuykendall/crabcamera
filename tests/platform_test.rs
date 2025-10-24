@@ -425,7 +425,7 @@ mod platform_tests {
 
                 // Verify platform enum is valid
                 let platform_str = info.platform.as_str();
-                let valid_platforms = vec!["windows", "linux", "macos", "unknown"];
+                let valid_platforms = ["windows", "linux", "macos", "unknown"];
                 assert!(
                     valid_platforms.contains(&platform_str),
                     "Platform should be valid: {}",
@@ -457,10 +457,7 @@ mod platform_tests {
         let test_result = CameraSystem::test_system();
         match test_result {
             Ok(result) => {
-                assert!(
-                    result.cameras_found >= 0,
-                    "Camera count should be non-negative"
-                );
+                // cameras_found is u32, always >= 0
 
                 // Test results should be valid
                 for (camera_id, test_result) in result.test_results {
@@ -714,14 +711,8 @@ mod platform_tests {
             "Memory usage should be positive"
         );
         assert!(metrics.fps_actual > 0.0, "Actual FPS should be positive");
-        assert!(
-            metrics.dropped_frames >= 0,
-            "Dropped frames should be non-negative"
-        );
-        assert!(
-            metrics.buffer_overruns >= 0,
-            "Buffer overruns should be non-negative"
-        );
+        // dropped_frames is u32, always >= 0
+        // buffer_overruns is u32, always >= 0
         assert!(
             metrics.quality_score >= 0.0 && metrics.quality_score <= 1.0,
             "Quality score should be 0-1, got: {}",

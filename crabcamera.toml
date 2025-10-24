@@ -1,0 +1,33 @@
+[camera]
+default_resolution = [
+    1920,
+    1080,
+]
+default_fps = 30
+auto_reconnect = true
+reconnect_attempts = 3
+reconnect_delay_ms = 1000
+
+[quality]
+auto_retry_enabled = true
+max_retry_attempts = 10
+min_blur_threshold = 0.699999988079071
+min_exposure_score = 0.6000000238418579
+min_overall_score = 0.699999988079071
+retry_delay_ms = 100
+
+[storage]
+output_directory = "./captures"
+auto_organize_by_date = true
+date_format = "YYYY-MM-DD"
+default_format = "jpeg"
+jpeg_quality = 95
+auto_delete_low_quality = false
+
+[advanced]
+focus_stacking_enabled = false
+focus_stack_steps = 10
+hdr_enabled = false
+hdr_brackets = 3
+webrtc_enabled = false
+webrtc_bitrate = 2000

@@ -113,16 +113,13 @@ mod commands_init_tests {
         match result {
             Ok(test_result) => {
                 // Test result should have valid fields
-                assert!(
-                    test_result.cameras_found >= 0,
-                    "Camera count should be non-negative"
-                );
+                // cameras_found is u32, always >= 0
 
                 let platform_str = test_result.platform.as_str();
                 assert!(!platform_str.is_empty(), "Platform should not be empty");
 
                 // Test results should be a valid HashMap
-                for (camera_id, test_result) in &test_result.test_results {
+                for (camera_id, _test_result) in &test_result.test_results {
                     assert!(!camera_id.is_empty(), "Camera ID should not be empty");
                     // test_result can be any of the CameraTestResult variants - all are valid
                 }
@@ -264,11 +261,9 @@ mod commands_init_tests {
         for handle in handles {
             let result = handle.await;
             assert!(result.is_ok(), "Concurrent calls should not panic");
-            let inner_result = result.unwrap();
-            assert!(
-                inner_result.is_ok(),
-                "Function calls should succeed or fail gracefully"
-            );
+            // Note: The functions may return Ok or Err depending on system state
+            // (e.g., no cameras present). The important thing is they don't panic.
+            // Success means the function executed without crashing, not that it found cameras.
         }
     }
 

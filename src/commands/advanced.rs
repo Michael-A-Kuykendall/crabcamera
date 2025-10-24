@@ -202,10 +202,10 @@ pub async fn capture_hdr_sequence(device_id: String) -> Result<Vec<CameraFrame>,
     capture_burst_sequence(device_id, config).await
 }
 
-/// Capture focus stacked sequence for macro photography
+/// Capture focus stacked sequence for macro photography (legacy - use focus_stack module)
 #[command]
-pub async fn capture_focus_stack(device_id: String, stack_count: u32) -> Result<Vec<CameraFrame>, String> {
-    log::info!("Capturing focus stack: {} frames from device {}", stack_count, device_id);
+pub async fn capture_focus_stack_legacy(device_id: String, stack_count: u32) -> Result<Vec<CameraFrame>, String> {
+    log::info!("Capturing focus stack (legacy): {} frames from device {}", stack_count, device_id);
     
     if !(3..=20).contains(&stack_count) {
         return Err("Focus stack count must be between 3 and 20".to_string());

@@ -41,6 +41,8 @@ pub mod errors;
 pub mod platform;
 pub mod webrtc;
 pub mod quality;
+pub mod config;
+pub mod focus_stack;
 
 #[cfg(feature = "contextlite")]
 pub mod contextlite;
@@ -73,10 +75,12 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             // Permission commands
             commands::permissions::request_camera_permission,
             commands::permissions::check_camera_permission_status,
+            commands::permissions::get_permission_status_string,
             
             // Capture commands
             commands::capture::capture_single_photo,
             commands::capture::capture_photo_sequence,
+            commands::capture::capture_with_quality_retry,
             commands::capture::start_camera_preview,
             commands::capture::stop_camera_preview,
             commands::capture::release_camera,
@@ -92,7 +96,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::advanced::set_manual_exposure,
             commands::advanced::set_white_balance,
             commands::advanced::capture_hdr_sequence,
-            commands::advanced::capture_focus_stack,
+            commands::advanced::capture_focus_stack_legacy,
             commands::advanced::get_camera_performance,
             commands::advanced::test_camera_capabilities,
             
@@ -125,6 +129,31 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::quality::capture_best_quality_frame,
             commands::quality::auto_capture_with_quality,
             commands::quality::analyze_quality_trends,
+            
+            // Configuration commands
+            commands::config::get_config,
+            commands::config::update_config,
+            commands::config::reset_config,
+            commands::config::get_camera_config,
+            commands::config::get_full_quality_config,
+            commands::config::get_storage_config,
+            commands::config::get_advanced_config,
+            commands::config::update_camera_config,
+            commands::config::update_full_quality_config,
+            commands::config::update_storage_config,
+            commands::config::update_advanced_config,
+            
+            // Device monitoring commands
+            commands::device_monitor::start_device_monitoring,
+            commands::device_monitor::stop_device_monitoring,
+            commands::device_monitor::poll_device_event,
+            commands::device_monitor::get_monitored_devices,
+            
+            // Focus stacking commands
+            commands::focus_stack::capture_focus_stack,
+            commands::focus_stack::capture_focus_brackets_command,
+            commands::focus_stack::get_default_focus_config,
+            commands::focus_stack::validate_focus_config,
         ])
         .build()
 }
