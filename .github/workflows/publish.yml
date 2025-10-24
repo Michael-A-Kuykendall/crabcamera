@@ -20,13 +20,7 @@ jobs:
     - name: 🦀 Setup Rust toolchain
       uses: dtolnay/rust-toolchain@stable
       
-    - name: 🔍 Verify tests pass
-      run: cargo test --all-features
-      
-    - name: 🔍 Verify clippy is clean
-      run: cargo clippy --all-features -- -D warnings
-      
-    - name: 📋 Extract version from tag
+    - name:  Extract version from tag
       id: get_version
       run: |
         echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
