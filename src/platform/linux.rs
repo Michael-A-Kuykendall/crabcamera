@@ -134,7 +134,7 @@ impl LinuxCamera {
     }
 
     /// Set camera controls (Linux V4L2 specific)
-    pub fn set_control(&self, control: &str, value: i32) -> Result<(), CameraError> {
+    pub fn set_control(&self, control: &str, _value: i32) -> Result<(), CameraError> {
         // This would typically use V4L2 controls to set brightness, contrast, etc.
         // Implementation would depend on the specific V4L2 bindings used
         match control {
@@ -144,6 +144,28 @@ impl LinuxCamera {
             }
             _ => Err(CameraError::InitializationError(format!("Unsupported control: {}", control)))
         }
+    }
+
+    /// Get camera controls (stub for Linux - not yet implemented)
+    pub fn get_controls(&self) -> Result<Vec<crate::commands::advanced::CameraControl>, CameraError> {
+        // Linux V4L2 controls would be queried here
+        // For now, return empty list
+        Ok(Vec::new())
+    }
+
+    /// Test camera capabilities (stub for Linux)
+    pub fn test_capabilities(&self) -> Result<crate::types::CameraCapabilities, CameraError> {
+        // Linux V4L2 capabilities query
+        Ok(crate::types::CameraCapabilities {
+            formats: self.get_supported_formats()?,
+            controls: Vec::new(),
+            features: Vec::new(),
+        })
+    }
+
+    /// Get performance metrics (stub for Linux)
+    pub fn get_performance_metrics(&self) -> Result<crate::types::CameraPerformanceMetrics, CameraError> {
+        Ok(crate::types::CameraPerformanceMetrics::default())
     }
 }
 
@@ -184,7 +206,7 @@ pub mod utils {
     }
 
     /// Get V4L2 device capabilities
-    pub fn get_device_caps(device_path: &str) -> Result<Vec<String>, CameraError> {
+    pub fn get_device_caps(_device_path: &str) -> Result<Vec<String>, CameraError> {
         // This would typically query V4L2 capabilities
         // For now, return common capabilities
         Ok(vec![

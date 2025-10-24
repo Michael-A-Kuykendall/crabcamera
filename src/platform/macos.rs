@@ -117,6 +117,27 @@ impl MacOSCamera {
         
         Ok(())
     }
+
+    /// Get camera controls (stub for macOS - not yet implemented)
+    pub fn get_controls(&self) -> Result<Vec<crate::commands::advanced::CameraControl>, CameraError> {
+        // macOS AVFoundation controls would be queried here
+        // For now, return empty list
+        Ok(Vec::new())
+    }
+
+    /// Test camera capabilities (stub for macOS)
+    pub fn test_capabilities(&self) -> Result<crate::types::CameraCapabilities, CameraError> {
+        Ok(crate::types::CameraCapabilities {
+            formats: vec![self.format.clone()],
+            controls: Vec::new(),
+            features: Vec::new(),
+        })
+    }
+
+    /// Get performance metrics (stub for macOS)
+    pub fn get_performance_metrics(&self) -> Result<crate::types::CameraPerformanceMetrics, CameraError> {
+        Ok(crate::types::CameraPerformanceMetrics::default())
+    }
 }
 
 // Ensure the camera is properly cleaned up
