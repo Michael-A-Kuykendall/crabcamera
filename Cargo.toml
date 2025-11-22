@@ -11,7 +11,7 @@ categories = ["multimedia", "gui"]
 [dependencies]
 tauri = { version = "2.0", features = ["protocol-asset"] }
 tauri-plugin = "2.0"
-nokhwa = { version = "0.10", features = ["input-native", "output-threaded"] }
+nokhwa = { version = "0.10.10", features = ["input-native", "output-threaded"] }
 tokio = { version = "1.40", features = ["full"] }
 uuid = { version = "1.10", features = ["v4", "serde"] }
 serde = { version = "1.0", features = ["derive"] }
