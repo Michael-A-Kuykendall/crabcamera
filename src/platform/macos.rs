@@ -38,11 +38,13 @@ pub fn initialize_camera(params: CameraInitParams) -> Result<MacOSCamera, Camera
     
     // Create requested format based on the desired format
     let requested_format = RequestedFormat::new::<RgbFormat>(
-        RequestedFormatType::Exact(nokhwa::utils::FrameFormat::new(
-            nokhwa::utils::Resolution::new(params.format.width, params.format.height),
-            nokhwa::utils::FrameRate::new(params.format.fps as u32),
-            nokhwa::pixel_format::RgbFormat::Rgb,
-        ))
+        RequestedFormatType::Exact(
+            nokhwa::utils::CameraFormat::new(
+                nokhwa::utils::Resolution::new(params.format.width, params.format.height),
+                nokhwa::utils::FrameFormat::MJPEG, // or another valid variant
+                params.format.fps as u32,
+            )
+        )
     );
     
     let camera = Camera::new(nokhwa::utils::CameraIndex::Index(device_index), requested_format)
