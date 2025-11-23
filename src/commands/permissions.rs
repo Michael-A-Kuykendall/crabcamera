@@ -59,6 +59,7 @@ async fn request_permission_macos() -> Result<PermissionInfo, String> {
     use objc::{msg_send, sel, sel_impl};
     use std::sync::mpsc;
     use std::time::Duration;
+    use block::ConcreteBlock;
     
     log::info!("Requesting macOS camera permission");
     
@@ -70,11 +71,13 @@ async fn request_permission_macos() -> Result<PermissionInfo, String> {
         let media_type: *mut Object = msg_send![av_capture_device_class, mediaTypeForString: av_media_type_video.as_ptr()];
         
         let (tx, rx) = mpsc::channel();
-        
+        let tx_clone = tx.clone();
+        let handler = ConcreteBlock::new(move |granted: bool| {
+            let _ = tx_clone.send(granted);
+        });
+        let handler = &handler.copy();
         // Request access (this will show system dialog)
-        let _: () = msg_send![av_capture_device_class, requestAccessForMediaType:media_type completionHandler:^(granted: bool) {
-            let _ = tx.send(granted);
-        }];
+        let _: () = msg_send![av_capture_device_class, requestAccessForMediaType:media_type completionHandler:handler];
         
         // Wait for user response (with timeout)
         match rx.recv_timeout(Duration::from_secs(60)) {
