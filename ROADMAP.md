@@ -8,15 +8,17 @@ Its mission is **invisible camera infrastructure**: drop it in, it works.
 - ✅ Professional hardware controls (auto-focus, exposure, white balance).
 - ✅ Multi-camera support with device enumeration and format negotiation.
 - ✅ Tauri 2.0 plugin architecture with comprehensive error handling.
-- ✅ 63 comprehensive tests with zero unsafe code.
+- ✅ 157 comprehensive tests with zero unsafe code.
+- ✅ Quality validation with blur/exposure detection.
+- ✅ Focus stacking for macro photography.
+- ✅ Device hot-plug monitoring with automatic recovery.
 
 ## Next Goals
+- [ ] **Video recording** with codec selection and quality settings.
 - [ ] Real-time streaming capabilities with frame callbacks.
-- [ ] Advanced camera controls (zoom, pan, tilt for supported devices).
-- [ ] Video recording with codec selection and quality settings.
+- [ ] Advanced camera controls (zoom, pan, tilt for PTZ devices).
 - [ ] Hardware-accelerated image processing (GPU filters, enhancement).
 - [ ] Camera calibration utilities for computer vision applications.
-- [ ] Batch photo capture with burst mode and bracketing.
 
 ## Long-Term Vision
 - Complete desktop camera ecosystem for Tauri applications.

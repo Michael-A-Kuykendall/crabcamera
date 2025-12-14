@@ -37,4 +37,14 @@ examples/**/target/
 */.rustc_info.json
 
 # Claude Code configuration (contains project-specific instructions)
-CLAUDE.md*.jpg
+CLAUDE.md
+
+# Test image artifacts
+*.jpg
+*.png
+*.jpeg
+!demo/**/*.png
+!demo/**/*.jpg
+direct_capture.*
+audit_*
+debug_*
