@@ -11,6 +11,17 @@ pub enum PermissionStatus {
     Restricted,
 }
 
+impl std::fmt::Display for PermissionStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PermissionStatus::Granted => write!(f, "granted"),
+            PermissionStatus::Denied => write!(f, "denied"),
+            PermissionStatus::NotDetermined => write!(f, "not_determined"),
+            PermissionStatus::Restricted => write!(f, "restricted"),
+        }
+    }
+}
+
 /// Check camera permission status
 /// Returns permission status for the current platform
 pub fn check_permission() -> PermissionStatus {

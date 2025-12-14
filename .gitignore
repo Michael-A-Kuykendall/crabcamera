@@ -37,4 +37,4 @@ examples/**/target/
 */.rustc_info.json
 
 # Claude Code configuration (contains project-specific instructions)
-CLAUDE.md
+CLAUDE.md*.jpg

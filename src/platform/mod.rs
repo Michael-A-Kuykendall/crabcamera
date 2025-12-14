@@ -213,7 +213,7 @@ impl PlatformCamera {
     }
 
     /// Start camera stream
-    pub fn start_stream(&self) -> Result<(), CameraError> {
+    pub fn start_stream(&mut self) -> Result<(), CameraError> {
         match self {
             #[cfg(target_os = "windows")]
             PlatformCamera::Windows(camera) => camera.start_stream(),
@@ -233,7 +233,7 @@ impl PlatformCamera {
     }
 
     /// Stop camera stream
-    pub fn stop_stream(&self) -> Result<(), CameraError> {
+    pub fn stop_stream(&mut self) -> Result<(), CameraError> {
         match self {
             #[cfg(target_os = "windows")]
             PlatformCamera::Windows(camera) => camera.stop_stream(),
