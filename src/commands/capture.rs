@@ -56,7 +56,7 @@ pub async fn capture_photo_sequence(
     
     // Start stream once
     {
-        let camera_guard = camera.lock().await;
+        let mut camera_guard = camera.lock().await;
         if let Err(e) = camera_guard.start_stream() {
             log::warn!("Failed to start camera stream: {}", e);
         }
@@ -111,7 +111,7 @@ pub async fn capture_with_quality_retry(
     
     // Start stream once
     {
-        let camera_guard = camera.lock().await;
+        let mut camera_guard = camera.lock().await;
         if let Err(e) = camera_guard.start_stream() {
             log::warn!("Failed to start camera stream: {}", e);
         }
@@ -189,7 +189,7 @@ pub async fn start_camera_preview(device_id: String, format: Option<CameraFormat
         Err(e) => return Err(e),
     };
     
-    let camera_guard = camera.lock().await;
+    let mut camera_guard = camera.lock().await;
     match camera_guard.start_stream() {
         Ok(_) => {
             log::info!("Camera preview started for device: {}", device_id);
@@ -210,7 +210,7 @@ pub async fn stop_camera_preview(device_id: String) -> Result<String, String> {
     let registry = CAMERA_REGISTRY.read().await;
     
     if let Some(camera) = registry.get(&device_id) {
-        let camera_guard = camera.lock().await;
+        let mut camera_guard = camera.lock().await;
         match camera_guard.stop_stream() {
             Ok(_) => {
                 log::info!("Camera preview stopped for device: {}", device_id);
@@ -236,7 +236,7 @@ pub async fn release_camera(device_id: String) -> Result<String, String> {
     let mut registry = CAMERA_REGISTRY.write().await;
     
     if let Some(camera) = registry.remove(&device_id) {
-        let camera_guard = camera.lock().await;
+        let mut camera_guard = camera.lock().await;
         let _ = camera_guard.stop_stream(); // Ignore errors on cleanup
         log::info!("Camera {} released", device_id);
         Ok(format!("Camera {} released", device_id))
@@ -368,7 +368,7 @@ pub async fn reconnect_camera(device_id: String, format: CameraFormat, max_retri
     {
         let mut registry = CAMERA_REGISTRY.write().await;
         if let Some(old_camera) = registry.remove(&device_id) {
-            let camera_guard = old_camera.lock().await;
+            let mut camera_guard = old_camera.lock().await;
             let _ = camera_guard.stop_stream();
             log::debug!("Removed old camera instance from registry");
         }
@@ -418,6 +418,22 @@ pub async fn capture_with_reconnect(
             log::warn!("Failed to start stream: {}", e);
         }
         
+        // Discard warmup frames - cameras need time to stabilize exposure/focus
+        // This is especially important for USB cameras that power up on stream start
+        for i in 0..10 {
+            match camera_guard.capture_frame() {
+                Ok(_) => {
+                    log::debug!("Warmup frame {} captured", i + 1);
+                }
+                Err(e) => {
+                    log::debug!("Warmup frame {} failed (normal during startup): {}", i + 1, e);
+                }
+            }
+            // Small delay between warmup frames
+            tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+        }
+        
+        // Now capture the real frame
         match camera_guard.capture_frame() {
             Ok(frame) => return Ok(frame),
             Err(e) => {
@@ -429,11 +445,17 @@ pub async fn capture_with_reconnect(
     // Initial capture failed, try reconnecting
     let camera = reconnect_camera(device_id.clone(), format, max_reconnect_attempts).await?;
     
-    // Try capture after reconnect
+    // Try capture after reconnect with warmup
     let mut camera_guard = camera.lock().await;
     
     if let Err(e) = camera_guard.start_stream() {
         log::warn!("Failed to start stream after reconnect: {}", e);
+    }
+    
+    // Warmup after reconnect too
+    for _ in 0..10 {
+        let _ = camera_guard.capture_frame();
+        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
     }
     
     camera_guard.capture_frame()

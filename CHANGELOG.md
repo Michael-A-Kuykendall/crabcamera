@@ -5,6 +5,47 @@ All notable changes to CrabCamera will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2025-12-14
+
+### 🔧 macOS Compatibility & Developer Experience
+
+This release fixes critical macOS build issues and adds developer-focused improvements for easier debugging and troubleshooting.
+
+#### Fixed
+- **macOS Permission Dialog**: Fixed Objective-C block syntax in `permissions.rs` that caused compile errors
+  - Replaced invalid inline block syntax (`^(granted: bool) {}`) with proper Rust `block::ConcreteBlock`
+  - Permission dialogs now work correctly on macOS
+- **nokhwa CameraFormat API**: Fixed `macos.rs` to use correct `CameraFormat::new()` signature for nokhwa 0.10.x
+  - Was incorrectly using `FrameFormat::new()` with wrong parameters
+  - Now properly creates camera format with Resolution, FrameFormat, and FPS
+
+#### Added
+- **System Diagnostics Command**: New `get_system_diagnostics()` command for comprehensive troubleshooting
+  - Returns crate version, platform, backend, camera count, and permission status
+  - Includes camera summaries with max resolution and format count
+  - Lists enabled features for debugging configuration issues
+  - Timestamps for correlation with logs
+- **Types Module Test Suite**: Comprehensive tests for core type safety
+  - Platform detection and serialization tests
+  - CameraFormat preset and equality tests
+  - CameraFrame validity and aspect ratio tests
+  - CameraControls and initialization parameter tests
+  - 25+ new test cases for type correctness
+
+#### Changed
+- Pinned `nokhwa` dependency to `0.10.10` for API stability
+- Added `block = "0.1"` dependency for proper macOS Objective-C block handling
+
+#### Documentation
+- Added governance section to README ("Open Source, Not Open Contribution")
+- Rewrote CONTRIBUTING.md with clear contribution policy
+- Updated ROADMAP.md governance section
+
+#### Acknowledgments
+Thanks to [@thomasmoon](https://github.com/thomasmoon) and [@eduramiba](https://github.com/eduramiba) for reporting and investigating the macOS issues.
+
+---
+
 ## [0.4.0] - 2025-10-23
 
 ### 🎯 Release Focus: Professional Workflow & Production Reliability

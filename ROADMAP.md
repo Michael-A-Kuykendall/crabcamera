@@ -32,7 +32,13 @@ CrabCamera will remain **free forever** under MIT license. Desktop applications 
 ---
 
 ### Governance
-- **Lead Maintainer:** Michael A. Kuykendall  
-- Contributions are welcome via Pull Requests.  
-- The roadmap is set by the lead maintainer to preserve project vision.
-- No features will be added that compromise cross-platform compatibility or the "invisible infrastructure" philosophy.
+
+CrabCamera is **open source, not open contribution**.
+
+- **Lead Maintainer:** Michael A. Kuykendall
+- The code is freely available under MIT license
+- Pull requests are not accepted by default
+- All architectural and roadmap decisions are made by the maintainer
+- Bug reports via GitHub Issues are welcome
+
+This model ensures consistent quality, clear project direction, and cross-platform compatibility. See [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to report issues or discuss potential contributions.

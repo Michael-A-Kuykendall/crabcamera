@@ -32,20 +32,25 @@ pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
 }
 
 /// Initialize camera on macOS with AVFoundation backend
+/// 
+/// Uses nokhwa's CameraFormat API (0.10.x) with MJPEG frame format
+/// for broad compatibility across macOS camera hardware.
 pub fn initialize_camera(params: CameraInitParams) -> Result<MacOSCamera, CameraError> {
     let device_index = params.device_id.parse::<u32>()
         .map_err(|_| CameraError::InitializationError("Invalid device ID".to_string()))?;
-    
-    // Create requested format based on the desired format
+
+    // Create requested format using nokhwa 0.10.x CameraFormat API
+    // Note: CameraFormat::new takes (Resolution, FrameFormat, fps)
+    // Using MJPEG for broad hardware compatibility on macOS
     let requested_format = RequestedFormat::new::<RgbFormat>(
-        RequestedFormatType::Exact(nokhwa::utils::FrameFormat::new(
-            nokhwa::utils::Resolution::new(params.format.width, params.format.height),
-            nokhwa::utils::FrameRate::new(params.format.fps as u32),
-            nokhwa::pixel_format::RgbFormat::Rgb,
-        ))
-    );
-    
-    let camera = Camera::new(nokhwa::utils::CameraIndex::Index(device_index), requested_format)
+        RequestedFormatType::Exact(
+            nokhwa::utils::CameraFormat::new(
+                nokhwa::utils::Resolution::new(params.format.width, params.format.height),
+                nokhwa::utils::FrameFormat::MJPEG,
+                params.format.fps as u32,
+            )
+        )
+    );    let camera = Camera::new(nokhwa::utils::CameraIndex::Index(device_index), requested_format)
         .map_err(|e| CameraError::InitializationError(format!("Failed to initialize camera: {}", e)))?;
     
     Ok(MacOSCamera {

@@ -6,6 +6,7 @@ pub enum CameraError {
     PermissionDenied(String),
     CaptureError(String),
     ControlError(String),
+    StreamError(String),
 }
 
 impl fmt::Display for CameraError {
@@ -15,6 +16,7 @@ impl fmt::Display for CameraError {
             CameraError::PermissionDenied(msg) => write!(f, "Permission denied error: {}", msg),
             CameraError::CaptureError(msg) => write!(f, "Capture error: {}", msg),
             CameraError::ControlError(msg) => write!(f, "Camera control error: {}", msg),
+            CameraError::StreamError(msg) => write!(f, "Stream error: {}", msg),
         }
     }
 }

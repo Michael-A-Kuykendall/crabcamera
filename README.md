@@ -305,6 +305,12 @@ let platform = Platform::current();
 - **📖 Documentation**: [docs.rs/crabcamera](https://docs.rs/crabcamera)
 - **💝 Sponsorship**: [GitHub Sponsors](https://github.com/sponsors/Michael-A-Kuykendall)
 
+### Governance
+
+CrabCamera is **open source, not open contribution**. The code is freely available under the MIT license, but pull requests are not accepted by default. See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+
+This model ensures consistent quality across all platforms and clear project direction.
+
 ### Sponsors
 
 See our amazing [sponsors](SPONSORS.md) who make 🦀 CrabCamera possible! 🙏
