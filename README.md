@@ -29,7 +29,7 @@
 | **Hardware Access** | Direct camera control 🏆 | Browser restricted | Basic access |
 | **Professional Controls** | Auto-focus, exposure 🏆 | Limited | Basic |
 | **Cross-Platform** | Unified API 🏆 | Platform dependent | Single platform |
-| **Production Ready** | 63 comprehensive tests 🏆 | No guarantees | Proof-of-concept |
+| **Production Ready** | 157 comprehensive tests 🏆 | No guarantees | Proof-of-concept |
 | **Memory Safety** | Zero unsafe code 🏆 | N/A | Manual management |
 
 ## 🎯 Perfect for Desktop Applications 🦀
@@ -49,7 +49,7 @@
 
 ```toml
 [dependencies]
-crabcamera = "0.3.0"
+crabcamera = "0.4.1"
 tauri = { version = "2.0", features = ["protocol-asset"] }
 ```
 
@@ -167,7 +167,7 @@ stop_camera_preview() -> Result<()>
 save_frame_to_disk(frame: CameraFrame, path: String) -> Result<()>
 ```
 
-### Professional Camera Controls (NEW in v0.3.0!)
+### Professional Camera Controls
 ```rust
 // Apply camera controls (focus, exposure, white balance, etc.)
 apply_camera_controls(device_id: String, controls: CameraControls) -> Result<()>
@@ -206,7 +206,7 @@ I built CrabCamera because desktop applications deserve native camera access wit
 | **Image Quality** | **Professional controls** | Basic settings | Basic |
 | **Cross-Platform** | **Windows/macOS/Linux** | Browser variation | iOS/Android only |
 | **Performance** | **Native speed** | Browser overhead | N/A |
-| **Reliability** | **63 tests passing** | No guarantees | Varies |
+| **Reliability** | **157 tests passing** | No guarantees | Varies |
 
 ## 🏗️ Technical Architecture 🦀
 
@@ -224,7 +224,7 @@ I built CrabCamera because desktop applications deserve native camera access wit
 ```
 
 ### Platform-Specific Implementations
-- **Windows**: nokhwa capture + MediaFoundation controls (NEW in v0.3.0!)
+- **Windows**: nokhwa capture + MediaFoundation controls
 - **macOS**: AVFoundation for both capture and controls
 - **Linux**: nokhwa capture + V4L2 controls
 - **Unified API**: Same control interface across all platforms
@@ -327,11 +327,12 @@ See our amazing [sponsors](SPONSORS.md) who make 🦀 CrabCamera possible! 🙏
 
 **✅ Ready for production:**
 - Memory-safe Rust implementation
-- 63 comprehensive tests passing
+- 157 comprehensive tests passing
 - Zero unsafe code
 - Comprehensive error handling
 - Async/await throughout
 - Cross-platform compatibility verified
+- Real hardware validation (OBSBOT Tiny 4K)
 
 **✅ Use cases in production:**
 - Desktop photography applications
@@ -378,9 +379,24 @@ MIT License - forever and always.
 
 **Philosophy**: Desktop applications deserve native camera access. 🦀 CrabCamera is camera infrastructure. 📷
 
-## 🚀 What's New in v0.3.0
+## 🚀 What's New in v0.4.x
 
-### 🎉 **Major Feature: Windows MediaFoundation Camera Controls**
+### 🎉 **v0.4.1: Bug Fixes, Performance & DX** (December 2025)
+- **Critical Fix**: Mock camera was incorrectly used during `cargo run` - now uses real cameras
+- **PNG Save Fixed**: `save_frame_to_disk()` now properly encodes PNG/JPEG instead of raw bytes
+- **Performance**: Camera warmup reduced from 10 frames to 5 frames (~250ms faster)
+- **macOS Fixed**: Objective-C block syntax and nokhwa API compatibility resolved
+- **DX Improvement**: New `get_system_diagnostics()` command for troubleshooting
+- **Test Suite**: 157 tests passing (up from 80) with real hardware validation
+- **Flaky Test Fixed**: `test_capture_performance` timeout increased for reliability
+
+### 🎉 **v0.4.0: Quality Intelligence & Configuration**
+- **Quality Validation**: Automatic blur/exposure detection with retry
+- **TOML Configuration**: Full runtime config with hot-reload
+- **Focus Stacking**: Computational photography for macro shots
+- **Device Monitoring**: Hot-plug detection for camera connect/disconnect
+
+### 🎉 **v0.3.0: Windows MediaFoundation Camera Controls**
 - **Professional Windows Controls**: Full focus, exposure, white balance, brightness, contrast, and saturation control
 - **Hybrid Architecture**: nokhwa capture + MediaFoundation controls for best of both worlds
 - **Thread-Safe COM**: Proper Windows COM interface management for Tauri async commands

@@ -271,19 +271,41 @@ pub async fn get_capture_stats(device_id: String) -> Result<CaptureStats, String
     }
 }
 
-/// Save captured frame to disk with async I/O
+/// Save captured frame to disk as a proper image file
+/// Supports PNG (lossless) based on file extension
 #[command]
 pub async fn save_frame_to_disk(frame: CameraFrame, file_path: String) -> Result<String, String> {
     log::info!("Saving frame {} to disk: {}", frame.id, file_path);
     
-    match tokio::fs::write(&file_path, &frame.data).await {
-        Ok(_) => {
+    // Convert frame data to proper image format
+    let img = image::RgbImage::from_vec(frame.width, frame.height, frame.data)
+        .ok_or_else(|| "Failed to create image from frame data".to_string())?;
+    
+    let dynamic_img = image::DynamicImage::ImageRgb8(img);
+    
+    // Determine format from extension, default to PNG
+    let format = if file_path.to_lowercase().ends_with(".jpg") || file_path.to_lowercase().ends_with(".jpeg") {
+        image::ImageFormat::Jpeg
+    } else {
+        image::ImageFormat::Png
+    };
+    
+    // Save in spawn_blocking to avoid blocking async runtime
+    let file_path_clone = file_path.clone();
+    match tokio::task::spawn_blocking(move || {
+        dynamic_img.save_with_format(&file_path_clone, format)
+    }).await {
+        Ok(Ok(_)) => {
             log::info!("Frame saved successfully to: {}", file_path);
             Ok(format!("Frame saved to {}", file_path))
         }
-        Err(e) => {
+        Ok(Err(e)) => {
             log::error!("Failed to save frame: {}", e);
             Err(format!("Failed to save frame: {}", e))
+        }
+        Err(e) => {
+            log::error!("Task join error: {}", e);
+            Err("Failed to execute save task".to_string())
         }
     }
 }
@@ -420,7 +442,8 @@ pub async fn capture_with_reconnect(
         
         // Discard warmup frames - cameras need time to stabilize exposure/focus
         // This is especially important for USB cameras that power up on stream start
-        for i in 0..10 {
+        // Using 5 frames with 30ms delay for reasonable warmup without excessive latency
+        for i in 0..5 {
             match camera_guard.capture_frame() {
                 Ok(_) => {
                     log::debug!("Warmup frame {} captured", i + 1);
@@ -430,7 +453,7 @@ pub async fn capture_with_reconnect(
                 }
             }
             // Small delay between warmup frames
-            tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+            tokio::time::sleep(tokio::time::Duration::from_millis(30)).await;
         }
         
         // Now capture the real frame
