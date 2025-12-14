@@ -80,14 +80,48 @@ pub fn initialize_camera(device_id: &str, _format: CameraFormat) -> Result<Camer
 }
 
 /// Capture frame from Windows camera
+/// Note: nokhwa returns MJPEG data even when RgbFormat is requested,
+/// so we need to decode it manually to RGB
 pub fn capture_frame(camera: &mut Camera) -> Result<CameraFrame, CameraError> {
     let frame = camera.frame()
         .map_err(|e| CameraError::CaptureError(format!("Failed to capture frame: {}", e)))?;
     
+    let raw_bytes = frame.buffer_bytes();
+    let width = frame.resolution().width_x;
+    let height = frame.resolution().height_y;
+    
+    log::debug!("Raw frame: {}x{}, {} bytes, first 3 bytes: {:?}", 
+        width, height, raw_bytes.len(),
+        raw_bytes.get(0..3).unwrap_or(&[]));
+    
+    // Check if the data is MJPEG (starts with FFD8FF) and needs decoding
+    let rgb_data = if raw_bytes.len() >= 3 && raw_bytes[0] == 0xFF && raw_bytes[1] == 0xD8 && raw_bytes[2] == 0xFF {
+        // Data is MJPEG - decode to RGB
+        log::debug!("Decoding MJPEG frame ({} bytes) to RGB", raw_bytes.len());
+        
+        let img = image::load_from_memory(&raw_bytes)
+            .map_err(|e| CameraError::CaptureError(format!("Failed to decode MJPEG: {}", e)))?;
+        
+        img.to_rgb8().into_raw()
+    } else {
+        // Data is already RGB (or at least not MJPEG)
+        // Check if it's mostly zeros (invalid frame)
+        let non_zero_count = raw_bytes.iter().filter(|&&b| b != 0).count();
+        let total = raw_bytes.len();
+        let pct_nonzero = (non_zero_count as f64 / total as f64) * 100.0;
+        log::debug!("RGB frame: {:.1}% non-zero pixels", pct_nonzero);
+        
+        if pct_nonzero < 1.0 {
+            log::warn!("Frame appears to be mostly zeros - camera may not be ready");
+        }
+        
+        raw_bytes.to_vec()
+    };
+    
     let camera_frame = CameraFrame::new(
-        frame.buffer_bytes().to_vec(),
-        frame.resolution().width_x,
-        frame.resolution().height_y,
+        rgb_data,
+        width,
+        height,
         "0".to_string(), // Default device ID - should be passed in properly
     );
     

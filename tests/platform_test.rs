@@ -223,7 +223,7 @@ mod platform_tests {
     #[test]
     fn test_platform_camera_stream_control() {
         let params = create_test_params();
-        let camera = PlatformCamera::new(params).unwrap();
+        let mut camera = PlatformCamera::new(params).unwrap();
 
         // Test start stream
         let result = camera.start_stream();
@@ -340,7 +340,7 @@ mod platform_tests {
         for i in 0..5 {
             let camera_clone = camera_arc.clone();
             let handle = std::thread::spawn(move || {
-                if let Ok(camera) = camera_clone.lock() {
+                if let Ok(mut camera) = camera_clone.lock() {
                     let _ = camera.start_stream();
                     let _ = camera.stop_stream();
                     let _ = camera.is_available();
@@ -385,7 +385,7 @@ mod platform_tests {
     fn test_platform_camera_drop_cleanup() {
         // Test that Drop implementation properly cleans up
         let params = create_test_params();
-        let camera = PlatformCamera::new(params).unwrap();
+        let mut camera = PlatformCamera::new(params).unwrap();
 
         // Camera should start stream successfully
         let start_result = camera.start_stream();

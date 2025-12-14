@@ -152,3 +152,100 @@ pub async fn get_optimal_settings() -> Result<crate::types::CameraInitParams, St
         params.device_id, params.format.width, params.format.height, params.format.fps);
     Ok(params)
 }
+
+/// Comprehensive system diagnostics for troubleshooting
+/// 
+/// Returns detailed information about the camera system state,
+/// useful for debugging issues and verifying setup.
+#[command]
+pub async fn get_system_diagnostics() -> Result<SystemDiagnostics, String> {
+    log::info!("Running system diagnostics...");
+    
+    let platform = Platform::current();
+    let crate_version = crate::VERSION.to_string();
+    
+    // Get platform info
+    let platform_info = CameraSystem::get_platform_info().ok();
+    
+    // Get available cameras
+    let cameras = CameraSystem::list_cameras().unwrap_or_default();
+    let camera_count = cameras.len();
+    
+    // Build camera summaries
+    let camera_summaries: Vec<CameraSummary> = cameras.iter().map(|c| {
+        CameraSummary {
+            id: c.id.clone(),
+            name: c.name.clone(),
+            is_available: c.is_available,
+            format_count: c.supports_formats.len(),
+            max_resolution: c.supports_formats.iter()
+                .map(|f| (f.width, f.height))
+                .max_by_key(|(w, h)| w * h),
+        }
+    }).collect();
+    
+    // Check permission status
+    let permission_status = crate::commands::permissions::check_camera_permission_status()
+        .await
+        .map(|p| p.status.to_string())
+        .unwrap_or_else(|_| "unknown".to_string());
+    
+    let diagnostics = SystemDiagnostics {
+        crate_version,
+        platform: platform.as_str().to_string(),
+        backend: platform_info.as_ref().map(|p| p.backend.clone()).unwrap_or_else(|| "unknown".to_string()),
+        camera_count,
+        cameras: camera_summaries,
+        permission_status,
+        features_enabled: get_enabled_features(),
+        timestamp: chrono::Utc::now().to_rfc3339(),
+    };
+    
+    log::info!("Diagnostics complete: {} cameras on {} ({})", 
+        diagnostics.camera_count, diagnostics.platform, diagnostics.backend);
+    
+    Ok(diagnostics)
+}
+
+/// System diagnostics response
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct SystemDiagnostics {
+    pub crate_version: String,
+    pub platform: String,
+    pub backend: String,
+    pub camera_count: usize,
+    pub cameras: Vec<CameraSummary>,
+    pub permission_status: String,
+    pub features_enabled: Vec<String>,
+    pub timestamp: String,
+}
+
+/// Summary of a camera device
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct CameraSummary {
+    pub id: String,
+    pub name: String,
+    pub is_available: bool,
+    pub format_count: usize,
+    pub max_resolution: Option<(u32, u32)>,
+}
+
+/// Get list of enabled features
+fn get_enabled_features() -> Vec<String> {
+    let features = vec![
+        "camera_capture".to_string(),
+        "quality_validation".to_string(),
+        "device_monitoring".to_string(),
+        "focus_stacking".to_string(),
+    ];
+    
+    #[cfg(feature = "contextlite")]
+    {
+        let mut features = features;
+        features.push("contextlite".to_string());
+        return features;
+    }
+    
+    #[allow(unreachable_code)]
+    features
+}

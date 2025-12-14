@@ -59,24 +59,30 @@ async fn request_permission_macos() -> Result<PermissionInfo, String> {
     use objc::{msg_send, sel, sel_impl};
     use std::sync::mpsc;
     use std::time::Duration;
-    
+    use block::ConcreteBlock;
+
     log::info!("Requesting macOS camera permission");
-    
+
     unsafe {
         let av_capture_device_class = Class::get("AVCaptureDevice")
             .ok_or("AVFoundation not available")?;
-        
+
         let av_media_type_video = CString::new("vide").unwrap();
         let media_type: *mut Object = msg_send![av_capture_device_class, mediaTypeForString: av_media_type_video.as_ptr()];
-        
+
         let (tx, rx) = mpsc::channel();
         
+        // Create a proper Objective-C block using the block crate
+        // This replaces the invalid inline ^(granted: bool) {} syntax
+        let tx_clone = tx.clone();
+        let handler = ConcreteBlock::new(move |granted: bool| {
+            let _ = tx_clone.send(granted);
+        });
+        // Copy the block to the heap so it survives the async callback
+        let handler = handler.copy();
+
         // Request access (this will show system dialog)
-        let _: () = msg_send![av_capture_device_class, requestAccessForMediaType:media_type completionHandler:^(granted: bool) {
-            let _ = tx.send(granted);
-        }];
-        
-        // Wait for user response (with timeout)
+        let _: () = msg_send![av_capture_device_class, requestAccessForMediaType:media_type completionHandler:&*handler];        // Wait for user response (with timeout)
         match rx.recv_timeout(Duration::from_secs(60)) {
             Ok(granted) if granted => {
                 log::info!("Camera permission granted");
