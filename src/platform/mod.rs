@@ -161,10 +161,15 @@ pub enum PlatformCamera {
 impl PlatformCamera {
     /// Create new platform camera from initialization parameters
     pub fn new(params: CameraInitParams) -> Result<Self, CameraError> {
-        // Check if we're in test environment or mock requested
-        if std::env::var("CARGO_MANIFEST_DIR").is_ok() || 
-           std::thread::current().name().is_some_and(|name| name.contains("test")) ||
-           std::env::var("CRABCAMERA_USE_MOCK").is_ok() {
+        // Only use mock camera when explicitly requested via environment variable
+        // or when running in unit test threads (thread name contains "test")
+        // Note: We no longer check CARGO_MANIFEST_DIR because that's set during
+        // normal `cargo run` which should use real cameras
+        let use_mock = std::env::var("CRABCAMERA_USE_MOCK").is_ok() ||
+            std::thread::current().name().is_some_and(|name| name.contains("test"));
+            
+        if use_mock {
+            log::info!("Using mock camera (CRABCAMERA_USE_MOCK set or in test thread)");
             let mock_camera = MockCamera::new(params.device_id, params.format);
             return Ok(PlatformCamera::Mock(mock_camera));
         }
