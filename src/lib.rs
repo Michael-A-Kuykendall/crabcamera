@@ -71,6 +71,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::init::get_camera_formats,
             commands::init::get_recommended_format,
             commands::init::get_optimal_settings,
+            commands::init::get_system_diagnostics,
             
             // Permission commands
             commands::permissions::request_camera_permission,

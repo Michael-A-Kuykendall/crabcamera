@@ -38,3 +38,13 @@ examples/**/target/
 
 # Claude Code configuration (contains project-specific instructions)
 CLAUDE.md
+
+# Test image artifacts
+*.jpg
+*.png
+*.jpeg
+!demo/**/*.png
+!demo/**/*.jpg
+direct_capture.*
+audit_*
+debug_*

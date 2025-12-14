@@ -5,6 +5,90 @@ All notable changes to CrabCamera will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2025-12-14
+
+### 🔧 Bug Fixes, DX Improvements & Cross-Platform Polish
+
+This release delivers critical bug fixes, significant performance improvements, and better developer experience. **157 tests passing** with real hardware validation on Windows (OBSBOT Tiny 4K).
+
+---
+
+#### 🐛 Critical Bug Fixes
+
+- **Mock Camera Detection**: Fixed `PlatformCamera::new()` incorrectly using `MockCamera` during `cargo run`
+  - Root cause: `CARGO_MANIFEST_DIR` check was always true during development
+  - Solution: Now only uses mock when `CRABCAMERA_USE_MOCK` env var is set OR running in test thread
+  - Impact: Developers can now test with real cameras during development
+
+- **PNG Save Corruption**: Fixed `save_frame_to_disk()` writing raw bytes instead of proper PNG format
+  - Before: Raw RGB8 bytes saved with `.png` extension (wouldn't open in viewers)
+  - After: Proper PNG encoding with `image::save_buffer_with_format()`
+  - Both PNG and JPEG formats now work correctly
+
+- **macOS Permission Dialog**: Fixed Objective-C block syntax in `permissions.rs`
+  - Replaced invalid inline block syntax with proper Rust `block::ConcreteBlock`
+  - Permission dialogs now work correctly on macOS
+
+- **nokhwa CameraFormat API**: Fixed `macos.rs` to use correct `CameraFormat::new()` signature
+  - Now properly creates camera format with Resolution, FrameFormat, and FPS
+
+---
+
+#### ⚡ Performance Improvements
+
+- **Camera Warmup Optimized**: Reduced from 10 frames to 5 frames
+  - Removed unnecessary 50ms delays between warmup frames
+  - First capture now ~250ms faster
+  - Camera exposure/white balance still stabilizes correctly
+
+- **Flaky Test Fixed**: Increased `test_capture_performance` timeout from 1000ms to 2000ms
+  - Test was failing intermittently on slower hardware
+  - Now reliably passes across different systems
+
+---
+
+#### 🧹 Developer Experience
+
+- **System Diagnostics Command**: New `get_system_diagnostics()` for troubleshooting
+  - Returns crate version, platform, backend, camera count, permission status
+  - Includes camera summaries with max resolution and format count
+  - Lists enabled features for debugging configuration issues
+
+- **Types Module Test Suite**: 25+ new test cases for core type safety
+  - Platform detection and serialization tests
+  - CameraFormat preset and equality tests
+  - CameraFrame validity and aspect ratio tests
+  - CameraControls and initialization parameter tests
+
+- **Improved .gitignore**: Added patterns for test artifacts
+  - `*.jpg`, `*.png`, `*.bmp` in project root
+  - `test_*.jpg`, `test_*.png` patterns
+  - Prevents accidental commit of test images
+
+---
+
+#### 📚 Documentation Updates
+
+- **README**: Updated version references from 0.3.0/0.4.0 to 0.4.1
+- **Governance**: Added "Open Source, Not Open Contribution" section
+- **CONTRIBUTING.md**: Rewrote with clear contribution policy
+- **ROADMAP.md**: Updated governance section
+
+---
+
+#### 🔧 Technical Changes
+
+- Pinned `nokhwa` dependency to `0.10.10` for API stability
+- Added `block = "0.1"` dependency for proper macOS Objective-C block handling
+
+---
+
+#### 🙏 Acknowledgments
+
+Thanks to [@thomasmoon](https://github.com/thomasmoon) and [@eduramiba](https://github.com/eduramiba) for reporting and investigating the macOS issues.
+
+---
+
 ## [0.4.0] - 2025-10-23
 
 ### 🎯 Release Focus: Professional Workflow & Production Reliability

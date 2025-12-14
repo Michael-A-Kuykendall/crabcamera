@@ -8,15 +8,17 @@ Its mission is **invisible camera infrastructure**: drop it in, it works.
 - ✅ Professional hardware controls (auto-focus, exposure, white balance).
 - ✅ Multi-camera support with device enumeration and format negotiation.
 - ✅ Tauri 2.0 plugin architecture with comprehensive error handling.
-- ✅ 63 comprehensive tests with zero unsafe code.
+- ✅ 157 comprehensive tests with zero unsafe code.
+- ✅ Quality validation with blur/exposure detection.
+- ✅ Focus stacking for macro photography.
+- ✅ Device hot-plug monitoring with automatic recovery.
 
 ## Next Goals
+- [ ] **Video recording** with codec selection and quality settings.
 - [ ] Real-time streaming capabilities with frame callbacks.
-- [ ] Advanced camera controls (zoom, pan, tilt for supported devices).
-- [ ] Video recording with codec selection and quality settings.
+- [ ] Advanced camera controls (zoom, pan, tilt for PTZ devices).
 - [ ] Hardware-accelerated image processing (GPU filters, enhancement).
 - [ ] Camera calibration utilities for computer vision applications.
-- [ ] Batch photo capture with burst mode and bracketing.
 
 ## Long-Term Vision
 - Complete desktop camera ecosystem for Tauri applications.
@@ -32,7 +34,13 @@ CrabCamera will remain **free forever** under MIT license. Desktop applications 
 ---
 
 ### Governance
-- **Lead Maintainer:** Michael A. Kuykendall  
-- Contributions are welcome via Pull Requests.  
-- The roadmap is set by the lead maintainer to preserve project vision.
-- No features will be added that compromise cross-platform compatibility or the "invisible infrastructure" philosophy.
+
+CrabCamera is **open source, not open contribution**.
+
+- **Lead Maintainer:** Michael A. Kuykendall
+- The code is freely available under MIT license
+- Pull requests are not accepted by default
+- All architectural and roadmap decisions are made by the maintainer
+- Bug reports via GitHub Issues are welcome
+
+This model ensures consistent quality, clear project direction, and cross-platform compatibility. See [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to report issues or discuss potential contributions.

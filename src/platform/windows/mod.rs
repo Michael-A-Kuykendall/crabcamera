@@ -58,16 +58,23 @@ impl WindowsCamera {
         self.mf_controls.get_capabilities()
     }
 
-    /// Start camera stream (nokhwa handles this)
-    pub fn start_stream(&self) -> Result<(), CameraError> {
-        // nokhwa Camera doesn't require explicit stream start
-        Ok(())
+    /// Start camera stream - must be called before capture_frame
+    pub fn start_stream(&mut self) -> Result<(), CameraError> {
+        log::debug!("Opening camera stream for device {}", self.device_id);
+        self.nokhwa_camera.open_stream()
+            .map_err(|e| CameraError::StreamError(format!("Failed to open stream: {}", e)))
     }
 
-    /// Stop camera stream (nokhwa handles this)
-    pub fn stop_stream(&self) -> Result<(), CameraError> {
-        // nokhwa Camera doesn't require explicit stream stop
-        Ok(())
+    /// Stop camera stream
+    pub fn stop_stream(&mut self) -> Result<(), CameraError> {
+        log::debug!("Stopping camera stream for device {}", self.device_id);
+        self.nokhwa_camera.stop_stream()
+            .map_err(|e| CameraError::StreamError(format!("Failed to stop stream: {}", e)))
+    }
+    
+    /// Check if the stream is currently open
+    pub fn is_stream_open(&self) -> bool {
+        self.nokhwa_camera.is_stream_open()
     }
 
     /// Check if camera is available
