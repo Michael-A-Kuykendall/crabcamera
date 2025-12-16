@@ -1,0 +1,18 @@
+{
+	"folders": [
+		{
+			"name": "CrabCamera",
+			"path": "."
+		},
+		{
+			"name": "Muxide",
+			"path": "../muxide"
+		}
+	],
+	"settings": {
+		"rust-analyzer.linkedProjects": [
+			"./Cargo.toml",
+			"../muxide/Cargo.toml"
+		]
+	}
+}

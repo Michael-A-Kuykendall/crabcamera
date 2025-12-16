@@ -7,3 +7,6 @@ pub mod quality;
 pub mod config;
 pub mod device_monitor;
 pub mod focus_stack;
+
+#[cfg(feature = "recording")]
+pub mod recording;
