@@ -26,11 +26,16 @@ config = "0.14"
 toml = "0.8"
 block = "0.1"
 
+# Video recording dependencies (v0.5.0)
+muxide = { path = "../muxide", optional = true }
+openh264 = { version = "0.6", optional = true }
+
 # ContextLite integration
 contextlite-client = { version = "2.0.7", optional = true }
 
 [features]
 default = []
+recording = ["dep:muxide", "dep:openh264"]
 contextlite = ["dep:contextlite-client"]
 
 [target.'cfg(target_os = "windows")'.dependencies]
@@ -53,6 +58,8 @@ v4l = "0.14"
 tokio-test = "0.4"
 futures = "0.3"
 serde_json = "1.0"
+proptest = "1.4"
+tempfile = "3.10"
 
 [[example]]
 name = "camera_preview"

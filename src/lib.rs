@@ -44,6 +44,9 @@ pub mod quality;
 pub mod config;
 pub mod focus_stack;
 
+#[cfg(feature = "recording")]
+pub mod recording;
+
 #[cfg(feature = "contextlite")]
 pub mod contextlite;
 
