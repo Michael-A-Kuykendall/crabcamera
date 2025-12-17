@@ -68,3 +68,28 @@ path = "examples/camera_preview.rs"
 [[example]]
 name = "quick_test"
 path = "examples/quick_test.rs"
+
+[[example]]
+name = "record_video"
+path = "examples/record_video.rs"
+required-features = ["recording"]
+
+[[example]]
+name = "save_test_output"
+path = "examples/save_test_output.rs"
+required-features = ["recording"]
+
+[[example]]
+name = "functional_test"
+path = "examples/functional_test.rs"
+required-features = ["recording"]
+
+[[example]]
+name = "test_encoder_output"
+path = "examples/test_encoder_output.rs"
+required-features = ["recording"]
+
+[[test]]
+name = "recording_props"
+path = "tests/recording_props.rs"
+required-features = ["recording"]
