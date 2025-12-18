@@ -28,7 +28,7 @@ block = "0.1"
 
 # Video recording dependencies (v0.5.0)
 muxide = { version = "0.1.1", optional = true }
-openh264 = { version = "0.6", optional = true }
+openh264 = { version = "0.9", optional = true }
 
 # Audio recording dependencies (v0.5.0)
 cpal = { version = "0.15", optional = true }
