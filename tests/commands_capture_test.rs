@@ -299,8 +299,11 @@ mod commands_capture_tests {
     #[tokio::test]
     async fn test_save_frame_to_disk_invalid_path() {
         let frame = create_test_frame();
-        // Use a Windows-style invalid path with invalid characters
-        let invalid_path = "Z:\\invalid\\path\\with<>invalid|chars\\test.bin";
+        // Use a path that's invalid on all platforms (non-existent deep directory)
+        #[cfg(windows)]
+        let invalid_path = "Z:\\nonexistent\\path\\with<>invalid|chars\\test.bin";
+        #[cfg(not(windows))]
+        let invalid_path = "/nonexistent/root/path/that/does/not/exist/deeply/nested/test.bin";
 
         let result = save_frame_to_disk(frame, invalid_path.to_string()).await;
         assert!(result.is_err(), "Should fail with invalid path");
