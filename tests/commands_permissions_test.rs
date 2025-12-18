@@ -6,6 +6,7 @@ mod commands_permissions_tests {
     use crabcamera::permissions::PermissionStatus;
 
     #[tokio::test]
+    #[ignore = "Requires camera hardware and OS permissions - run manually"]
     async fn test_request_camera_permission_success() {
         let result = request_camera_permission().await;
         assert!(result.is_ok());
@@ -20,6 +21,7 @@ mod commands_permissions_tests {
     }
 
     #[tokio::test]
+    #[ignore = "Requires camera hardware and OS permissions - run manually"]
     async fn test_check_camera_permission_status_granted() {
         let result = check_camera_permission_status().await;
         assert!(result.is_ok());
@@ -34,6 +36,7 @@ mod commands_permissions_tests {
     }
 
     #[tokio::test]
+    #[ignore = "Requires camera hardware and OS permissions - run manually"]
     async fn test_permission_functions_are_consistent() {
         // Test multiple calls to ensure consistent behavior
         let first_request = request_camera_permission().await.unwrap().status;
@@ -49,6 +52,7 @@ mod commands_permissions_tests {
     }
 
     #[tokio::test]
+    #[ignore = "Requires camera hardware and OS permissions - run manually"]
     async fn test_concurrent_permission_requests() {
         let mut handles = vec![];
 
@@ -66,6 +70,7 @@ mod commands_permissions_tests {
     }
 
     #[tokio::test]
+    #[ignore = "Requires camera hardware and OS permissions - run manually"]
     async fn test_concurrent_permission_status_checks() {
         let mut handles = vec![];
 
