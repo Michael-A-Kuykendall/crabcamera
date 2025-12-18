@@ -1,3 +1,5 @@
+#![cfg(windows)]
+
 #[cfg(test)]
 mod platform_windows_tests {
     use crabcamera::errors::CameraError;
