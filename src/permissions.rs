@@ -168,7 +168,7 @@ fn check_permission_linux() -> PermissionInfo {
     // Check if we can read from first video device
     let first_device = &video_devices[0];
     match fs::metadata(first_device) {
-        Ok(metadata) => {
+        Ok(_metadata) => {
             // Check if we have read permission (via group membership)
             if check_linux_group_membership() {
                 PermissionInfo {
