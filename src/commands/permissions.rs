@@ -138,6 +138,7 @@ mod tests {
     }
     
     #[test]
+    #[ignore = "Requires camera hardware and OS permissions - run manually"]
     fn test_permission_status_string() {
         let status = get_permission_status_string();
         assert!(!status.is_empty());
