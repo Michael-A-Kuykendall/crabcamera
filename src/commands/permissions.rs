@@ -127,6 +127,7 @@ mod tests {
     use super::*;
     
     #[tokio::test]
+    #[ignore = "Requires camera hardware and OS permissions - run manually"]
     async fn test_check_permission_status() {
         let result = check_camera_permission_status().await;
         assert!(result.is_ok());
