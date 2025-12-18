@@ -7,15 +7,14 @@ pub enum CameraError {
     CaptureError(String),
     ControlError(String),
     StreamError(String),
-    /// Video encoding error (H.264)
     #[cfg(feature = "recording")]
     EncodingError(String),
-    /// MP4 muxing error
     #[cfg(feature = "recording")]
     MuxingError(String),
-    /// General I/O error
     #[cfg(feature = "recording")]
     IoError(String),
+    #[cfg(feature = "audio")]
+    AudioError(String),
 }
 
 impl fmt::Display for CameraError {
@@ -27,11 +26,13 @@ impl fmt::Display for CameraError {
             CameraError::ControlError(msg) => write!(f, "Camera control error: {}", msg),
             CameraError::StreamError(msg) => write!(f, "Stream error: {}", msg),
             #[cfg(feature = "recording")]
-            CameraError::EncodingError(msg) => write!(f, "Video encoding error: {}", msg),
+            CameraError::EncodingError(msg) => write!(f, "Encoding error: {}", msg),
             #[cfg(feature = "recording")]
-            CameraError::MuxingError(msg) => write!(f, "MP4 muxing error: {}", msg),
+            CameraError::MuxingError(msg) => write!(f, "Muxing error: {}", msg),
             #[cfg(feature = "recording")]
-            CameraError::IoError(msg) => write!(f, "I/O error: {}", msg),
+            CameraError::IoError(msg) => write!(f, "IO error: {}", msg),
+            #[cfg(feature = "audio")]
+            CameraError::AudioError(msg) => write!(f, "Audio error: {}", msg),
         }
     }
 }

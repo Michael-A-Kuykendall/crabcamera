@@ -25,6 +25,8 @@ mod config;
 pub use encoder::{H264Encoder, EncodedFrame};
 pub use recorder::Recorder;
 pub use config::{RecordingConfig, RecordingQuality, RecordingStats};
+#[cfg(feature = "audio")]
+pub use config::AudioConfig;
 
 #[cfg(test)]
 mod tests;

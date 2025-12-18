@@ -29,7 +29,7 @@
 | **Hardware Access** | Direct camera control 🏆 | Browser restricted | Basic access |
 | **Professional Controls** | Auto-focus, exposure 🏆 | Limited | Basic |
 | **Cross-Platform** | Unified API 🏆 | Platform dependent | Single platform |
-| **Production Ready** | 157 comprehensive tests 🏆 | No guarantees | Proof-of-concept |
+| **Production Ready** | 278 comprehensive tests 🏆 | No guarantees | Proof-of-concept |
 | **Memory Safety** | Zero unsafe code 🏆 | N/A | Manual management |
 
 ## 🎯 Perfect for Desktop Applications 🦀
@@ -49,7 +49,7 @@
 
 ```toml
 [dependencies]
-crabcamera = "0.4.1"
+crabcamera = "0.5.0"
 tauri = { version = "2.0", features = ["protocol-asset"] }
 ```
 
@@ -206,7 +206,7 @@ I built CrabCamera because desktop applications deserve native camera access wit
 | **Image Quality** | **Professional controls** | Basic settings | Basic |
 | **Cross-Platform** | **Windows/macOS/Linux** | Browser variation | iOS/Android only |
 | **Performance** | **Native speed** | Browser overhead | N/A |
-| **Reliability** | **157 tests passing** | No guarantees | Varies |
+| **Reliability** | **278 tests passing** | No guarantees | Varies |
 
 ## 🏗️ Technical Architecture 🦀
 
@@ -327,7 +327,7 @@ See our amazing [sponsors](SPONSORS.md) who make 🦀 CrabCamera possible! 🙏
 
 **✅ Ready for production:**
 - Memory-safe Rust implementation
-- 157 comprehensive tests passing
+- 278 comprehensive tests passing
 - Zero unsafe code
 - Comprehensive error handling
 - Async/await throughout
@@ -379,16 +379,23 @@ MIT License - forever and always.
 
 **Philosophy**: Desktop applications deserve native camera access. 🦀 CrabCamera is camera infrastructure. 📷
 
-## 🚀 What's New in v0.4.x
+## 🚀 What's New in v0.5.0
 
-### 🎉 **v0.4.1: Bug Fixes, Performance & DX** (December 2025)
-- **Critical Fix**: Mock camera was incorrectly used during `cargo run` - now uses real cameras
-- **PNG Save Fixed**: `save_frame_to_disk()` now properly encodes PNG/JPEG instead of raw bytes
-- **Performance**: Camera warmup reduced from 10 frames to 5 frames (~250ms faster)
-- **macOS Fixed**: Objective-C block syntax and nokhwa API compatibility resolved
-- **DX Improvement**: New `get_system_diagnostics()` command for troubleshooting
-- **Test Suite**: 157 tests passing (up from 80) with real hardware validation
-- **Flaky Test Fixed**: `test_capture_performance` timeout increased for reliability
+### 🎬 **v0.5.0: Audio Recording & A/V Sync** (December 2025)
+- **Audio Recording**: Full audio capture with Opus encoding
+- **A/V Sync**: Shared PTS clock ensures ±40ms audio/video synchronization
+- **Audio Device Enumeration**: `list_audio_devices()` with sample rate, channels, default status
+- **Integrated Recording**: `start_recording()` now accepts `audioDeviceId` parameter
+- **Fuzz Testing**: 8 proptest-based fuzz tests for encoder robustness
+- **Benchmark Suite**: Criterion benchmarks for H264 and Opus encoding
+- **278 Tests**: Up from 157, with live OBSBOT Tiny 4K validation
+- **Critical Fix**: PTS double-counting bug in audio encoder
+
+### 🎉 **v0.4.1: Bug Fixes, Performance & DX**
+- **Critical Fix**: Mock camera was incorrectly used during `cargo run`
+- **PNG Save Fixed**: `save_frame_to_disk()` now properly encodes PNG/JPEG
+- **Performance**: Camera warmup reduced from 10 frames to 5 frames
+- **macOS Fixed**: Objective-C block syntax and nokhwa API compatibility
 
 ### 🎉 **v0.4.0: Quality Intelligence & Configuration**
 - **Quality Validation**: Automatic blur/exposure detection with retry
@@ -397,21 +404,9 @@ MIT License - forever and always.
 - **Device Monitoring**: Hot-plug detection for camera connect/disconnect
 
 ### 🎉 **v0.3.0: Windows MediaFoundation Camera Controls**
-- **Professional Windows Controls**: Full focus, exposure, white balance, brightness, contrast, and saturation control
-- **Hybrid Architecture**: nokhwa capture + MediaFoundation controls for best of both worlds
-- **Thread-Safe COM**: Proper Windows COM interface management for Tauri async commands
-- **Capability Detection**: Runtime testing of which controls each camera supports
-- **Unified API**: Same control interface across Windows, macOS, and Linux
-
-### 🔧 **Technical Improvements**
-- **WindowsCamera Struct**: Combines nokhwa capture with MediaFoundation controls
-- **MediaFoundationControls**: Full COM interface wrapper with resource management
-- **Platform Integration**: Updated PlatformCamera enum to use Windows-specific implementation
-- **Error Handling**: Graceful degradation when controls aren't supported
-- **Documentation**: Comprehensive technical architecture documentation
-
-### 🏆 **Cross-Platform Parity Achieved**
-Windows users now get the same professional camera control experience as macOS and Linux users!
+- **Professional Windows Controls**: Full focus, exposure, white balance control
+- **Hybrid Architecture**: nokhwa capture + MediaFoundation controls
+- **Thread-Safe COM**: Proper Windows COM interface management
 
 ---
 

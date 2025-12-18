@@ -44,14 +44,20 @@ pub mod quality;
 pub mod config;
 pub mod focus_stack;
 
-#[cfg(feature = "recording")]
-pub mod recording;
-
 #[cfg(feature = "contextlite")]
 pub mod contextlite;
 
+#[cfg(feature = "recording")]
+pub mod recording;
+
+#[cfg(feature = "audio")]
+pub mod audio;
+
 // Tests module - available for external tests
 pub mod tests;
+
+// Testing utilities - synthetic data for offline testing
+pub mod testing;
 
 // Re-exports for convenience
 pub use types::{CameraDeviceInfo, CameraFormat, CameraFrame, CameraInitParams, Platform};
