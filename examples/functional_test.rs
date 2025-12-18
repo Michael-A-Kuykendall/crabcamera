@@ -373,7 +373,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         match Recorder::new(&output, config) {
                             Ok(mut recorder) => {
                                 let start = Instant::now();
-                                let mut frames = 0u32;
+                                let mut frame_count = 0u32;
                                 
                                 while start.elapsed() < Duration::from_secs(2) {
                                     if let Ok(frame) = cam.capture_frame() {
@@ -385,13 +385,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         };
                                         
                                         if recorder.write_rgb_frame(&data, rec_w, rec_h).is_ok() {
-                                            frames += 1;
+                                            frame_count += 1;
                                         }
                                     }
                                     thread::sleep(Duration::from_millis(33)); // ~30fps
                                 }
                                 
                                 let _ = cam.stop_stream();
+                                let _ = frame_count; // Silence unused warning
                                 
                                 match recorder.finish() {
                                     Ok(stats) => {

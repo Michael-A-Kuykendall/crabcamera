@@ -18,8 +18,7 @@ use crabcamera::commands::capture::{
 };
 use crabcamera::commands::advanced::{
     get_camera_controls, set_camera_controls, test_camera_capabilities,
-    capture_burst_sequence, set_manual_focus, set_manual_exposure,
-    get_camera_performance,
+    capture_burst_sequence, get_camera_performance,
 };
 use crabcamera::commands::quality::{
     validate_frame_quality, validate_provided_frame,
@@ -28,12 +27,11 @@ use crabcamera::commands::quality::{
 use crabcamera::commands::permissions::{
     request_camera_permission, check_camera_permission_status,
 };
-use crabcamera::types::{CameraFormat, CameraControls, BurstConfig};
+use crabcamera::types::{CameraControls, BurstConfig};
 use std::time::Duration;
 use tokio::time::sleep;
 
 #[allow(dead_code)]
-
 struct TestResult {
     name: &'static str,
     passed: bool,

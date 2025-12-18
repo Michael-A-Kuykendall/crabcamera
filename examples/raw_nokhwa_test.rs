@@ -66,9 +66,8 @@ fn main() {
                 let len = bytes.len();
                 
                 // Check if frame is all zeros or all same value (gray)
-                let first_byte = bytes.get(0).copied().unwrap_or(0);
+                let first_byte = bytes.first().copied().unwrap_or(0);
                 let all_same = bytes.iter().all(|&b| b == first_byte);
-                let all_zero = bytes.iter().all(|&b| b == 0);
                 let sum: u64 = bytes.iter().map(|&b| b as u64).sum();
                 let avg = sum / len as u64;
                 

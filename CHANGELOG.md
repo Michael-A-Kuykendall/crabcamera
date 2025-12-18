@@ -5,6 +5,103 @@ All notable changes to CrabCamera will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2025-12-18
+
+### 🎬 Audio Recording & A/V Sync
+
+This release adds **audio recording** to CrabCamera, enabling synchronized audio/video capture. **278 tests passing** with live hardware validation (OBSBOT Tiny 4K).
+
+---
+
+#### ✨ New Features
+
+- **Audio Device Enumeration** (`#AudioDeviceEnumerate`)
+  - `list_audio_devices()` returns all input devices with sample rate, channels, and default status
+  - Unique device IDs generated via index + name hash (fixes duplicate name issue)
+  - Deterministic ordering: default device first, then alphabetically
+
+- **Audio Capture** (`#AudioCapturePCM`)
+  - Real-time PCM capture via `cpal` with bounded 256-frame buffer
+  - Shared `PTSClock` ensures A/V sync within ±40ms policy
+  - Graceful handling of device disconnection
+
+- **Opus Encoding** (`#AudioEncodeOpus`)
+  - 48kHz stereo at configurable bitrate (default 128kbps)
+  - Proper frame buffering (960 samples = 20ms)
+  - FFI to `libopus_sys` with safe Rust wrapper
+
+- **A/V Recording** (`#RecorderIntegrateAudio`)
+  - `start_recording()` now accepts optional `audio_device_id`
+  - Audio runs in dedicated thread (no Send issues with cpal::Stream)
+  - Non-blocking audio drain during video frame writes
+
+- **Tauri Audio Commands** (`#TauriAudioCommands`)
+  - `list_audio_devices` - enumerate available microphones
+  - `start_recording` with audio support via `audioDeviceId` parameter
+  - User-safe error strings (no internal error leakage)
+
+- **Fuzz Testing Suite**
+  - 8 proptest-based fuzz tests for encoding robustness
+  - Covers OpusEncoder, H264Encoder, RecordingConfig, and Muxer
+  - 1000+ cases per encoder test, 100+ cases for muxer
+
+- **Benchmark Suite**
+  - Criterion-based benchmarks for performance baseline
+  - H264 encoding at 480p, 720p, 1080p
+  - Opus encoding at 10ms, 20ms, 40ms frame sizes
+  - Run with: `cargo bench --features "recording,audio"`
+
+---
+
+#### 🐛 Bug Fixes
+
+- **PTS Double-Counting** (Critical): Fixed audio timestamp bug where leftover samples caused 2x speed audio
+  - Root cause: `buffer_start_pts` was incorrectly updated after encoding
+  - Solution: `samples_encoded` alone now drives PTS calculation
+
+- **Device ID Duplication**: Audio device `id` and `name` were identical
+  - Now generates unique IDs: `audio_{index}_{hash}`
+
+- **Silent Frame Dropping**: Frame rate limiting now logs every 10th dropped frame
+
+---
+
+#### 📚 Documentation
+
+- Added RFC 6716 citations for Opus constants
+- Improved `unsafe impl Send` safety documentation for `OpusEncoder`
+- Converted Sorcery notation to standard markdown (fixes clippy doc warnings)
+
+---
+
+#### 🧪 Testing
+
+- **278 tests** (up from 157)
+- New `av_integration.rs` - 7 A/V integration tests
+- New `synthetic_av_test.rs` - 6 offline recording tests with synthetic data
+- New `fuzz_tests.rs` - 8 proptest fuzz tests for encoder robustness
+- Property-based tests for encoder invariants
+- Live hardware validation with OBSBOT Tiny 4K
+
+---
+
+#### 📊 Benchmarks
+
+- `benches/encoding_benchmarks.rs` - Criterion benchmark suite
+- H264 encoding performance baseline (480p/720p/1080p)
+- Opus audio encoding performance (10ms/20ms/40ms frames)
+- RGB→YUV conversion timing
+
+---
+
+#### ⚙️ Dependencies
+
+- `cpal` 0.15 - Cross-platform audio capture
+- `libopus_sys` - Opus encoder FFI bindings
+- `crossbeam-channel` - Bounded audio buffer
+
+---
+
 ## [0.4.1] - 2025-12-14
 
 ### 🔧 Bug Fixes, DX Improvements & Cross-Platform Polish

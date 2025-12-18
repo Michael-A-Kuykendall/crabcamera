@@ -2,14 +2,71 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Audio configuration for recording
+/// Per #RecorderIntegrateAudio: ! supports_audio_optional
+#[cfg(feature = "audio")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AudioConfig {
+    /// Audio device ID (None = default device)
+    pub device_id: Option<String>,
+    /// Sample rate (must be 48000 for Opus)
+    pub sample_rate: u32,
+    /// Number of channels (1 or 2)
+    pub channels: u16,
+    /// Opus bitrate in bits per second
+    pub bitrate: u32,
+}
+
+#[cfg(feature = "audio")]
+impl Default for AudioConfig {
+    fn default() -> Self {
+        Self {
+            device_id: None,
+            sample_rate: 48000, // Opus requirement
+            channels: 2,
+            bitrate: 128_000,
+        }
+    }
+}
+
+#[cfg(feature = "audio")]
+impl AudioConfig {
+    /// Create audio config for a specific device
+    pub fn with_device(device_id: impl Into<String>) -> Self {
+        Self {
+            device_id: Some(device_id.into()),
+            ..Default::default()
+        }
+    }
+
+    /// Set mono audio
+    pub fn mono(mut self) -> Self {
+        self.channels = 1;
+        self
+    }
+
+    /// Set stereo audio
+    pub fn stereo(mut self) -> Self {
+        self.channels = 2;
+        self
+    }
+
+    /// Set bitrate
+    pub fn with_bitrate(mut self, bitrate: u32) -> Self {
+        self.bitrate = bitrate;
+        self
+    }
+}
+
 /// Quality presets for video recording
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum RecordingQuality {
     /// 720p at 30fps, lower bitrate - good for previews/streaming
     Low,
     /// 1080p at 30fps, standard bitrate - balanced quality
     Medium,
     /// 1080p at 60fps or 4K at 30fps - high quality
+    #[default]
     High,
     /// Custom settings
     Custom,
@@ -47,11 +104,7 @@ impl RecordingQuality {
     }
 }
 
-impl Default for RecordingQuality {
-    fn default() -> Self {
-        RecordingQuality::High
-    }
-}
+
 
 /// Configuration for video recording
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -70,6 +123,10 @@ pub struct RecordingConfig {
     pub fast_start: bool,
     /// Optional title metadata
     pub title: Option<String>,
+    /// Audio configuration (None = video only)
+    /// Per #RecorderIntegrateAudio: ! supports_audio_optional
+    #[cfg(feature = "audio")]
+    pub audio: Option<AudioConfig>,
 }
 
 impl RecordingConfig {
@@ -83,6 +140,8 @@ impl RecordingConfig {
             quality: RecordingQuality::Custom,
             fast_start: true,
             title: None,
+            #[cfg(feature = "audio")]
+            audio: None,
         }
     }
 
@@ -97,6 +156,8 @@ impl RecordingConfig {
             quality,
             fast_start: true,
             title: None,
+            #[cfg(feature = "audio")]
+            audio: None,
         }
     }
 
@@ -111,6 +172,8 @@ impl RecordingConfig {
             quality,
             fast_start: true,
             title: None,
+            #[cfg(feature = "audio")]
+            audio: None,
         }
     }
 
@@ -129,6 +192,21 @@ impl RecordingConfig {
     /// Set custom bitrate
     pub fn with_bitrate(mut self, bitrate: u32) -> Self {
         self.bitrate = bitrate;
+        self
+    }
+
+    /// Enable audio recording with the given configuration
+    /// Per #RecorderIntegrateAudio: ! supports_audio_optional
+    #[cfg(feature = "audio")]
+    pub fn with_audio(mut self, audio_config: AudioConfig) -> Self {
+        self.audio = Some(audio_config);
+        self
+    }
+
+    /// Enable audio recording with default configuration (default device, stereo, 128kbps)
+    #[cfg(feature = "audio")]
+    pub fn with_default_audio(mut self) -> Self {
+        self.audio = Some(AudioConfig::default());
         self
     }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "crabcamera"
-version = "0.4.1"
+version = "0.5.0"
 edition = "2021"
 description = "Advanced cross-platform camera integration for Tauri applications"
 license = "MIT OR Apache-2.0"
@@ -27,8 +27,13 @@ toml = "0.8"
 block = "0.1"
 
 # Video recording dependencies (v0.5.0)
-muxide = { path = "../muxide", optional = true }
+muxide = { version = "0.1.1", optional = true }
 openh264 = { version = "0.6", optional = true }
+
+# Audio recording dependencies (v0.5.0)
+cpal = { version = "0.15", optional = true }
+libopus_sys = { version = "0.3.2", features = ["bundled", "static"], optional = true }
+crossbeam-channel = { version = "0.5", optional = true }
 
 # ContextLite integration
 contextlite-client = { version = "2.0.7", optional = true }
@@ -36,6 +41,8 @@ contextlite-client = { version = "2.0.7", optional = true }
 [features]
 default = []
 recording = ["dep:muxide", "dep:openh264"]
+audio = ["dep:cpal", "dep:libopus_sys", "dep:crossbeam-channel"]
+full-recording = ["recording", "audio"]
 contextlite = ["dep:contextlite-client"]
 
 [target.'cfg(target_os = "windows")'.dependencies]
@@ -60,6 +67,12 @@ futures = "0.3"
 serde_json = "1.0"
 proptest = "1.4"
 tempfile = "3.10"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "encoding_benchmarks"
+harness = false
+required-features = ["recording", "audio"]
 
 [[example]]
 name = "camera_preview"

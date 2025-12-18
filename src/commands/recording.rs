@@ -34,9 +34,11 @@ struct RecordingSession {
 /// * `fps` - Target frame rate
 /// * `quality` - Recording quality preset (optional)
 /// * `title` - Metadata title (optional)
+/// * `audio_device_id` - Audio device ID for recording (optional, enables audio when provided)
 /// 
 /// # Returns
 /// * Session ID for tracking the recording
+#[allow(clippy::too_many_arguments)]
 #[command]
 pub async fn start_recording(
     device_id: Option<String>,
@@ -46,8 +48,20 @@ pub async fn start_recording(
     fps: f64,
     quality: Option<String>,
     title: Option<String>,
+    #[cfg(feature = "audio")]
+    audio_device_id: Option<String>,
 ) -> Result<String, String> {
     let camera_id = device_id.unwrap_or_else(|| "0".to_string());
+    
+    #[cfg(feature = "audio")]
+    {
+        if let Some(ref audio_id) = audio_device_id {
+            log::info!("Starting recording from camera {} with audio {} to {}", camera_id, audio_id, output_path);
+        } else {
+            log::info!("Starting recording from camera {} (no audio) to {}", camera_id, output_path);
+        }
+    }
+    #[cfg(not(feature = "audio"))]
     log::info!("Starting recording from camera {} to {}", camera_id, output_path);
 
     // Parse quality preset
@@ -67,6 +81,18 @@ pub async fn start_recording(
 
     if let Some(t) = title {
         config = config.with_title(t);
+    }
+
+    // Add audio configuration if audio device specified
+    // Per #TauriAudioCommands: ! start_recording_accepts_audio_device_option
+    #[cfg(feature = "audio")]
+    if let Some(audio_id) = audio_device_id {
+        config = config.with_audio(crate::recording::AudioConfig {
+            device_id: if audio_id == "default" { None } else { Some(audio_id) },
+            sample_rate: 48000,
+            channels: 2,
+            bitrate: 128_000,
+        });
     }
 
     // Initialize camera
@@ -183,12 +209,25 @@ pub async fn get_recording_status(session_id: String) -> Result<RecordingStatus,
 
     let session = session_arc.lock().await;
     
+    // Build audio status if audio feature enabled
+    #[cfg(feature = "audio")]
+    let audio_status = if session.recorder.audio_enabled() {
+        Some(AudioStatus {
+            enabled: true,
+            failed: session.recorder.audio_failed(),
+        })
+    } else {
+        None
+    };
+    
     Ok(RecordingStatus {
         session_id,
         is_running: session.is_running,
         frame_count: session.recorder.frame_count(),
         dropped_frames: session.recorder.dropped_frames(),
         duration_secs: session.recorder.duration(),
+        #[cfg(feature = "audio")]
+        audio_status,
     })
 }
 
@@ -200,13 +239,30 @@ pub async fn list_recording_sessions() -> Result<Vec<String>, String> {
 }
 
 /// Recording status information
+/// Per #AudioErrorRecovery: ! session_status_reflects_audio_state
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RecordingStatus {
     pub session_id: String,
     pub is_running: bool,
     pub frame_count: u64,
     pub dropped_frames: u64,
     pub duration_secs: f64,
+    /// Audio recording status (None if audio not enabled)
+    #[cfg(feature = "audio")]
+    pub audio_status: Option<AudioStatus>,
+}
+
+/// Audio status within a recording session
+/// Per #AudioErrorRecovery: ! session_status_reflects_audio_state
+#[cfg(feature = "audio")]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioStatus {
+    /// Whether audio recording is enabled
+    pub enabled: bool,
+    /// Whether audio capture has failed
+    pub failed: bool,
 }
 
 #[cfg(test)]
@@ -221,10 +277,20 @@ mod tests {
             frame_count: 100,
             dropped_frames: 2,
             duration_secs: 3.33,
+            #[cfg(feature = "audio")]
+            audio_status: Some(AudioStatus {
+                enabled: true,
+                failed: false,
+            }),
         };
         
         let json = serde_json::to_string(&status).unwrap();
         assert!(json.contains("test_123"));
         assert!(json.contains("100"));
+        // Per spell: uses camelCase for frontend
+        #[cfg(feature = "audio")]
+        {
+            assert!(json.contains("audioStatus"));
+        }
     }
 }

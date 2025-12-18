@@ -1,5 +1,32 @@
 # GitHub Copilot Instructions - CrabCamera
 
+## 🔮 SORCERY-DRIVEN DEVELOPMENT
+
+**We use Sorcery notation for architectural intent.** All implementation MUST follow sealed spellbooks.
+
+### Current Active Spellbook
+**`docs/AUDIO_SPELLBOOK.md`** - Audio Recording v0.5.0 ✅ **COMPLETE**
+
+### Spell Execution Rules
+1. **READ THE SPELL FIRST** - Before implementing, read the spell's guarantees (`!`), exclusions (`-`), and dependencies (`>`)
+2. **NO VIBE CODING** - Every line of code must trace back to a spell requirement
+3. **SPELLS ARE SEALED** - Don't add features not in the spell. Don't skip requirements.
+4. **EXECUTE IN ORDER** - Spells have dependencies (`>`). Follow the DAG.
+
+### Spell Progress (v0.5.0 Audio) - ALL COMPLETE ✅
+- [x] #AudioDeviceEnumerate → `src/audio/device.rs`
+- [x] #AudioPTSClock → `src/audio/clock.rs`
+- [x] #AudioCapturePCM → `src/audio/capture.rs`
+- [x] #AudioEncodeOpus → `src/audio/encoder.rs`
+- [x] #RecorderIntegrateAudio → `src/recording/recorder.rs`
+- [x] #AVSyncPolicy → `src/recording/recorder.rs`
+- [x] #TauriAudioCommands → `src/commands/audio.rs`, `src/commands/recording.rs`
+- [x] #AudioErrorRecovery → `src/recording/recorder.rs`, `src/commands/recording.rs`
+- [x] #RecordingTests_AV → `tests/av_integration.rs`
+- [x] #CargoAudioGating → `Cargo.toml`
+
+---
+
 ## 🎯 Project Identity
 
 **CrabCamera** is a production-ready desktop camera plugin for Tauri applications.
@@ -11,36 +38,14 @@
 
 **Muxide** (private, `../muxide/`) is our custom MP4 muxer - a competitive moat that eliminates external dependencies. CrabCamera consumes Muxide via path dependency for video recording.
 
-## 📋 Current Roadmap (December 2025)
-
-### CrabCamera v0.5.0 - Video Recording (Q1 2025)
-- [ ] openh264 encoder integration
-- [ ] Muxide integration (path dep to `../muxide`)
-- [ ] `start_recording()` / `stop_recording()` API
-- [ ] Recording with audio
-- [ ] Quality presets (720p, 1080p, 4K)
-
-### CrabCamera v0.6.0 - Windows First-Class (Q2 2025)
-- [ ] MediaFoundation camera controls
-- [ ] IAMCameraControl (focus, exposure, pan/tilt/zoom)
-- [ ] IAMVideoProcAmp (brightness, contrast, saturation)
-
-### CrabCamera v0.7.0 - Live Streaming (Q3 2025)
-- [ ] WebRTC local preview
-- [ ] RTMP/HLS/DASH streaming (uses Muxide fMP4)
-
-### CrabCamera v0.8.0 - Broadcast Ready (Q4 2025)
-- [ ] Multi-camera recording
-- [ ] Chroma key (green screen)
-- [ ] Audio mixing
-
 ## ⚠️ Critical Rules
 
-1. **READ BEFORE WRITE** - Always read files before editing
-2. **No FFmpeg** - Never add FFmpeg, GStreamer, or libav dependencies
-3. **No GPL** - Only MIT/Apache-2.0 compatible dependencies
-4. **Muxide is Private** - Don't suggest publishing it to crates.io
-5. **Pure Rust** - Avoid C bindings where possible
+1. **FOLLOW THE SPELLBOOK** - No implementation without a spell
+2. **READ BEFORE WRITE** - Always read files before editing
+3. **No FFmpeg** - Never add FFmpeg, GStreamer, or libav dependencies
+4. **No GPL** - Only MIT/Apache-2.0 compatible dependencies
+5. **Muxide is Private** - Don't suggest publishing it to crates.io
+6. **Pure Rust** - Avoid C bindings where possible
 
 ## 🏗️ Architecture
 
@@ -48,15 +53,17 @@
 CrabCamera (Tauri Plugin)
     ├── nokhwa (camera capture)
     ├── openh264 (video encoding) [v0.5.0]
+    ├── libopus_sys (audio encoding) [v0.5.0]
+    ├── cpal (audio capture) [v0.5.0]
     └── muxide (MP4 muxing, private) [v0.5.0]
 ```
 
 ## 📁 Key Files
 
-- `MASTER_ROADMAP.md` - Strategic planning (source of truth)
-- `WINDOWS_CONTROLS_ARCHITECTURE.md` - MediaFoundation implementation plan
-- `src/platform/windows/` - Windows-specific code
+- `docs/AUDIO_SPELLBOOK.md` - **ACTIVE SPELLBOOK** (source of truth for v0.5.0)
+- `src/audio/` - Audio module (spells implemented here)
 - `src/commands/` - Tauri command handlers
+- `src/platform/windows/` - Windows-specific code
 
 ## 🔧 Development Commands
 
