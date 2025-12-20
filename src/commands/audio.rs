@@ -13,13 +13,13 @@
 //! - no leaking_internal_error_types
 //! - async_safe_execution
 
-use tauri::command;
 use serde::{Deserialize, Serialize};
+use tauri::command;
 
 use crate::audio::{list_audio_devices as enumerate_audio_devices, AudioDevice};
 
 /// Audio device information exposed to Tauri frontend
-/// 
+///
 /// Per #TauriAudioCommands: ! list_audio_devices_returns_structured_data
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -49,12 +49,12 @@ impl From<AudioDevice> for AudioDeviceInfo {
 }
 
 /// List all available audio input devices
-/// 
+///
 /// Per #TauriAudioCommands:
 /// - ! list_audio_devices_returns_structured_data
 /// - ! user_safe_error_strings  
 /// - - leaking_internal_error_types
-/// 
+///
 /// # Returns
 /// List of audio devices, sorted with default device first
 #[command]
@@ -69,7 +69,7 @@ pub async fn list_audio_devices() -> Result<Vec<AudioDeviceInfo>, String> {
 }
 
 /// Get the default audio input device
-/// 
+///
 /// # Returns
 /// The default audio device, or an error if none available
 #[command]
@@ -95,7 +95,7 @@ mod tests {
             channels: 2,
             is_default: true,
         };
-        
+
         let json = serde_json::to_string(&device).unwrap();
         // Per spell: uses camelCase for frontend
         assert!(json.contains("sampleRate"));
@@ -106,7 +106,7 @@ mod tests {
     #[test]
     fn test_audio_device_info_from_audio_device() {
         use crate::audio::AudioDevice;
-        
+
         let internal = AudioDevice {
             id: "mic_1".to_string(),
             name: "Internal Mic".to_string(),
@@ -114,7 +114,7 @@ mod tests {
             channels: 1,
             is_default: false,
         };
-        
+
         let info = AudioDeviceInfo::from(internal);
         assert_eq!(info.id, "mic_1");
         assert_eq!(info.name, "Internal Mic");

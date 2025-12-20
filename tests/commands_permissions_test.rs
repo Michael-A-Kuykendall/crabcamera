@@ -13,8 +13,10 @@ mod commands_permissions_tests {
         let info = result.unwrap();
         // Should return valid status
         match info.status {
-            PermissionStatus::Granted | PermissionStatus::Denied | 
-            PermissionStatus::NotDetermined | PermissionStatus::Restricted => {
+            PermissionStatus::Granted
+            | PermissionStatus::Denied
+            | PermissionStatus::NotDetermined
+            | PermissionStatus::Restricted => {
                 // Valid
             }
         }
@@ -28,8 +30,10 @@ mod commands_permissions_tests {
         let info = result.unwrap();
         // Should return valid status
         match info.status {
-            PermissionStatus::Granted | PermissionStatus::Denied | 
-            PermissionStatus::NotDetermined | PermissionStatus::Restricted => {
+            PermissionStatus::Granted
+            | PermissionStatus::Denied
+            | PermissionStatus::NotDetermined
+            | PermissionStatus::Restricted => {
                 // Valid
             }
         }
@@ -41,7 +45,7 @@ mod commands_permissions_tests {
         // Test multiple calls to ensure consistent behavior
         let first_request = request_camera_permission().await.unwrap().status;
         let first_status = check_camera_permission_status().await.unwrap().status;
-        
+
         for _ in 0..3 {
             let request_result = request_camera_permission().await.unwrap();
             let status_result = check_camera_permission_status().await.unwrap();
@@ -87,4 +91,3 @@ mod commands_permissions_tests {
         }
     }
 }
-

@@ -12,7 +12,7 @@ fn main() {
                 .parent() // build/crabcamera-xxx
                 .and_then(|p| p.parent()) // build
                 .expect("Could not find build directory");
-            
+
             // Search for opus-static-sys output directory
             if let Ok(entries) = std::fs::read_dir(target_dir) {
                 for entry in entries.flatten() {
@@ -30,7 +30,7 @@ fn main() {
                 }
             }
         }
-        
+
         // Fallback: try DEP_ variable (works for some build configurations)
         if let Ok(lib_path) = std::env::var("DEP_OPUS_LIB_DIR") {
             println!("cargo:rustc-link-search=native={}", lib_path);

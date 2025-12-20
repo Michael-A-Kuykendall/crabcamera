@@ -1,5 +1,5 @@
 //! Quick Camera Test - Run this to verify CrabCamera works with your hardware
-//! 
+//!
 //! Run with: cargo run --example quick_test
 //!
 //! This will:
@@ -9,14 +9,13 @@
 //! 4. Save it to disk
 //! 5. Show system diagnostics
 
-use crabcamera::commands::init::{
-    get_available_cameras, initialize_camera_system, get_system_diagnostics
-};
-use crabcamera::commands::capture::{
-    capture_single_photo, save_frame_compressed, 
-    start_camera_preview, stop_camera_preview
-};
 use crabcamera::commands::advanced::{get_camera_controls, test_camera_capabilities};
+use crabcamera::commands::capture::{
+    capture_single_photo, save_frame_compressed, start_camera_preview, stop_camera_preview,
+};
+use crabcamera::commands::init::{
+    get_available_cameras, get_system_diagnostics, initialize_camera_system,
+};
 use crabcamera::types::CameraFormat;
 use std::time::Duration;
 use tokio::time::sleep;
@@ -67,7 +66,10 @@ async fn main() {
                 println!("       Available: {}", cam.is_available);
                 println!("       Formats: {} supported", cam.supports_formats.len());
                 if let Some(best) = cam.supports_formats.first() {
-                    println!("       Best: {}x{} @ {}fps", best.width, best.height, best.fps);
+                    println!(
+                        "       Best: {}x{} @ {}fps",
+                        best.width, best.height, best.fps
+                    );
                 }
             }
             println!();
@@ -87,11 +89,46 @@ async fn main() {
     println!("─────────────────────────────────────");
     match test_camera_capabilities(device_id.clone()).await {
         Ok(caps) => {
-            println!("   Auto Focus:     {}", if caps.supports_auto_focus { "✅" } else { "❌" });
-            println!("   Manual Focus:   {}", if caps.supports_manual_focus { "✅" } else { "❌" });
-            println!("   Auto Exposure:  {}", if caps.supports_auto_exposure { "✅" } else { "❌" });
-            println!("   Manual Exposure:{}", if caps.supports_manual_exposure { "✅" } else { "❌" });
-            println!("   White Balance:  {}", if caps.supports_white_balance { "✅" } else { "❌" });
+            println!(
+                "   Auto Focus:     {}",
+                if caps.supports_auto_focus {
+                    "✅"
+                } else {
+                    "❌"
+                }
+            );
+            println!(
+                "   Manual Focus:   {}",
+                if caps.supports_manual_focus {
+                    "✅"
+                } else {
+                    "❌"
+                }
+            );
+            println!(
+                "   Auto Exposure:  {}",
+                if caps.supports_auto_exposure {
+                    "✅"
+                } else {
+                    "❌"
+                }
+            );
+            println!(
+                "   Manual Exposure:{}",
+                if caps.supports_manual_exposure {
+                    "✅"
+                } else {
+                    "❌"
+                }
+            );
+            println!(
+                "   White Balance:  {}",
+                if caps.supports_white_balance {
+                    "✅"
+                } else {
+                    "❌"
+                }
+            );
             println!();
         }
         Err(e) => println!("   ⚠️  Could not test capabilities: {}\n", e),
@@ -115,8 +152,11 @@ async fn main() {
     println!("📋 STEP 6: Start Camera Stream (warm-up)");
     println!("─────────────────────────────────────");
     let format = CameraFormat::standard();
-    println!("   Using format: {}x{} @ {}fps", format.width, format.height, format.fps);
-    
+    println!(
+        "   Using format: {}x{} @ {}fps",
+        format.width, format.height, format.fps
+    );
+
     match start_camera_preview(device_id.clone(), Some(format.clone())).await {
         Ok(msg) => println!("   ✅ {}", msg),
         Err(e) => {
@@ -124,7 +164,7 @@ async fn main() {
             return;
         }
     }
-    
+
     println!("   ⏳ Warming up camera (2 seconds)...");
     sleep(Duration::from_secs(2)).await;
     println!("   ✅ Camera warmed up!\n");
@@ -132,19 +172,21 @@ async fn main() {
     // Capture a photo
     println!("📋 STEP 7: Capture Test Photo");
     println!("─────────────────────────────────────");
-    
+
     match capture_single_photo(Some(device_id.clone()), Some(format)).await {
         Ok(frame) => {
             println!("   ✅ Captured frame!");
             println!("      Size: {}x{} pixels", frame.width, frame.height);
             println!("      Data: {} bytes", frame.size_bytes);
             println!("      Time: {}", frame.timestamp);
-            
+
             // Save to disk as proper JPEG
-            let filename = format!("test_capture_{}.jpg", 
-                chrono::Utc::now().format("%Y%m%d_%H%M%S"));
+            let filename = format!(
+                "test_capture_{}.jpg",
+                chrono::Utc::now().format("%Y%m%d_%H%M%S")
+            );
             println!("\n   💾 Saving to {}...", filename);
-            
+
             match save_frame_compressed(frame, filename.clone(), Some(90)).await {
                 Ok(_) => println!("   ✅ Saved! Check the current directory for {}", filename),
                 Err(e) => println!("   ⚠️  Could not save: {}", e),

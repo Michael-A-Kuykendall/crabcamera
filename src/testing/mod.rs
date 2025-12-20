@@ -5,8 +5,7 @@
 
 pub mod synthetic_data;
 
-pub use synthetic_data::{
-    synthetic_video_frame, 
-    synthetic_audio_frame, 
-    ObsbotCharacteristics
-};
+pub use synthetic_data::{synthetic_video_frame, ObsbotCharacteristics};
+
+#[cfg(feature = "audio")]
+pub use synthetic_data::synthetic_audio_frame;

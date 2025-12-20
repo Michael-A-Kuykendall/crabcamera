@@ -4,8 +4,8 @@
 //! different platforms (Windows, macOS, Linux) while maintaining platform-specific
 //! optimizations and features.
 
-use crate::types::{CameraDeviceInfo, CameraFormat, CameraFrame, CameraInitParams, Platform};
 use crate::errors::CameraError;
+use crate::types::{CameraDeviceInfo, CameraFormat, CameraFrame, CameraInitParams, Platform};
 
 // Platform-specific modules
 #[cfg(target_os = "windows")]
@@ -20,7 +20,7 @@ pub mod linux;
 // Device monitoring module
 pub mod device_monitor;
 
-pub use device_monitor::{DeviceMonitor, DeviceEvent};
+pub use device_monitor::{DeviceEvent, DeviceMonitor};
 
 // Mock camera implementation for testing
 // Mock camera for testing - always available
@@ -60,14 +60,14 @@ impl MockCamera {
         match mode {
             crate::tests::MockCaptureMode::Success => {
                 Ok(crate::tests::create_mock_frame(&self.device_id))
-            },
-            crate::tests::MockCaptureMode::Failure => {
-                Err(CameraError::CaptureError("Mock capture failure".to_string()))
-            },
+            }
+            crate::tests::MockCaptureMode::Failure => Err(CameraError::CaptureError(
+                "Mock capture failure".to_string(),
+            )),
             crate::tests::MockCaptureMode::SlowCapture => {
                 std::thread::sleep(std::time::Duration::from_millis(100));
                 Ok(crate::tests::create_mock_frame(&self.device_id))
-            },
+            }
         }
     }
 
@@ -93,7 +93,10 @@ impl MockCamera {
         &self.device_id
     }
 
-    pub fn apply_controls(&mut self, controls: &crate::types::CameraControls) -> Result<(), CameraError> {
+    pub fn apply_controls(
+        &mut self,
+        controls: &crate::types::CameraControls,
+    ) -> Result<(), CameraError> {
         if let Ok(mut current_controls) = self.controls.lock() {
             *current_controls = controls.clone();
         }
@@ -127,7 +130,9 @@ impl MockCamera {
         })
     }
 
-    pub fn get_performance_metrics(&self) -> Result<crate::types::CameraPerformanceMetrics, CameraError> {
+    pub fn get_performance_metrics(
+        &self,
+    ) -> Result<crate::types::CameraPerformanceMetrics, CameraError> {
         Ok(crate::types::CameraPerformanceMetrics {
             capture_latency_ms: 16.7, // 60 FPS
             processing_time_ms: 5.0,
@@ -144,16 +149,15 @@ impl MockCamera {
 pub enum PlatformCamera {
     #[cfg(target_os = "windows")]
     Windows(windows::WindowsCamera),
-    
+
     #[cfg(target_os = "macos")]
     MacOS(macos::MacOSCamera),
-    
+
     #[cfg(target_os = "linux")]
     Linux(linux::LinuxCamera),
-    
-    
+
     Mock(MockCamera),
-    
+
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
     Unsupported,
 }
@@ -165,9 +169,11 @@ impl PlatformCamera {
         // or when running in unit test threads (thread name contains "test")
         // Note: We no longer check CARGO_MANIFEST_DIR because that's set during
         // normal `cargo run` which should use real cameras
-        let use_mock = std::env::var("CRABCAMERA_USE_MOCK").is_ok() ||
-            std::thread::current().name().is_some_and(|name| name.contains("test"));
-            
+        let use_mock = std::env::var("CRABCAMERA_USE_MOCK").is_ok()
+            || std::thread::current()
+                .name()
+                .is_some_and(|name| name.contains("test"));
+
         if use_mock {
             log::info!("Using mock camera (CRABCAMERA_USE_MOCK set or in test thread)");
             let mock_camera = MockCamera::new(params.device_id, params.format);
@@ -180,20 +186,22 @@ impl PlatformCamera {
                 let camera = windows::WindowsCamera::new(params.device_id, params.format)?;
                 Ok(PlatformCamera::Windows(camera))
             }
-            
+
             #[cfg(target_os = "macos")]
             Platform::MacOS => {
                 let camera = macos::initialize_camera(params)?;
                 Ok(PlatformCamera::MacOS(camera))
             }
-            
+
             #[cfg(target_os = "linux")]
             Platform::Linux => {
                 let camera = linux::initialize_camera(params)?;
                 Ok(PlatformCamera::Linux(camera))
             }
-            
-            _ => Err(CameraError::InitializationError("Unsupported platform".to_string())),
+
+            _ => Err(CameraError::InitializationError(
+                "Unsupported platform".to_string(),
+            )),
         }
     }
 
@@ -202,18 +210,19 @@ impl PlatformCamera {
         match self {
             #[cfg(target_os = "windows")]
             PlatformCamera::Windows(camera) => camera.capture_frame(),
-            
+
             #[cfg(target_os = "macos")]
             PlatformCamera::MacOS(camera) => camera.capture_frame(),
-            
+
             #[cfg(target_os = "linux")]
             PlatformCamera::Linux(camera) => camera.capture_frame(),
-            
-            
+
             PlatformCamera::Mock(camera) => camera.capture_frame(),
-            
+
             #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-            PlatformCamera::Unsupported => Err(CameraError::InitializationError("Unsupported platform".to_string())),
+            PlatformCamera::Unsupported => Err(CameraError::InitializationError(
+                "Unsupported platform".to_string(),
+            )),
         }
     }
 
@@ -222,18 +231,19 @@ impl PlatformCamera {
         match self {
             #[cfg(target_os = "windows")]
             PlatformCamera::Windows(camera) => camera.start_stream(),
-            
+
             #[cfg(target_os = "macos")]
             PlatformCamera::MacOS(camera) => camera.start_stream(),
-            
+
             #[cfg(target_os = "linux")]
             PlatformCamera::Linux(camera) => camera.start_stream(),
-            
-            
+
             PlatformCamera::Mock(camera) => camera.start_stream(),
-            
+
             #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-            PlatformCamera::Unsupported => Err(CameraError::InitializationError("Unsupported platform".to_string())),
+            PlatformCamera::Unsupported => Err(CameraError::InitializationError(
+                "Unsupported platform".to_string(),
+            )),
         }
     }
 
@@ -242,18 +252,19 @@ impl PlatformCamera {
         match self {
             #[cfg(target_os = "windows")]
             PlatformCamera::Windows(camera) => camera.stop_stream(),
-            
+
             #[cfg(target_os = "macos")]
             PlatformCamera::MacOS(camera) => camera.stop_stream(),
-            
+
             #[cfg(target_os = "linux")]
             PlatformCamera::Linux(camera) => camera.stop_stream(),
-            
-            
+
             PlatformCamera::Mock(camera) => camera.stop_stream(),
-            
+
             #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-            PlatformCamera::Unsupported => Err(CameraError::InitializationError("Unsupported platform".to_string())),
+            PlatformCamera::Unsupported => Err(CameraError::InitializationError(
+                "Unsupported platform".to_string(),
+            )),
         }
     }
 
@@ -262,16 +273,15 @@ impl PlatformCamera {
         match self {
             #[cfg(target_os = "windows")]
             PlatformCamera::Windows(camera) => camera.is_available(),
-            
+
             #[cfg(target_os = "macos")]
             PlatformCamera::MacOS(camera) => camera.is_available(),
-            
+
             #[cfg(target_os = "linux")]
             PlatformCamera::Linux(camera) => camera.is_available(),
-            
-            
+
             PlatformCamera::Mock(camera) => camera.is_available(),
-            
+
             #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
             PlatformCamera::Unsupported => false,
         }
@@ -282,23 +292,25 @@ impl PlatformCamera {
         match self {
             #[cfg(target_os = "windows")]
             PlatformCamera::Windows(camera) => Some(camera.get_device_id()),
-            
+
             #[cfg(target_os = "macos")]
             PlatformCamera::MacOS(camera) => Some(camera.get_device_id()),
-            
+
             #[cfg(target_os = "linux")]
             PlatformCamera::Linux(camera) => Some(camera.get_device_id()),
-            
-            
+
             PlatformCamera::Mock(camera) => Some(camera.get_device_id()),
-            
+
             #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
             PlatformCamera::Unsupported => None,
         }
     }
 
     /// Apply camera controls
-    pub fn apply_controls(&mut self, controls: &crate::types::CameraControls) -> Result<(), CameraError> {
+    pub fn apply_controls(
+        &mut self,
+        controls: &crate::types::CameraControls,
+    ) -> Result<(), CameraError> {
         match self {
             #[cfg(target_os = "windows")]
             PlatformCamera::Windows(camera) => {
@@ -310,21 +322,22 @@ impl PlatformCamera {
                         }
                         Ok(())
                     }
-                    Err(e) => Err(e)
+                    Err(e) => Err(e),
                 }
             }
-            
+
             #[cfg(target_os = "macos")]
             PlatformCamera::MacOS(camera) => camera.apply_controls(controls),
-            
+
             #[cfg(target_os = "linux")]
             PlatformCamera::Linux(camera) => camera.apply_controls(controls),
-            
-            
+
             PlatformCamera::Mock(camera) => camera.apply_controls(controls),
-            
+
             #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-            PlatformCamera::Unsupported => Err(CameraError::InitializationError("Unsupported platform".to_string())),
+            PlatformCamera::Unsupported => Err(CameraError::InitializationError(
+                "Unsupported platform".to_string(),
+            )),
         }
     }
 
@@ -333,18 +346,19 @@ impl PlatformCamera {
         match self {
             #[cfg(target_os = "windows")]
             PlatformCamera::Windows(camera) => camera.get_controls(),
-            
+
             #[cfg(target_os = "macos")]
             PlatformCamera::MacOS(camera) => camera.get_controls(),
-            
+
             #[cfg(target_os = "linux")]
             PlatformCamera::Linux(camera) => camera.get_controls(),
-            
-            
+
             PlatformCamera::Mock(camera) => camera.get_controls(),
-            
+
             #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-            PlatformCamera::Unsupported => Err(CameraError::InitializationError("Unsupported platform".to_string())),
+            PlatformCamera::Unsupported => Err(CameraError::InitializationError(
+                "Unsupported platform".to_string(),
+            )),
         }
     }
 
@@ -353,41 +367,45 @@ impl PlatformCamera {
         match self {
             #[cfg(target_os = "windows")]
             PlatformCamera::Windows(camera) => camera.test_capabilities(),
-            
+
             #[cfg(target_os = "macos")]
             PlatformCamera::MacOS(camera) => camera.test_capabilities(),
-            
+
             #[cfg(target_os = "linux")]
             PlatformCamera::Linux(camera) => camera.test_capabilities(),
-            
-            
+
             PlatformCamera::Mock(camera) => camera.test_capabilities(),
-            
+
             #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-            PlatformCamera::Unsupported => Err(CameraError::InitializationError("Unsupported platform".to_string())),
+            PlatformCamera::Unsupported => Err(CameraError::InitializationError(
+                "Unsupported platform".to_string(),
+            )),
         }
     }
 
     /// Get performance metrics
-    pub fn get_performance_metrics(&self) -> Result<crate::types::CameraPerformanceMetrics, CameraError> {
+    pub fn get_performance_metrics(
+        &self,
+    ) -> Result<crate::types::CameraPerformanceMetrics, CameraError> {
         match self {
             #[cfg(target_os = "windows")]
             PlatformCamera::Windows(_camera) => {
                 // Return basic metrics for Windows (WindowsCamera doesn't implement this yet)
                 Ok(crate::types::CameraPerformanceMetrics::default())
             }
-            
+
             #[cfg(target_os = "macos")]
             PlatformCamera::MacOS(camera) => camera.get_performance_metrics(),
-            
+
             #[cfg(target_os = "linux")]
             PlatformCamera::Linux(camera) => camera.get_performance_metrics(),
-            
-            
+
             PlatformCamera::Mock(camera) => camera.get_performance_metrics(),
-            
+
             #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-            PlatformCamera::Unsupported => Err(CameraError::InitializationError("Unsupported platform".to_string())),
+            PlatformCamera::Unsupported => Err(CameraError::InitializationError(
+                "Unsupported platform".to_string(),
+            )),
         }
     }
 }
@@ -408,21 +426,25 @@ impl CameraSystem {
         match Platform::current() {
             #[cfg(target_os = "windows")]
             Platform::Windows => windows::list_cameras(),
-            
+
             #[cfg(target_os = "macos")]
             Platform::MacOS => macos::list_cameras(),
-            
+
             #[cfg(target_os = "linux")]
             Platform::Linux => linux::list_cameras(),
-            
-            _ => Err(CameraError::InitializationError("Unsupported platform".to_string())),
+
+            _ => Err(CameraError::InitializationError(
+                "Unsupported platform".to_string(),
+            )),
         }
     }
 
     /// Initialize the camera system for the current platform
     pub fn initialize() -> Result<String, CameraError> {
         match Platform::current() {
-            Platform::Windows => Ok("Windows camera system initialized with DirectShow/MediaFoundation".to_string()),
+            Platform::Windows => {
+                Ok("Windows camera system initialized with DirectShow/MediaFoundation".to_string())
+            }
             Platform::MacOS => Ok("macOS camera system initialized with AVFoundation".to_string()),
             Platform::Linux => {
                 #[cfg(target_os = "linux")]
@@ -430,20 +452,26 @@ impl CameraSystem {
                     if linux::utils::is_v4l2_available() {
                         Ok("Linux camera system initialized with V4L2".to_string())
                     } else {
-                        Err(CameraError::InitializationError("V4L2 not available on this system".to_string()))
+                        Err(CameraError::InitializationError(
+                            "V4L2 not available on this system".to_string(),
+                        ))
                     }
                 }
                 #[cfg(not(target_os = "linux"))]
-                Err(CameraError::InitializationError("Linux support not compiled".to_string()))
+                Err(CameraError::InitializationError(
+                    "Linux support not compiled".to_string(),
+                ))
             }
-            Platform::Unknown => Err(CameraError::InitializationError("Unknown platform".to_string())),
+            Platform::Unknown => Err(CameraError::InitializationError(
+                "Unknown platform".to_string(),
+            )),
         }
     }
 
     /// Get platform-specific information
     pub fn get_platform_info() -> Result<PlatformInfo, CameraError> {
         let platform = Platform::current();
-        
+
         let backend = match platform {
             Platform::Windows => "DirectShow/MediaFoundation",
             Platform::MacOS => "AVFoundation",
@@ -486,27 +514,25 @@ impl CameraSystem {
     pub fn test_system() -> Result<SystemTestResult, CameraError> {
         let platform = Platform::current();
         let cameras = Self::list_cameras()?;
-        
+
         let mut test_results = Vec::new();
-        
+
         // Test each camera
         for camera_info in &cameras {
             let test_result = if camera_info.is_available {
                 // Try to initialize camera
                 let params = CameraInitParams::new(camera_info.id.clone());
                 match PlatformCamera::new(params) {
-                    Ok(mut camera) => {
-                        match camera.capture_frame() {
-                            Ok(_) => CameraTestResult::Success,
-                            Err(e) => CameraTestResult::CaptureError(e.to_string()),
-                        }
-                    }
+                    Ok(mut camera) => match camera.capture_frame() {
+                        Ok(_) => CameraTestResult::Success,
+                        Err(e) => CameraTestResult::CaptureError(e.to_string()),
+                    },
                     Err(e) => CameraTestResult::InitError(e.to_string()),
                 }
             } else {
                 CameraTestResult::NotAvailable
             };
-            
+
             test_results.push((camera_info.id.clone(), test_result));
         }
 
@@ -569,10 +595,10 @@ pub mod optimizations {
     /// Get platform-specific camera settings for optimal capture
     pub fn get_optimal_settings() -> CameraInitParams {
         let format = get_photography_format();
-        
+
         CameraInitParams::new("0".to_string()) // Default to first camera
             .with_format(format)
-            .with_auto_focus(true)  // Important for detailed photography
+            .with_auto_focus(true) // Important for detailed photography
             .with_auto_exposure(true) // Handle varying lighting conditions
     }
 }

@@ -17,18 +17,18 @@ use std::io::BufWriter;
 use std::path::Path;
 use std::time::Instant;
 
-use muxide::api::{MuxerBuilder, VideoCodec, Metadata};
+use muxide::api::{Metadata, MuxerBuilder, VideoCodec};
 
 #[cfg(feature = "audio")]
 use muxide::api::AudioCodec;
 
-use super::encoder::H264Encoder;
 use super::config::{RecordingConfig, RecordingStats};
+use super::encoder::H264Encoder;
 use crate::errors::CameraError;
 use crate::types::CameraFrame;
 
 #[cfg(feature = "audio")]
-use crate::audio::{OpusEncoder, PTSClock, EncodedAudio};
+use crate::audio::{EncodedAudio, OpusEncoder, PTSClock};
 #[cfg(feature = "audio")]
 use std::thread::JoinHandle;
 
@@ -72,9 +72,12 @@ pub struct Recorder {
 impl Recorder {
     /// Create a new recorder that writes to the specified file
     /// Per #RecorderIntegrateAudio: ! configures_muxer_audio_track_when_enabled
-    pub fn new<P: AsRef<Path>>(output_path: P, config: RecordingConfig) -> Result<Self, CameraError> {
+    pub fn new<P: AsRef<Path>>(
+        output_path: P,
+        config: RecordingConfig,
+    ) -> Result<Self, CameraError> {
         let output_path_str = output_path.as_ref().to_string_lossy().to_string();
-        
+
         // Create the output file
         let file = File::create(&output_path)
             .map_err(|e| CameraError::IoError(format!("Failed to create output file: {}", e)))?;
@@ -98,16 +101,15 @@ impl Recorder {
         }
 
         if let Some(ref title) = config.title {
-            let metadata = Metadata::new()
-                .with_title(title)
-                .with_current_time();
+            let metadata = Metadata::new().with_title(title).with_current_time();
             builder = builder.with_metadata(metadata);
         } else {
             let metadata = Metadata::new().with_current_time();
             builder = builder.with_metadata(metadata);
         }
 
-        let muxer = builder.build()
+        let muxer = builder
+            .build()
             .map_err(|e| CameraError::MuxingError(format!("Failed to create muxer: {}", e)))?;
 
         let frame_duration_secs = 1.0 / config.fps;
@@ -191,7 +193,8 @@ impl Recorder {
             };
 
             // Create capture and encoder in this thread (they stay here)
-            let mut capture = match AudioCapture::new(device_id, sample_rate, channels, clock_clone) {
+            let mut capture = match AudioCapture::new(device_id, sample_rate, channels, clock_clone)
+            {
                 Ok(c) => c,
                 Err(e) => {
                     report_error(&format!("Audio capture init failed: {}", e));
@@ -253,7 +256,7 @@ impl Recorder {
     ///   - unbounded_audio_drain
     pub fn write_frame(&mut self, frame: &CameraFrame) -> Result<(), CameraError> {
         let now = Instant::now();
-        
+
         // Initialize start time on first frame and start audio
         let is_first_frame = self.start_time.is_none();
         if is_first_frame {
@@ -313,7 +316,8 @@ impl Recorder {
         let pts = self.frame_count as f64 * self.frame_duration_secs;
 
         // Write to muxer (use the keyframe info from the encoder)
-        self.muxer.write_video(pts, &encoded.data, encoded.is_keyframe)
+        self.muxer
+            .write_video(pts, &encoded.data, encoded.is_keyframe)
             .map_err(|e| CameraError::MuxingError(format!("Failed to write frame: {}", e)))?;
 
         self.frame_count += 1;
@@ -364,7 +368,12 @@ impl Recorder {
     }
 
     /// Write raw RGB data as a frame
-    pub fn write_rgb_frame(&mut self, rgb_data: &[u8], width: u32, height: u32) -> Result<(), CameraError> {
+    pub fn write_rgb_frame(
+        &mut self,
+        rgb_data: &[u8],
+        width: u32,
+        height: u32,
+    ) -> Result<(), CameraError> {
         // Validate dimensions
         if width != self.config.width || height != self.config.height {
             return Err(CameraError::EncodingError(format!(
@@ -374,7 +383,7 @@ impl Recorder {
         }
 
         let now = Instant::now();
-        
+
         let is_first_frame = self.start_time.is_none();
         if is_first_frame {
             self.start_time = Some(now);
@@ -402,7 +411,8 @@ impl Recorder {
         #[cfg(not(feature = "audio"))]
         let pts = self.frame_count as f64 * self.frame_duration_secs;
 
-        self.muxer.write_video(pts, &encoded.data, encoded.is_keyframe)
+        self.muxer
+            .write_video(pts, &encoded.data, encoded.is_keyframe)
             .map_err(|e| CameraError::MuxingError(format!("Failed to write frame: {}", e)))?;
 
         self.frame_count += 1;
@@ -422,10 +432,12 @@ impl Recorder {
         self.finish_audio();
 
         // Use finish_with_stats() which returns Result<MuxerStats, MuxerError>
-        let muxer_stats = self.muxer.finish_with_stats()
-            .map_err(|e| CameraError::MuxingError(format!("Failed to finalize recording: {}", e)))?;
+        let muxer_stats = self.muxer.finish_with_stats().map_err(|e| {
+            CameraError::MuxingError(format!("Failed to finalize recording: {}", e))
+        })?;
 
-        let actual_duration = self.start_time
+        let actual_duration = self
+            .start_time
             .map(|start| start.elapsed().as_secs_f64())
             .unwrap_or(muxer_stats.duration_secs);
 
@@ -526,10 +538,10 @@ mod tests {
     fn test_recorder_creation() {
         let output = temp_dir().join("test_recording.mp4");
         let config = RecordingConfig::new(640, 480, 30.0);
-        
+
         let result = Recorder::new(&output, config);
         assert!(result.is_ok(), "Recorder should be created successfully");
-        
+
         // Clean up
         let _ = std::fs::remove_file(&output);
     }
@@ -537,31 +549,30 @@ mod tests {
     #[test]
     fn test_record_frames() {
         let output = temp_dir().join("test_frames_recording.mp4");
-        let config = RecordingConfig::new(640, 480, 30.0)
-            .with_title("Test Recording");
-        
-        let mut recorder = Recorder::new(&output, config)
-            .expect("Recorder creation failed");
-        
+        let config = RecordingConfig::new(640, 480, 30.0).with_title("Test Recording");
+
+        let mut recorder = Recorder::new(&output, config).expect("Recorder creation failed");
+
         // Create test frames (gray gradient)
         for i in 0..30 {
             let gray = (i * 8) as u8;
             let rgb = vec![gray; 640 * 480 * 3];
-            
-            recorder.write_rgb_frame(&rgb, 640, 480)
+
+            recorder
+                .write_rgb_frame(&rgb, 640, 480)
                 .expect("Frame write should succeed");
         }
-        
+
         let stats = recorder.finish().expect("Finish should succeed");
-        
+
         assert_eq!(stats.video_frames, 30, "Should have 30 frames");
         assert!(stats.bytes_written > 0, "Should have written bytes");
         assert!(stats.duration_secs > 0.0, "Should have duration");
-        
+
         // Verify file exists and has content
         let metadata = std::fs::metadata(&output).expect("File should exist");
         assert!(metadata.len() > 0, "File should have content");
-        
+
         // Clean up
         let _ = std::fs::remove_file(&output);
     }

@@ -76,10 +76,10 @@ impl RecordingQuality {
     /// Get recommended bitrate in bits per second
     pub fn bitrate(&self) -> u32 {
         match self {
-            RecordingQuality::Low => 2_500_000,      // 2.5 Mbps for 720p
-            RecordingQuality::Medium => 5_000_000,   // 5 Mbps for 1080p
-            RecordingQuality::High => 10_000_000,    // 10 Mbps for high quality
-            RecordingQuality::Custom => 5_000_000,   // Default to medium
+            RecordingQuality::Low => 2_500_000,    // 2.5 Mbps for 720p
+            RecordingQuality::Medium => 5_000_000, // 5 Mbps for 1080p
+            RecordingQuality::High => 10_000_000,  // 10 Mbps for high quality
+            RecordingQuality::Custom => 5_000_000, // Default to medium
         }
     }
 
@@ -98,13 +98,11 @@ impl RecordingQuality {
         match self {
             RecordingQuality::Low => 30.0,
             RecordingQuality::Medium => 30.0,
-            RecordingQuality::High => 30.0,  // Can be overridden
+            RecordingQuality::High => 30.0, // Can be overridden
             RecordingQuality::Custom => 30.0,
         }
     }
 }
-
-
 
 /// Configuration for video recording
 #[derive(Debug, Clone, Serialize, Deserialize)]

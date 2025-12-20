@@ -1,12 +1,12 @@
 //! Raw nokhwa test - bypass crabcamera to test camera directly
-//! 
+//!
 //! Run with: cargo run --example raw_nokhwa_test
 
-use nokhwa::{Camera, query};
 use nokhwa::pixel_format::RgbFormat;
 use nokhwa::utils::{ApiBackend, CameraIndex, RequestedFormat, RequestedFormatType};
-use std::time::Duration;
+use nokhwa::{query, Camera};
 use std::thread;
+use std::time::Duration;
 
 fn main() {
     println!("═══════════════════════════════════════════════════════════════");
@@ -30,7 +30,8 @@ fn main() {
 
     // Create camera
     println!("📋 Creating camera...");
-    let requested_format = RequestedFormat::new::<RgbFormat>(RequestedFormatType::AbsoluteHighestResolution);
+    let requested_format =
+        RequestedFormat::new::<RgbFormat>(RequestedFormatType::AbsoluteHighestResolution);
     let mut camera = match Camera::new(CameraIndex::Index(0), requested_format) {
         Ok(cam) => {
             println!("   ✅ Camera created");
@@ -59,23 +60,32 @@ fn main() {
     println!("\n📋 Capturing warmup frames...");
     for i in 0..20 {
         thread::sleep(Duration::from_millis(100));
-        
+
         match camera.frame() {
             Ok(frame) => {
                 let bytes = frame.buffer_bytes();
                 let len = bytes.len();
-                
+
                 // Check if frame is all zeros or all same value (gray)
                 let first_byte = bytes.first().copied().unwrap_or(0);
                 let all_same = bytes.iter().all(|&b| b == first_byte);
                 let sum: u64 = bytes.iter().map(|&b| b as u64).sum();
                 let avg = sum / len as u64;
-                
+
                 // Sample some pixels
-                let sample1 = bytes.get(0..3).map(|s| format!("{:?}", s)).unwrap_or_default();
-                let sample_mid = bytes.get(len/2..len/2+3).map(|s| format!("{:?}", s)).unwrap_or_default();
-                let sample_end = bytes.get(len-3..).map(|s| format!("{:?}", s)).unwrap_or_default();
-                
+                let sample1 = bytes
+                    .get(0..3)
+                    .map(|s| format!("{:?}", s))
+                    .unwrap_or_default();
+                let sample_mid = bytes
+                    .get(len / 2..len / 2 + 3)
+                    .map(|s| format!("{:?}", s))
+                    .unwrap_or_default();
+                let sample_end = bytes
+                    .get(len - 3..)
+                    .map(|s| format!("{:?}", s))
+                    .unwrap_or_default();
+
                 println!(
                     "   Frame {}: {}x{}, {} bytes, avg={}, all_same={}, samples: {} | {} | {}",
                     i + 1,
@@ -84,19 +94,21 @@ fn main() {
                     len,
                     avg,
                     all_same,
-                    sample1, sample_mid, sample_end
+                    sample1,
+                    sample_mid,
+                    sample_end
                 );
-                
+
                 // If we get non-uniform data, save it
                 if !all_same && i >= 5 {
                     println!("\n   🎉 Got varied frame data! Saving...");
-                    
+
                     let img = image::RgbImage::from_vec(
                         frame.resolution().width_x,
                         frame.resolution().height_y,
-                        bytes.to_vec()
+                        bytes.to_vec(),
                     );
-                    
+
                     if let Some(img) = img {
                         let filename = format!("raw_capture_{}.jpg", i);
                         match img.save(&filename) {

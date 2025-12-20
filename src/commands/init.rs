@@ -1,6 +1,6 @@
-use tauri::command;
-use crate::types::{CameraDeviceInfo, CameraFormat, Platform};
 use crate::platform::{CameraSystem, PlatformInfo, SystemTestResult};
+use crate::types::{CameraDeviceInfo, CameraFormat, Platform};
+use tauri::command;
 
 /// Initialize the camera system for the current platform
 #[command]
@@ -24,8 +24,12 @@ pub async fn get_available_cameras() -> Result<Vec<CameraDeviceInfo>, String> {
         Ok(cameras) => {
             log::info!("Found {} cameras", cameras.len());
             for camera in &cameras {
-                log::debug!("Camera: {} - {} (Available: {})", 
-                    camera.id, camera.name, camera.is_available);
+                log::debug!(
+                    "Camera: {} - {} (Available: {})",
+                    camera.id,
+                    camera.name,
+                    camera.is_available
+                );
             }
             Ok(cameras)
         }
@@ -41,7 +45,11 @@ pub async fn get_available_cameras() -> Result<Vec<CameraDeviceInfo>, String> {
 pub async fn get_platform_info() -> Result<PlatformInfo, String> {
     match CameraSystem::get_platform_info() {
         Ok(info) => {
-            log::info!("Platform: {} using {}", info.platform.as_str(), info.backend);
+            log::info!(
+                "Platform: {} using {}",
+                info.platform.as_str(),
+                info.backend
+            );
             Ok(info)
         }
         Err(e) => {
@@ -55,12 +63,15 @@ pub async fn get_platform_info() -> Result<PlatformInfo, String> {
 #[command]
 pub async fn test_camera_system() -> Result<SystemTestResult, String> {
     log::info!("Running camera system test...");
-    
+
     match CameraSystem::test_system() {
         Ok(result) => {
-            log::info!("Camera system test completed: {} cameras found on {}", 
-                result.cameras_found, result.platform.as_str());
-            
+            log::info!(
+                "Camera system test completed: {} cameras found on {}",
+                result.cameras_found,
+                result.platform.as_str()
+            );
+
             for (camera_id, test_result) in &result.test_results {
                 match test_result {
                     crate::platform::CameraTestResult::Success => {
@@ -77,7 +88,7 @@ pub async fn test_camera_system() -> Result<SystemTestResult, String> {
                     }
                 }
             }
-            
+
             Ok(result)
         }
         Err(e) => {
@@ -99,11 +110,12 @@ pub async fn get_current_platform() -> Result<String, String> {
 pub async fn check_camera_availability(device_id: String) -> Result<bool, String> {
     match CameraSystem::list_cameras() {
         Ok(cameras) => {
-            let is_available = cameras.iter()
+            let is_available = cameras
+                .iter()
                 .find(|camera| camera.id == device_id)
                 .map(|camera| camera.is_available)
                 .unwrap_or(false);
-            
+
             log::debug!("Camera {} availability: {}", device_id, is_available);
             Ok(is_available)
         }
@@ -120,7 +132,11 @@ pub async fn get_camera_formats(device_id: String) -> Result<Vec<CameraFormat>, 
     match CameraSystem::list_cameras() {
         Ok(cameras) => {
             if let Some(camera) = cameras.iter().find(|c| c.id == device_id) {
-                log::debug!("Camera {} supports {} formats", device_id, camera.supports_formats.len());
+                log::debug!(
+                    "Camera {} supports {} formats",
+                    device_id,
+                    camera.supports_formats.len()
+                );
                 Ok(camera.supports_formats.clone())
             } else {
                 let msg = format!("Camera with ID '{}' not found", device_id);
@@ -139,71 +155,91 @@ pub async fn get_camera_formats(device_id: String) -> Result<Vec<CameraFormat>, 
 #[command]
 pub async fn get_recommended_format() -> Result<CameraFormat, String> {
     let format = crate::platform::optimizations::get_photography_format();
-    log::info!("Recommended photography format: {}x{} @ {}fps ({})", 
-        format.width, format.height, format.fps, format.format_type);
+    log::info!(
+        "Recommended photography format: {}x{} @ {}fps ({})",
+        format.width,
+        format.height,
+        format.fps,
+        format.format_type
+    );
     Ok(format)
 }
 
 /// Get optimal camera settings for high-quality capture
-#[command]  
+#[command]
 pub async fn get_optimal_settings() -> Result<crate::types::CameraInitParams, String> {
     let params = crate::platform::optimizations::get_optimal_settings();
-    log::info!("Optimal settings: Device {} with {}x{} @ {}fps", 
-        params.device_id, params.format.width, params.format.height, params.format.fps);
+    log::info!(
+        "Optimal settings: Device {} with {}x{} @ {}fps",
+        params.device_id,
+        params.format.width,
+        params.format.height,
+        params.format.fps
+    );
     Ok(params)
 }
 
 /// Comprehensive system diagnostics for troubleshooting
-/// 
+///
 /// Returns detailed information about the camera system state,
 /// useful for debugging issues and verifying setup.
 #[command]
 pub async fn get_system_diagnostics() -> Result<SystemDiagnostics, String> {
     log::info!("Running system diagnostics...");
-    
+
     let platform = Platform::current();
     let crate_version = crate::VERSION.to_string();
-    
+
     // Get platform info
     let platform_info = CameraSystem::get_platform_info().ok();
-    
+
     // Get available cameras
     let cameras = CameraSystem::list_cameras().unwrap_or_default();
     let camera_count = cameras.len();
-    
+
     // Build camera summaries
-    let camera_summaries: Vec<CameraSummary> = cameras.iter().map(|c| {
-        CameraSummary {
+    let camera_summaries: Vec<CameraSummary> = cameras
+        .iter()
+        .map(|c| CameraSummary {
             id: c.id.clone(),
             name: c.name.clone(),
             is_available: c.is_available,
             format_count: c.supports_formats.len(),
-            max_resolution: c.supports_formats.iter()
+            max_resolution: c
+                .supports_formats
+                .iter()
                 .map(|f| (f.width, f.height))
                 .max_by_key(|(w, h)| w * h),
-        }
-    }).collect();
-    
+        })
+        .collect();
+
     // Check permission status
     let permission_status = crate::commands::permissions::check_camera_permission_status()
         .await
         .map(|p| p.status.to_string())
         .unwrap_or_else(|_| "unknown".to_string());
-    
+
     let diagnostics = SystemDiagnostics {
         crate_version,
         platform: platform.as_str().to_string(),
-        backend: platform_info.as_ref().map(|p| p.backend.clone()).unwrap_or_else(|| "unknown".to_string()),
+        backend: platform_info
+            .as_ref()
+            .map(|p| p.backend.clone())
+            .unwrap_or_else(|| "unknown".to_string()),
         camera_count,
         cameras: camera_summaries,
         permission_status,
         features_enabled: get_enabled_features(),
         timestamp: chrono::Utc::now().to_rfc3339(),
     };
-    
-    log::info!("Diagnostics complete: {} cameras on {} ({})", 
-        diagnostics.camera_count, diagnostics.platform, diagnostics.backend);
-    
+
+    log::info!(
+        "Diagnostics complete: {} cameras on {} ({})",
+        diagnostics.camera_count,
+        diagnostics.platform,
+        diagnostics.backend
+    );
+
     Ok(diagnostics)
 }
 
@@ -238,14 +274,14 @@ fn get_enabled_features() -> Vec<String> {
         "device_monitoring".to_string(),
         "focus_stacking".to_string(),
     ];
-    
+
     #[cfg(feature = "contextlite")]
     {
         let mut features = features;
         features.push("contextlite".to_string());
         return features;
     }
-    
+
     #[allow(unreachable_code)]
     features
 }

@@ -204,10 +204,7 @@ mod commands_init_tests {
 
         // Should be a reasonable format (varies by platform)
         // Linux returns 1280x720, macOS/Windows return 1920x1080
-        assert!(
-            format.width >= 1280,
-            "Format should be at least 720p width"
-        );
+        assert!(format.width >= 1280, "Format should be at least 720p width");
         assert!(
             format.height >= 720,
             "Format should be at least 720p height"
