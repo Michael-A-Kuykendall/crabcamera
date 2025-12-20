@@ -1,17 +1,14 @@
 //! Tauri commands for audio device management
 //!
-//! # Spell: TauriAudioCommands
+//! Exposes audio device discovery and audio-enabled recording through Tauri commands
+//! with proper error handling and safe type serialization for the frontend.
 //!
-//! Intent: expose audio device discovery and audio-enabled recording through Tauri commands safely
+//! ## Commands
 //!
-//! ## Features
-//!
-//! - ui_request -> recording_action
-//! - list_audio_devices_returns_structured_data
-//! - start_recording_accepts_audio_device_option
-//! - user_safe_error_strings
-//! - no leaking_internal_error_types
-//! - async_safe_execution
+//! - `list_audio_devices`: Get all available audio input devices
+//! - `start_recording`: Accepts optional audio device configuration
+//! - Error strings are user-friendly (never expose internal types)
+//! - All operations are async-safe
 
 use serde::{Deserialize, Serialize};
 use tauri::command;
@@ -62,7 +59,6 @@ pub async fn list_audio_devices() -> Result<Vec<AudioDeviceInfo>, String> {
     enumerate_audio_devices()
         .map(|devices| devices.into_iter().map(AudioDeviceInfo::from).collect())
         .map_err(|e| {
-            // Per spell: ! user_safe_error_strings, - leaking_internal_error_types
             log::error!("Failed to enumerate audio devices: {:?}", e);
             "Unable to list audio devices. Please check that your audio drivers are installed correctly.".to_string()
         })
@@ -97,7 +93,7 @@ mod tests {
         };
 
         let json = serde_json::to_string(&device).unwrap();
-        // Per spell: uses camelCase for frontend
+        // JSON serialization uses camelCase for frontend compatibility
         assert!(json.contains("sampleRate"));
         assert!(json.contains("isDefault"));
         assert!(json.contains("Test Microphone"));

@@ -1,17 +1,15 @@
 //! Audio capture from microphone
 //!
-//! # Spell: AudioCapturePCM
-//! ^ Intent: capture microphone audio as timestamped PCM frames with bounded memory
+//! Captures microphone audio as timestamped PCM frames with bounded memory
+//! and deterministic lifecycle.
 //!
-//! @AudioCapture
-//!   : (device_id, sample_rate, channels) -> AudioCapture
-//!   ! produces_interleaved_f32_pcm
-//!   ! bounded_buffer
-//!   ! start_is_idempotent
-//!   ! stop_is_idempotent
-//!   ! joins_capture_thread_on_stop
-//!   - unbounded_memory_growth
-//!   - blocking_callback
+//! ## Properties
+//!
+//! - Produces interleaved f32 PCM samples
+//! - Bounded 256-frame circular buffer (no unbounded growth)
+//! - Start/stop operations are idempotent
+//! - Properly joins capture thread on stop
+//! - Non-blocking callback design
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;

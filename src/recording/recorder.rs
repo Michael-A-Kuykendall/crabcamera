@@ -1,16 +1,15 @@
 //! Video recorder combining encoder and muxer
 //!
-//! # Spell: RecorderIntegrateAudio
-//! ^ Intent: integrate audio capture and encoding into the existing Recorder
-//!           without destabilizing video recording
+//! Integrates audio capture and encoding into video recording without
+//! destabilizing the video pipeline. Audio failures gracefully degrade
+//! to video-only output.
 //!
-//! @Recorder
-//!   : config -> recorder
-//!   ! supports_audio_optional
-//!   ! configures_muxer_audio_track_when_enabled
-//!   ! continues_video_if_audio_fails
-//!   - writing_audio_without_track_declaration
-//!   - blocking_video_on_audio
+//! ## Properties
+//!
+//! - Audio support is optional
+//! - Configures muxer audio track when enabled
+//! - Continues video if audio fails (graceful degradation)
+//! - Never blocks video on audio initialization
 
 use std::fs::File;
 use std::io::BufWriter;
@@ -323,8 +322,7 @@ impl Recorder {
         self.frame_count += 1;
         self.last_frame_time = Some(now);
 
-        // Drain and write audio (non-blocking)
-        // Per spell: ! drains_audio_non_blocking, - busy_wait, - unbounded_audio_drain
+        // Drain and write audio (non-blocking with bounded buffer)
         #[cfg(feature = "audio")]
         self.drain_audio();
 
@@ -354,7 +352,6 @@ impl Recorder {
             match receiver.try_recv() {
                 Ok(packet) => {
                     // Write to muxer with PTS from audio frame
-                    // Per spell: ! writes_audio_pts_from_audio_frames
                     if let Err(e) = self.muxer.write_audio(packet.timestamp, &packet.data) {
                         log::warn!("Audio write failed (video continues): {}", e);
                         self.audio_failed = true;

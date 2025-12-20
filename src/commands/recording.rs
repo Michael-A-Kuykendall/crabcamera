@@ -318,7 +318,7 @@ mod tests {
         let json = serde_json::to_string(&status).unwrap();
         assert!(json.contains("test_123"));
         assert!(json.contains("100"));
-        // Per spell: uses camelCase for frontend
+        // JSON serialization uses camelCase for frontend compatibility
         #[cfg(feature = "audio")]
         {
             assert!(json.contains("audioStatus"));

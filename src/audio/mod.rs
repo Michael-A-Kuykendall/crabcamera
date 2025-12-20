@@ -4,8 +4,11 @@
 //! - cpal for cross-platform audio capture
 //! - opus for audio encoding
 //!
-//! # Spell Reference
-//! Implements: #AudioDeviceEnumerate, #AudioCapturePCM, #AudioEncodeOpus
+//! Submodules:
+//! - `device`: Audio device enumeration
+//! - `capture`: PCM audio capture with bounded buffering
+//! - `encoder`: Opus audio encoding
+//! - `clock`: PTS (Presentation Timestamp) synchronization
 
 mod capture;
 mod clock;

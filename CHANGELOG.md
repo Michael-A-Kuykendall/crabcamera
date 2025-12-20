@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **Release Stats:**
 - ✅ **115+ unit tests** (80%+ code coverage)
-- ✅ **10 audio "spells"** implemented (sealed architecture)
+- ✅ **10 audio components** implemented (complete architecture)
 - ✅ **3 integration test suites** for end-to-end validation
 - ✅ **8 fuzz tests** for encoder robustness  
 - ✅ **Hardware validated** (OBSBOT Tiny 4K + USB microphones)
@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-### 🎤 Audio Pipeline — 10 Sealed Spells
+### 🎤 Audio Pipeline — 10 Key Components
 
 ---
 
@@ -83,7 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added RFC 6716 citations for Opus constants
 - Improved `unsafe impl Send` safety documentation for `OpusEncoder`
-- Converted Sorcery notation to standard markdown (fixes clippy doc warnings)
+- Cleaned up internal notation from documentation comments
 
 ---
 
