@@ -1,19 +1,16 @@
 //! Opus audio encoder
 //!
-//! # Spell: AudioEncodeOpus
-//! ^ Intent: encode PCM audio into Opus packets suitable for MP4 muxing
+//! Encodes PCM audio into Opus packets suitable for MP4 muxing
+//! with proper frame buffering and flush semantics.
 //!
-//! @OpusEncoder
+//! ## Properties
 //!
-//! - pcm_frame -> opus_packet
-//! - accepts_f32_pcm
-//! - outputs_valid_opus_packets
-//! - flush_emits_remaining_packets
-//! - operates_at_48khz
-//! - no hidden_resampling
-//! - no changing_channel_count
-//! - opus_requires_48khz
-//! - muxide_opus_accepts_raw_packets
+//! - Accepts interleaved f32 PCM samples
+//! - Outputs valid Opus packets (RFC 6716)
+//! - Flush operation emits remaining packets
+//! - Operates at 48kHz (Opus standard)
+//! - No hidden resampling
+//! - Maintains channel count
 
 use super::capture::AudioFrame;
 use crate::errors::CameraError;

@@ -1,7 +1,9 @@
 //! Audio-Video Integration Tests for CrabCamera Recording Module
 //!
-//! # Spell: RecordingTests_AV
-//! ^ Intent: prove that produced recordings contain valid audio and video tracks with bounded sync error
+//! Tests that validate:
+//! - Recordings contain valid audio and video tracks
+//! - Audio/video synchronization within ±40ms bounds
+//! - Proper error handling and resource cleanup
 //!
 //! Run with: cargo test --test av_integration --features "recording,audio"
 

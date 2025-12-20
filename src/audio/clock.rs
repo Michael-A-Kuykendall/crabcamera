@@ -1,16 +1,14 @@
 //! Presentation timestamp clock for A/V synchronization
 //!
-//! # Spell: AudioPTSClock
-//! ^ Intent: define a single monotonic timebase for all audio and video timestamps
+//! Defines a single monotonic timebase for all audio and video timestamps,
+//! ensuring synchronized audio/video playback with bounded drift (±40ms max).
 //!
-//! @PTSClock
+//! ## Properties
 //!
-//! - start_instant -> pts_seconds
-//! - monotonic
-//! - non_decreasing
-//! - shared_by_audio_and_video
-//! - no system_wall_clock
-//! - Instant_is_monotonic
+//! - Monotonic: timestamps never decrease
+//! - Non-decreasing: maintains strict ordering
+//! - Shared: used by both audio and video streams
+//! - Platform-independent: uses `std::time::Instant`
 
 use std::sync::Arc;
 use std::time::Instant;

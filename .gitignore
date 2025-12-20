@@ -28,6 +28,14 @@ __pycache__/
 *.dll
 *.lib
 *.rcgu.o
+
+# Internal development documentation (not for public repo)
+.github/copilot-instructions.md
+docs/SORCERY.md
+docs/AUDIO_SPELLBOOK.md
+docs/*_SPELLBOOK.md
+internal/
+.internal/
 *.d
 *.profraw
 *.profdata

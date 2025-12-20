@@ -600,7 +600,7 @@ MIT License - forever and always.
 
 This is the **game-changing release**. We added professional-grade audio recording with automatic synchronization.
 
-#### ✨ Audio Pipeline (10 Sealed Spells)
+#### ✨ Audio Pipeline (10 Components)
 - ✅ **Device Enumeration**: `list_audio_devices()` discovers all audio inputs with sample rate, channels, default status
 - ✅ **Audio Capture**: CPAL integration for platform-native audio (Windows WASAPI, macOS AVFoundation, Linux ALSA)
 - ✅ **Opus Encoding**: Industry-standard codec at 48kHz (40-256 kbps adaptive bitrate)

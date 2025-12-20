@@ -1,8 +1,7 @@
 //! Audio device enumeration
 //!
-//! # Spell: AudioDeviceEnumerate
-//!
-//! Intent: expose stable, cross-platform enumeration of audio input devices
+//! Exposes stable, cross-platform enumeration of audio input devices for user selection
+//! and default device discovery.
 //!
 //! ## Features
 //!
