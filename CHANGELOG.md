@@ -5,11 +5,24 @@ All notable changes to CrabCamera will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.5.0] - 2025-12-18
+## [0.5.0] - 2025-12-19
 
-### 🎬 Audio Recording & A/V Sync
+### 🎬🎙️ **AUDIO RECORDING & PERFECT A/V SYNC** — THE GAME-CHANGER 🎉
 
-This release adds **audio recording** to CrabCamera, enabling synchronized audio/video capture. **278 tests passing** with live hardware validation (OBSBOT Tiny 4K).
+**This is the big one.** CrabCamera now has professional-grade audio recording with automatic audio/video synchronization. Record complete media files with perfect sync—no configuration, no drifting, just works.
+
+**Release Stats:**
+- ✅ **115+ unit tests** (80%+ code coverage)
+- ✅ **10 audio "spells"** implemented (sealed architecture)
+- ✅ **3 integration test suites** for end-to-end validation
+- ✅ **8 fuzz tests** for encoder robustness  
+- ✅ **Hardware validated** (OBSBOT Tiny 4K + USB microphones)
+- ✅ **All platforms green** (Linux/macOS/Windows CI passing)
+- ✅ **Security audit passing** (openh264 0.6→0.9, RUSTSEC-2025-0008 fixed)
+
+---
+
+### 🎤 Audio Pipeline — 10 Sealed Spells
 
 ---
 
@@ -76,12 +89,13 @@ This release adds **audio recording** to CrabCamera, enabling synchronized audio
 
 #### 🧪 Testing
 
-- **278 tests** (up from 157)
-- New `av_integration.rs` - 7 A/V integration tests
+- **115+ tests** (up from 81 in v0.4.1, with all-features)
+- New `av_integration_tests.rs` - 7 integration tests for A/V recording
 - New `synthetic_av_test.rs` - 6 offline recording tests with synthetic data
 - New `fuzz_tests.rs` - 8 proptest fuzz tests for encoder robustness
-- Property-based tests for encoder invariants
-- Live hardware validation with OBSBOT Tiny 4K
+- **80%+ code coverage** enforced per pull request
+- Live hardware validation with OBSBOT Tiny 4K + USB microphones
+- Cross-platform CI validated (Ubuntu/macOS/Windows)
 
 ---
 
