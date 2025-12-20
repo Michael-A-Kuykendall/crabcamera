@@ -6,7 +6,7 @@
 //! # Features
 //! - Cross-platform camera access (Windows, macOS, Linux)
 //! - Real-time camera streaming and capture
-//! - Platform-specific optimizations 
+//! - Platform-specific optimizations
 //! - Professional camera controls
 //! - Thread-safe camera management
 //! - Multiple camera format support
@@ -24,7 +24,7 @@
 //! Then in your Tauri app:
 //! ```rust,ignore
 //! use crabcamera;
-//! 
+//!
 //! fn main() {
 //!     tauri::Builder::default()
 //!         .plugin(crabcamera::init())
@@ -33,16 +33,16 @@
 //! }
 //! ```
 
-pub mod types;
-pub mod commands;
 pub mod camera;
-pub mod permissions;
-pub mod errors;
-pub mod platform;
-pub mod webrtc;
-pub mod quality;
+pub mod commands;
 pub mod config;
+pub mod errors;
 pub mod focus_stack;
+pub mod permissions;
+pub mod platform;
+pub mod quality;
+pub mod types;
+pub mod webrtc;
 
 #[cfg(feature = "contextlite")]
 pub mod contextlite;
@@ -60,11 +60,14 @@ pub mod tests;
 pub mod testing;
 
 // Re-exports for convenience
-pub use types::{CameraDeviceInfo, CameraFormat, CameraFrame, CameraInitParams, Platform};
 pub use errors::CameraError;
-pub use platform::{PlatformCamera, CameraSystem};
+pub use platform::{CameraSystem, PlatformCamera};
+pub use types::{CameraDeviceInfo, CameraFormat, CameraFrame, CameraInitParams, Platform};
 
-use tauri::{plugin::{Builder, TauriPlugin}, Runtime};
+use tauri::{
+    plugin::{Builder, TauriPlugin},
+    Runtime,
+};
 
 /// Initialize the CrabCamera plugin with all commands
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
@@ -81,12 +84,10 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::init::get_recommended_format,
             commands::init::get_optimal_settings,
             commands::init::get_system_diagnostics,
-            
             // Permission commands
             commands::permissions::request_camera_permission,
             commands::permissions::check_camera_permission_status,
             commands::permissions::get_permission_status_string,
-            
             // Capture commands
             commands::capture::capture_single_photo,
             commands::capture::capture_photo_sequence,
@@ -97,7 +98,6 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::capture::get_capture_stats,
             commands::capture::save_frame_to_disk,
             commands::capture::save_frame_compressed,
-            
             // Advanced camera commands
             commands::advanced::set_camera_controls,
             commands::advanced::get_camera_controls,
@@ -109,7 +109,6 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::advanced::capture_focus_stack_legacy,
             commands::advanced::get_camera_performance,
             commands::advanced::test_camera_capabilities,
-            
             // WebRTC streaming commands
             commands::webrtc::start_webrtc_stream,
             commands::webrtc::stop_webrtc_stream,
@@ -128,7 +127,6 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::webrtc::close_peer_connection,
             commands::webrtc::list_peer_connections,
             commands::webrtc::get_webrtc_system_status,
-            
             // Quality validation commands
             commands::quality::validate_frame_quality,
             commands::quality::validate_provided_frame,
@@ -139,7 +137,6 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::quality::capture_best_quality_frame,
             commands::quality::auto_capture_with_quality,
             commands::quality::analyze_quality_trends,
-            
             // Configuration commands
             commands::config::get_config,
             commands::config::update_config,
@@ -152,13 +149,11 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::config::update_full_quality_config,
             commands::config::update_storage_config,
             commands::config::update_advanced_config,
-            
             // Device monitoring commands
             commands::device_monitor::start_device_monitoring,
             commands::device_monitor::stop_device_monitoring,
             commands::device_monitor::poll_device_event,
             commands::device_monitor::get_monitored_devices,
-            
             // Focus stacking commands
             commands::focus_stack::capture_focus_stack,
             commands::focus_stack::capture_focus_brackets_command,

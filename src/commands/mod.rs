@@ -1,12 +1,12 @@
-pub mod init;
-pub mod permissions;
-pub mod capture;
 pub mod advanced;
-pub mod webrtc;
-pub mod quality;
+pub mod capture;
 pub mod config;
 pub mod device_monitor;
 pub mod focus_stack;
+pub mod init;
+pub mod permissions;
+pub mod quality;
+pub mod webrtc;
 
 #[cfg(feature = "recording")]
 pub mod recording;

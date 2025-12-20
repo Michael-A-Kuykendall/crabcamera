@@ -4,9 +4,9 @@
 //! to offer cultivation insights and growth recommendations.
 
 use crate::errors::CameraError;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 #[cfg(feature = "contextlite")]
 use contextlite_client::ContextLiteClient;
@@ -114,9 +114,10 @@ impl PlantPhotoAnalyzer {
     /// Create new plant photo analyzer
     #[cfg(feature = "contextlite")]
     pub fn new(base_url: &str, _auth_token: &str, workspace_id: &str) -> Result<Self, CameraError> {
-        let client = ContextLiteClient::new(base_url)
-            .map_err(|e| CameraError::InitializationError(format!("ContextLite client error: {}", e)))?;
-        
+        let client = ContextLiteClient::new(base_url).map_err(|e| {
+            CameraError::InitializationError(format!("ContextLite client error: {}", e))
+        })?;
+
         Ok(Self {
             client,
             workspace_id: workspace_id.to_string(),
@@ -125,7 +126,11 @@ impl PlantPhotoAnalyzer {
 
     /// Create new plant photo analyzer (no-op without contextlite feature)
     #[cfg(not(feature = "contextlite"))]
-    pub fn new(_base_url: &str, _auth_token: &str, workspace_id: &str) -> Result<Self, CameraError> {
+    pub fn new(
+        _base_url: &str,
+        _auth_token: &str,
+        workspace_id: &str,
+    ) -> Result<Self, CameraError> {
         Ok(Self {
             workspace_id: workspace_id.to_string(),
         })
@@ -143,7 +148,10 @@ impl PlantPhotoAnalyzer {
         let mut context_parts = vec![
             format!("Photo ID: {}", photo_metadata.id),
             format!("Camera: {}", photo_metadata.camera_name),
-            format!("Resolution: {}x{}", photo_metadata.width, photo_metadata.height),
+            format!(
+                "Resolution: {}x{}",
+                photo_metadata.width, photo_metadata.height
+            ),
             format!("File: {}", photo_path),
         ];
 
@@ -166,10 +174,7 @@ impl PlantPhotoAnalyzer {
         // Current implementation provides mock analysis for API structure testing
         let analysis = format!(
             "Photo analysis for {} using camera {} at {}x{} resolution",
-            query,
-            photo_metadata.camera_name,
-            photo_metadata.width,
-            photo_metadata.height
+            query, photo_metadata.camera_name, photo_metadata.width, photo_metadata.height
         );
 
         let recommendations = extract_photo_recommendations(&analysis);
@@ -209,17 +214,29 @@ impl PlantPhotoAnalyzer {
 
     /// Get cultivation advice based on photo analysis
     #[cfg(feature = "contextlite")]
-    pub async fn get_cultivation_advice(&self, photo_analysis: &PhotoAnalysisResponse) -> Result<String, CameraError> {
+    pub async fn get_cultivation_advice(
+        &self,
+        photo_analysis: &PhotoAnalysisResponse,
+    ) -> Result<String, CameraError> {
         // NOTE: Real ContextLite API integration would call:
         // self.client.query_workspace(&self.workspace_id, "cultivation advice", context).await
         // Current implementation provides mock advice for API structure testing
-        Ok(format!("Mock cultivation advice based on photo analysis: {}", photo_analysis.analysis))
+        Ok(format!(
+            "Mock cultivation advice based on photo analysis: {}",
+            photo_analysis.analysis
+        ))
     }
 
     /// Get cultivation advice based on photo analysis (mock without contextlite feature)
     #[cfg(not(feature = "contextlite"))]
-    pub async fn get_cultivation_advice(&self, photo_analysis: &PhotoAnalysisResponse) -> Result<String, CameraError> {
-        Ok(format!("ContextLite feature not enabled for cultivation advice: {}", photo_analysis.query))
+    pub async fn get_cultivation_advice(
+        &self,
+        photo_analysis: &PhotoAnalysisResponse,
+    ) -> Result<String, CameraError> {
+        Ok(format!(
+            "ContextLite feature not enabled for cultivation advice: {}",
+            photo_analysis.query
+        ))
     }
 
     /// Index photo analysis data to ContextLite knowledge base
@@ -254,34 +271,34 @@ impl PlantPhotoAnalyzer {
 /// Extract photo-based recommendations
 fn extract_photo_recommendations(analysis: &str) -> Vec<String> {
     let mut recommendations = Vec::new();
-    
+
     if analysis.contains("lighting") || analysis.contains("light") {
         recommendations.push("Consider adjusting grow light intensity or duration".to_string());
     }
-    
+
     if analysis.contains("deficiency") || analysis.contains("yellowing") {
         recommendations.push("Check nutrient levels and feeding schedule".to_string());
     }
-    
+
     if analysis.contains("pest") || analysis.contains("damage") {
         recommendations.push("Inspect for pests and consider treatment options".to_string());
     }
-    
+
     if analysis.contains("harvest") || analysis.contains("trichome") {
         recommendations.push("Consider harvest timing evaluation".to_string());
     }
-    
+
     if recommendations.is_empty() {
         recommendations.push("Continue monitoring plant health and growth".to_string());
     }
-    
+
     recommendations
 }
 
 /// Extract growth indicators from analysis
 fn extract_growth_indicators(analysis: &str) -> Vec<GrowthIndicator> {
     let mut indicators = Vec::new();
-    
+
     if analysis.contains("flower") || analysis.contains("bud") {
         indicators.push(GrowthIndicator {
             indicator_type: "flowering".to_string(),
@@ -290,7 +307,7 @@ fn extract_growth_indicators(analysis: &str) -> Vec<GrowthIndicator> {
             location: None,
         });
     }
-    
+
     if analysis.contains("growth") || analysis.contains("height") {
         indicators.push(GrowthIndicator {
             indicator_type: "vegetative_growth".to_string(),
@@ -299,14 +316,14 @@ fn extract_growth_indicators(analysis: &str) -> Vec<GrowthIndicator> {
             location: None,
         });
     }
-    
+
     indicators
 }
 
 /// Extract health indicators from analysis
 fn extract_health_indicators(analysis: &str) -> Vec<HealthIndicator> {
     let mut indicators = Vec::new();
-    
+
     if analysis.contains("healthy") || analysis.contains("good") {
         indicators.push(HealthIndicator {
             indicator_type: "overall_health".to_string(),
@@ -316,7 +333,7 @@ fn extract_health_indicators(analysis: &str) -> Vec<HealthIndicator> {
             location: None,
         });
     }
-    
+
     if analysis.contains("yellowing") || analysis.contains("deficiency") {
         indicators.push(HealthIndicator {
             indicator_type: "nutrient_deficiency".to_string(),
@@ -326,7 +343,7 @@ fn extract_health_indicators(analysis: &str) -> Vec<HealthIndicator> {
             location: None,
         });
     }
-    
+
     if analysis.contains("pest") || analysis.contains("damage") {
         indicators.push(HealthIndicator {
             indicator_type: "pest_damage".to_string(),
@@ -336,34 +353,30 @@ fn extract_health_indicators(analysis: &str) -> Vec<HealthIndicator> {
             location: None,
         });
     }
-    
+
     indicators
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::{ExposureSettings, CameraSettings};
+    use super::{CameraSettings, ExposureSettings};
     use chrono::Utc;
 
     #[tokio::test]
     async fn test_plant_photo_analyzer_creation() {
-        let analyzer = PlantPhotoAnalyzer::new(
-            "http://localhost:8090",
-            "test-token",
-            "budsy-cultivation"
-        ).expect("Failed to create analyzer");
+        let analyzer =
+            PlantPhotoAnalyzer::new("http://localhost:8090", "test-token", "budsy-cultivation")
+                .expect("Failed to create analyzer");
 
         assert_eq!(analyzer.workspace_id, "budsy-cultivation");
     }
 
     #[tokio::test]
     async fn test_mock_photo_analysis() {
-        let analyzer = PlantPhotoAnalyzer::new(
-            "http://localhost:8090",
-            "test-token",
-            "test-workspace"
-        ).expect("Failed to create analyzer");
+        let analyzer =
+            PlantPhotoAnalyzer::new("http://localhost:8090", "test-token", "test-workspace")
+                .expect("Failed to create analyzer");
 
         let photo_metadata = PhotoMetadata {
             id: Uuid::new_v4(),
@@ -377,18 +390,21 @@ mod tests {
                 exposure: Some(ExposureSettings {
                     iso: Some(800),
                     aperture: Some(2.8),
-                    shutter_speed: Some(1.0/60.0),
+                    shutter_speed: Some(1.0 / 60.0),
                 }),
                 white_balance: Some("auto".to_string()),
                 focus_mode: Some("macro".to_string()),
             }),
         };
 
-        let response = analyzer.analyze_plant_photo(
-            &photo_metadata,
-            "/test/photo.jpg",
-            "How is my plant growing?"
-        ).await.expect("Failed to get photo analysis");
+        let response = analyzer
+            .analyze_plant_photo(
+                &photo_metadata,
+                "/test/photo.jpg",
+                "How is my plant growing?",
+            )
+            .await
+            .expect("Failed to get photo analysis");
 
         assert_eq!(response.photo_id, photo_metadata.id);
         assert!(!response.recommendations.is_empty());
@@ -396,12 +412,13 @@ mod tests {
 
     #[test]
     fn test_photo_analysis_extraction() {
-        let test_analysis = "The plant shows healthy flowering development with good lighting conditions";
-        
+        let test_analysis =
+            "The plant shows healthy flowering development with good lighting conditions";
+
         let recommendations = extract_photo_recommendations(&test_analysis);
         let growth_indicators = extract_growth_indicators(&test_analysis);
         let health_indicators = extract_health_indicators(&test_analysis);
-        
+
         assert!(!recommendations.is_empty());
         assert!(!growth_indicators.is_empty());
         assert!(!health_indicators.is_empty());

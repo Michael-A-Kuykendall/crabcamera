@@ -1,11 +1,11 @@
 // Basic test infrastructure only - complex tests removed for v0.2.0 release
 // Focus on core functionality that actually works
 
-use crate::types::{CameraDeviceInfo, CameraFormat, CameraFrame, Platform};
 use crate::errors::CameraError;
+use crate::types::{CameraDeviceInfo, CameraFormat, CameraFrame, Platform};
+use chrono::Utc;
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
-use chrono::Utc;
 
 /// Mock camera system for testing
 #[derive(Clone)]
@@ -26,11 +26,11 @@ impl MockCameraSystem {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     pub async fn add_mock_devices(&self, platform: Platform) {
         let mut devices = self.devices.lock().unwrap();
         devices.clear();
-        
+
         let test_devices = match platform {
             Platform::Windows => vec![
                 create_mock_device("win_cam_0", "Integrated Camera", platform),
@@ -44,22 +44,20 @@ impl MockCameraSystem {
                 create_mock_device("v4l_0", "/dev/video0", platform),
                 create_mock_device("v4l_1", "/dev/video1", platform),
             ],
-            Platform::Unknown => vec![
-                create_mock_device("unknown_0", "Generic Camera", platform),
-            ],
+            Platform::Unknown => vec![create_mock_device("unknown_0", "Generic Camera", platform)],
         };
-        
+
         devices.extend(test_devices);
     }
-    
+
     pub async fn get_devices(&self) -> Vec<CameraDeviceInfo> {
         self.devices.lock().unwrap().clone()
     }
-    
+
     pub fn set_capture_mode(&self, mode: MockCaptureMode) {
         *self.capture_mode.lock().unwrap() = mode;
     }
-    
+
     pub fn set_error_mode(&self, error: Option<CameraError>) {
         *self.error_mode.lock().unwrap() = error;
     }
@@ -80,7 +78,11 @@ pub fn create_mock_device(id: &str, name: &str, platform: Platform) -> CameraDev
     CameraDeviceInfo {
         id: id.to_string(),
         name: name.to_string(),
-        description: Some(format!("Mock camera device for {} on {}", name, platform.as_str())),
+        description: Some(format!(
+            "Mock camera device for {} on {}",
+            name,
+            platform.as_str()
+        )),
         platform,
         is_available: true,
         supports_formats: get_test_formats(),
@@ -101,7 +103,7 @@ pub fn create_mock_frame(device_id: &str) -> CameraFrame {
     let width = 1280;
     let height = 720;
     let data = vec![128u8; (width * height * 3) as usize]; // RGB8 mock data
-    
+
     CameraFrame {
         id: Uuid::new_v4().to_string(),
         device_id: device_id.to_string(),
@@ -142,5 +144,8 @@ pub fn set_mock_camera_mode(device_id: &str, mode: MockCaptureMode) {
 /// Get mock camera mode for testing
 pub fn get_mock_camera_mode(device_id: &str) -> MockCaptureMode {
     let modes = MOCK_CAMERA_MODES.lock().unwrap();
-    modes.get(device_id).cloned().unwrap_or(MockCaptureMode::Success)
+    modes
+        .get(device_id)
+        .cloned()
+        .unwrap_or(MockCaptureMode::Success)
 }

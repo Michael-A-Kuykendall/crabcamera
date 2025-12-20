@@ -65,16 +65,20 @@ impl AudioCapture {
     ) -> Result<Self, CameraError> {
         let device_id_str = device_id.as_deref().unwrap_or("default");
         let device_info = find_audio_device(device_id_str)?;
-        
+
         let host = cpal::default_host();
         let device = if device_id_str.is_empty() || device_id_str == "default" {
             host.default_input_device()
                 .ok_or_else(|| CameraError::AudioError("No default audio device".to_string()))?
         } else {
             host.input_devices()
-                .map_err(|e| CameraError::AudioError(format!("Failed to enumerate devices: {}", e)))?
+                .map_err(|e| {
+                    CameraError::AudioError(format!("Failed to enumerate devices: {}", e))
+                })?
                 .find(|d| d.name().ok().as_ref() == Some(&device_info.name))
-                .ok_or_else(|| CameraError::AudioError(format!("Device not found: {}", device_id_str)))?
+                .ok_or_else(|| {
+                    CameraError::AudioError(format!("Device not found: {}", device_id_str))
+                })?
         };
 
         // Use requested sample rate, falling back to device default
@@ -248,7 +252,7 @@ mod tests {
             // Start twice should be fine
             assert!(capture.start().is_ok());
             assert!(capture.start().is_ok());
-            
+
             // Stop twice should be fine
             assert!(capture.stop().is_ok());
             assert!(capture.stop().is_ok());

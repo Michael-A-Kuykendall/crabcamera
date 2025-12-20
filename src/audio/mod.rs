@@ -7,12 +7,12 @@
 //! # Spell Reference
 //! Implements: #AudioDeviceEnumerate, #AudioCapturePCM, #AudioEncodeOpus
 
-mod device;
 mod capture;
-mod encoder;
 mod clock;
+mod device;
+mod encoder;
 
-pub use device::{AudioDevice, list_audio_devices, get_default_audio_device};
 pub use capture::{AudioCapture, AudioFrame};
-pub use encoder::{OpusEncoder, EncodedAudio};
 pub use clock::PTSClock;
+pub use device::{get_default_audio_device, list_audio_devices, AudioDevice};
+pub use encoder::{EncodedAudio, OpusEncoder};

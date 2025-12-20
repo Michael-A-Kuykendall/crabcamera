@@ -1,20 +1,16 @@
 // MediaFoundation camera controls for advanced functionality
-// 
+//
 // NOTE: The allow(unused_variables) attribute is needed because the COM interface methods
 // receive complex parameters that are prepared but not fully utilized in the current
 // implementation. Once full MediaFoundation device discovery is implemented (see
 // find_media_source function documentation), these parameters will be actively used.
 #![allow(unused_variables)]
-use crate::types::{CameraControls, CameraCapabilities, WhiteBalance};
 use crate::errors::CameraError;
-use windows::Win32::Media::DirectShow::{
-    IAMCameraControl, IAMVideoProcAmp,
-};
-use windows::Win32::Media::MediaFoundation::{
-    IMFMediaSource,
-};
-use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_APARTMENTTHREADED};
+use crate::types::{CameraCapabilities, CameraControls, WhiteBalance};
 use windows::core::Interface;
+use windows::Win32::Media::DirectShow::{IAMCameraControl, IAMVideoProcAmp};
+use windows::Win32::Media::MediaFoundation::IMFMediaSource;
+use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_APARTMENTTHREADED};
 
 /// Control range information for normalization
 #[derive(Debug, Clone)]
@@ -42,16 +38,21 @@ pub struct MediaFoundationControls {
 impl MediaFoundationControls {
     /// Create new MediaFoundation controls interface for device
     pub fn new(device_index: u32) -> Result<Self, CameraError> {
-        log::debug!("Initializing MediaFoundation controls for device {}", device_index);
-        
+        log::debug!(
+            "Initializing MediaFoundation controls for device {}",
+            device_index
+        );
+
         // Initialize COM
         unsafe {
             let hr = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
             if hr.is_err() {
-                return Err(CameraError::InitializationError("COM initialization failed".to_string()));
+                return Err(CameraError::InitializationError(
+                    "COM initialization failed".to_string(),
+                ));
             }
         }
-        
+
         // Try to find MediaFoundation device (simplified for now)
         let (camera_control, video_proc_amp) = match Self::find_media_source(device_index) {
             Ok(media_source) => {
@@ -66,7 +67,7 @@ impl MediaFoundationControls {
                 (None, None)
             }
         };
-        
+
         let mut controls = MediaFoundationControls {
             device_index,
             camera_control,
@@ -78,23 +79,26 @@ impl MediaFoundationControls {
             saturation_range: None,
             white_balance_range: None,
         };
-        
+
         // Cache control ranges for efficiency
         controls.cache_control_ranges()?;
-        
-        log::info!("MediaFoundation controls initialized for device {} - camera_control: {}, video_proc_amp: {}", 
-            device_index, 
-            controls.camera_control.is_some(), 
+
+        log::info!("MediaFoundation controls initialized for device {} - camera_control: {}, video_proc_amp: {}",
+            device_index,
+            controls.camera_control.is_some(),
             controls.video_proc_amp.is_some()
         );
-        
+
         Ok(controls)
     }
 
     /// Apply camera controls using MediaFoundation APIs
-    pub fn apply_controls(&mut self, controls: &CameraControls) -> Result<Vec<String>, CameraError> {
+    pub fn apply_controls(
+        &mut self,
+        controls: &CameraControls,
+    ) -> Result<Vec<String>, CameraError> {
         let mut unsupported = Vec::new();
-        
+
         // Focus controls
         if let Some(auto_focus) = controls.auto_focus {
             match self.set_auto_focus(auto_focus) {
@@ -105,7 +109,7 @@ impl MediaFoundationControls {
                 }
             }
         }
-        
+
         if let Some(focus_distance) = controls.focus_distance {
             match self.set_focus_distance(focus_distance) {
                 Ok(_) => log::debug!("Set focus distance: {}", focus_distance),
@@ -185,22 +189,26 @@ impl MediaFoundationControls {
     /// Get current camera control values
     pub fn get_controls(&self) -> Result<CameraControls, CameraError> {
         let mut controls = CameraControls::default();
-        
+
         // Read camera controls
         if let Some(ref camera_control) = self.camera_control {
             // Get focus settings
-            if let Ok((value, flags)) = self.get_camera_control_value(0) { // Focus property
-                if flags == 0x0001 { // Auto flag
+            if let Ok((value, flags)) = self.get_camera_control_value(0) {
+                // Focus property
+                if flags == 0x0001 {
+                    // Auto flag
                     controls.auto_focus = Some(true);
                 } else if let Some(ref range) = self.focus_range {
                     controls.auto_focus = Some(false);
                     controls.focus_distance = Some(device_to_normalized_range(value, range));
                 }
             }
-            
+
             // Get exposure settings
-            if let Ok((value, flags)) = self.get_camera_control_value(1) { // Exposure property
-                if flags == 0x0001 { // Auto flag
+            if let Ok((value, flags)) = self.get_camera_control_value(1) {
+                // Exposure property
+                if flags == 0x0001 {
+                    // Auto flag
                     controls.auto_exposure = Some(true);
                 } else if let Some(ref range) = self.exposure_range {
                     controls.auto_exposure = Some(false);
@@ -210,40 +218,45 @@ impl MediaFoundationControls {
                 }
             }
         }
-        
+
         // Read video processing controls
         if let Some(ref video_proc_amp) = self.video_proc_amp {
             // Get brightness
             if let Some(ref range) = self.brightness_range {
-                if let Ok((value, _)) = self.get_video_proc_value(0) { // Brightness property
+                if let Ok((value, _)) = self.get_video_proc_value(0) {
+                    // Brightness property
                     controls.brightness = Some(device_to_normalized_range(value, range));
                 }
             }
-            
+
             // Get contrast
             if let Some(ref range) = self.contrast_range {
-                if let Ok((value, _)) = self.get_video_proc_value(1) { // Contrast property
+                if let Ok((value, _)) = self.get_video_proc_value(1) {
+                    // Contrast property
                     controls.contrast = Some(device_to_normalized_range(value, range));
                 }
             }
-            
+
             // Get saturation
             if let Some(ref range) = self.saturation_range {
-                if let Ok((value, _)) = self.get_video_proc_value(3) { // Saturation property
+                if let Ok((value, _)) = self.get_video_proc_value(3) {
+                    // Saturation property
                     controls.saturation = Some(device_to_normalized_range(value, range));
                 }
             }
-            
+
             // Get white balance
-            if let Ok((value, flags)) = self.get_video_proc_value(4) { // White balance property
-                if flags == 0x0001 { // Auto flag
+            if let Ok((value, flags)) = self.get_video_proc_value(4) {
+                // White balance property
+                if flags == 0x0001 {
+                    // Auto flag
                     controls.white_balance = Some(WhiteBalance::Auto);
                 } else {
                     controls.white_balance = Some(WhiteBalance::Custom(value as u32));
                 }
             }
         }
-        
+
         Ok(controls)
     }
 
@@ -260,25 +273,27 @@ impl MediaFoundationControls {
             supports_burst_mode: true, // Supported by capture mechanism
             supports_hdr: false,
             max_resolution: (1920, 1080), // Default, could be queried
-            max_fps: 30.0, // Default, could be queried
+            max_fps: 30.0,                // Default, could be queried
             exposure_range: None,
             iso_range: None,
             focus_range: None,
         };
-        
+
         // Test camera control capabilities
         if let Some(ref camera_control) = self.camera_control {
             // Test focus support
-            if self.test_camera_control_support(0) { // Focus property
+            if self.test_camera_control_support(0) {
+                // Focus property
                 capabilities.supports_auto_focus = true;
                 capabilities.supports_manual_focus = true;
                 if let Some(ref range) = self.focus_range {
                     capabilities.focus_range = Some((0.0, 1.0)); // Normalized range
                 }
             }
-            
+
             // Test exposure support
-            if self.test_camera_control_support(1) { // Exposure property
+            if self.test_camera_control_support(1) {
+                // Exposure property
                 capabilities.supports_auto_exposure = true;
                 capabilities.supports_manual_exposure = true;
                 if let Some(ref range) = self.exposure_range {
@@ -288,48 +303,60 @@ impl MediaFoundationControls {
                     capabilities.exposure_range = Some((min_seconds, max_seconds));
                 }
             }
-            
+
             // Test zoom support
-            if self.test_camera_control_support(2) { // Zoom property
+            if self.test_camera_control_support(2) {
+                // Zoom property
                 capabilities.supports_zoom = true;
             }
         }
-        
+
         // Test video processing capabilities
         if let Some(ref video_proc_amp) = self.video_proc_amp {
-            if self.test_video_proc_support(4) { // White balance property
+            if self.test_video_proc_support(4) {
+                // White balance property
                 capabilities.supports_white_balance = true;
             }
         }
-        
-        log::debug!("Camera capabilities: focus({}/{}), exposure({}/{}), white_balance({}), zoom({})",
-            capabilities.supports_auto_focus, capabilities.supports_manual_focus,
-            capabilities.supports_auto_exposure, capabilities.supports_manual_exposure,
-            capabilities.supports_white_balance, capabilities.supports_zoom
+
+        log::debug!(
+            "Camera capabilities: focus({}/{}), exposure({}/{}), white_balance({}), zoom({})",
+            capabilities.supports_auto_focus,
+            capabilities.supports_manual_focus,
+            capabilities.supports_auto_exposure,
+            capabilities.supports_manual_exposure,
+            capabilities.supports_white_balance,
+            capabilities.supports_zoom
         );
-        
+
         Ok(capabilities)
     }
 
     // Individual control implementation methods (stubs for now)
-    
+
     fn set_auto_focus(&mut self, enabled: bool) -> Result<(), CameraError> {
         if let Some(ref camera_control) = self.camera_control {
             // Note: Using integer constants for now
             let flags = if enabled { 0x0001 } else { 0x0002 }; // Auto vs Manual flags
-            
+
             unsafe {
-                camera_control.Set(
-                    0, // Focus property
-                    0, // Value doesn't matter for auto mode
-                    flags,
-                ).map_err(|e| CameraError::ControlError(format!("Failed to set auto focus: {}", e)))?;
+                camera_control
+                    .Set(
+                        0, // Focus property
+                        0, // Value doesn't matter for auto mode
+                        flags,
+                    )
+                    .map_err(|e| {
+                        CameraError::ControlError(format!("Failed to set auto focus: {}", e))
+                    })?;
             }
-            
+
             log::debug!("Set auto focus: {}", enabled);
             Ok(())
         } else {
-            Err(CameraError::ControlError("Camera control interface not available".to_string()))
+            Err(CameraError::ControlError(
+                "Camera control interface not available".to_string(),
+            ))
         }
     }
 
@@ -337,41 +364,62 @@ impl MediaFoundationControls {
         if let Some(ref camera_control) = self.camera_control {
             if let Some(ref range) = self.focus_range {
                 let device_value = normalize_to_device_range(distance, range);
-                
+
                 unsafe {
-                    camera_control.Set(
-                        0, // Focus property
-                        device_value,
-                        0x0002, // Manual flag
-                    ).map_err(|e| CameraError::ControlError(format!("Failed to set focus distance: {}", e)))?;
+                    camera_control
+                        .Set(
+                            0, // Focus property
+                            device_value,
+                            0x0002, // Manual flag
+                        )
+                        .map_err(|e| {
+                            CameraError::ControlError(format!(
+                                "Failed to set focus distance: {}",
+                                e
+                            ))
+                        })?;
                 }
-                
-                log::debug!("Set focus distance: {} (device value: {})", distance, device_value);
+
+                log::debug!(
+                    "Set focus distance: {} (device value: {})",
+                    distance,
+                    device_value
+                );
                 Ok(())
             } else {
-                Err(CameraError::ControlError("Focus range not available".to_string()))
+                Err(CameraError::ControlError(
+                    "Focus range not available".to_string(),
+                ))
             }
         } else {
-            Err(CameraError::ControlError("Camera control interface not available".to_string()))
+            Err(CameraError::ControlError(
+                "Camera control interface not available".to_string(),
+            ))
         }
     }
 
     fn set_auto_exposure(&mut self, enabled: bool) -> Result<(), CameraError> {
         if let Some(ref camera_control) = self.camera_control {
             let flags = if enabled { 0x0001 } else { 0x0002 }; // Auto vs Manual flags
-            
+
             unsafe {
-                camera_control.Set(
-                    1, // Exposure property
-                    0, // Value doesn't matter for auto mode
-                    flags,
-                ).map_err(|e| CameraError::ControlError(format!("Failed to set auto exposure: {}", e)))?;
+                camera_control
+                    .Set(
+                        1, // Exposure property
+                        0, // Value doesn't matter for auto mode
+                        flags,
+                    )
+                    .map_err(|e| {
+                        CameraError::ControlError(format!("Failed to set auto exposure: {}", e))
+                    })?;
             }
-            
+
             log::debug!("Set auto exposure: {}", enabled);
             Ok(())
         } else {
-            Err(CameraError::ControlError("Camera control interface not available".to_string()))
+            Err(CameraError::ControlError(
+                "Camera control interface not available".to_string(),
+            ))
         }
     }
 
@@ -382,54 +430,79 @@ impl MediaFoundationControls {
                 // Note: MediaFoundation exposure is often in log base 2 seconds
                 let log_exposure = time_seconds.log2();
                 let device_value = normalize_to_device_range(log_exposure, range);
-                
+
                 unsafe {
-                    camera_control.Set(
-                        1, // Exposure property
-                        device_value,
-                        0x0002, // Manual flag
-                    ).map_err(|e| CameraError::ControlError(format!("Failed to set exposure time: {}", e)))?;
+                    camera_control
+                        .Set(
+                            1, // Exposure property
+                            device_value,
+                            0x0002, // Manual flag
+                        )
+                        .map_err(|e| {
+                            CameraError::ControlError(format!("Failed to set exposure time: {}", e))
+                        })?;
                 }
-                
-                log::debug!("Set exposure time: {}s (log2: {}, device value: {})", time_seconds, log_exposure, device_value);
+
+                log::debug!(
+                    "Set exposure time: {}s (log2: {}, device value: {})",
+                    time_seconds,
+                    log_exposure,
+                    device_value
+                );
                 Ok(())
             } else {
-                Err(CameraError::ControlError("Exposure range not available".to_string()))
+                Err(CameraError::ControlError(
+                    "Exposure range not available".to_string(),
+                ))
             }
         } else {
-            Err(CameraError::ControlError("Camera control interface not available".to_string()))
+            Err(CameraError::ControlError(
+                "Camera control interface not available".to_string(),
+            ))
         }
     }
 
     fn set_white_balance(&mut self, wb: &WhiteBalance) -> Result<(), CameraError> {
         if let Some(ref video_proc_amp) = self.video_proc_amp {
             let kelvin_temp = white_balance_to_kelvin(wb);
-            
+
             if kelvin_temp == -1 {
                 // Auto white balance
                 unsafe {
-                    video_proc_amp.Set(
-                        4, // White balance property
-                        0,
-                        0x0001, // Auto flag
-                    ).map_err(|e| CameraError::ControlError(format!("Failed to set auto white balance: {}", e)))?;
+                    video_proc_amp
+                        .Set(
+                            4, // White balance property
+                            0, 0x0001, // Auto flag
+                        )
+                        .map_err(|e| {
+                            CameraError::ControlError(format!(
+                                "Failed to set auto white balance: {}",
+                                e
+                            ))
+                        })?;
                 }
                 log::debug!("Set white balance: Auto");
             } else {
                 // Manual white balance with Kelvin temperature
                 unsafe {
-                    video_proc_amp.Set(
-                        4, // White balance property
-                        kelvin_temp,
-                        0x0002, // Manual flag
-                    ).map_err(|e| CameraError::ControlError(format!("Failed to set white balance: {}", e)))?;
+                    video_proc_amp
+                        .Set(
+                            4, // White balance property
+                            kelvin_temp,
+                            0x0002, // Manual flag
+                        )
+                        .map_err(|e| {
+                            CameraError::ControlError(format!("Failed to set white balance: {}", e))
+                        })?;
                 }
                 log::debug!("Set white balance: {}K", kelvin_temp);
             }
-            
+
             Ok(())
         } else {
-            Err(CameraError::ControlError("Video processing interface not available".to_string()))
+            Err(CameraError::ControlError(
+                "Video processing interface not available".to_string(),
+            ))
         }
     }
 
@@ -437,22 +510,34 @@ impl MediaFoundationControls {
         if let Some(ref video_proc_amp) = self.video_proc_amp {
             if let Some(ref range) = self.brightness_range {
                 let device_value = normalize_to_device_range(brightness, range);
-                
+
                 unsafe {
-                    video_proc_amp.Set(
-                        0, // Brightness property
-                        device_value,
-                        0x0002, // Manual flag
-                    ).map_err(|e| CameraError::ControlError(format!("Failed to set brightness: {}", e)))?;
+                    video_proc_amp
+                        .Set(
+                            0, // Brightness property
+                            device_value,
+                            0x0002, // Manual flag
+                        )
+                        .map_err(|e| {
+                            CameraError::ControlError(format!("Failed to set brightness: {}", e))
+                        })?;
                 }
-                
-                log::debug!("Set brightness: {} (device value: {})", brightness, device_value);
+
+                log::debug!(
+                    "Set brightness: {} (device value: {})",
+                    brightness,
+                    device_value
+                );
                 Ok(())
             } else {
-                Err(CameraError::ControlError("Brightness range not available".to_string()))
+                Err(CameraError::ControlError(
+                    "Brightness range not available".to_string(),
+                ))
             }
         } else {
-            Err(CameraError::ControlError("Video processing interface not available".to_string()))
+            Err(CameraError::ControlError(
+                "Video processing interface not available".to_string(),
+            ))
         }
     }
 
@@ -460,22 +545,34 @@ impl MediaFoundationControls {
         if let Some(ref video_proc_amp) = self.video_proc_amp {
             if let Some(ref range) = self.contrast_range {
                 let device_value = normalize_to_device_range(contrast, range);
-                
+
                 unsafe {
-                    video_proc_amp.Set(
-                        1, // Contrast property
-                        device_value,
-                        0x0002, // Manual flag
-                    ).map_err(|e| CameraError::ControlError(format!("Failed to set contrast: {}", e)))?;
+                    video_proc_amp
+                        .Set(
+                            1, // Contrast property
+                            device_value,
+                            0x0002, // Manual flag
+                        )
+                        .map_err(|e| {
+                            CameraError::ControlError(format!("Failed to set contrast: {}", e))
+                        })?;
                 }
-                
-                log::debug!("Set contrast: {} (device value: {})", contrast, device_value);
+
+                log::debug!(
+                    "Set contrast: {} (device value: {})",
+                    contrast,
+                    device_value
+                );
                 Ok(())
             } else {
-                Err(CameraError::ControlError("Contrast range not available".to_string()))
+                Err(CameraError::ControlError(
+                    "Contrast range not available".to_string(),
+                ))
             }
         } else {
-            Err(CameraError::ControlError("Video processing interface not available".to_string()))
+            Err(CameraError::ControlError(
+                "Video processing interface not available".to_string(),
+            ))
         }
     }
 
@@ -483,29 +580,41 @@ impl MediaFoundationControls {
         if let Some(ref video_proc_amp) = self.video_proc_amp {
             if let Some(ref range) = self.saturation_range {
                 let device_value = normalize_to_device_range(saturation, range);
-                
+
                 unsafe {
-                    video_proc_amp.Set(
-                        3, // Saturation property
-                        device_value,
-                        0x0002, // Manual flag
-                    ).map_err(|e| CameraError::ControlError(format!("Failed to set saturation: {}", e)))?;
+                    video_proc_amp
+                        .Set(
+                            3, // Saturation property
+                            device_value,
+                            0x0002, // Manual flag
+                        )
+                        .map_err(|e| {
+                            CameraError::ControlError(format!("Failed to set saturation: {}", e))
+                        })?;
                 }
-                
-                log::debug!("Set saturation: {} (device value: {})", saturation, device_value);
+
+                log::debug!(
+                    "Set saturation: {} (device value: {})",
+                    saturation,
+                    device_value
+                );
                 Ok(())
             } else {
-                Err(CameraError::ControlError("Saturation range not available".to_string()))
+                Err(CameraError::ControlError(
+                    "Saturation range not available".to_string(),
+                ))
             }
         } else {
-            Err(CameraError::ControlError("Video processing interface not available".to_string()))
+            Err(CameraError::ControlError(
+                "Video processing interface not available".to_string(),
+            ))
         }
     }
-    
+
     // Helper methods for MediaFoundation device discovery and interface management
-    
+
     /// Find MediaFoundation media source for the specified device index
-    /// 
+    ///
     /// NOTE: This is currently a stub implementation. Full MediaFoundation device enumeration
     /// requires COM initialization and proper error handling. The current architecture uses
     /// nokhwa for camera capture, which handles device enumeration and frame acquisition.
@@ -513,15 +622,16 @@ impl MediaFoundationControls {
     /// 1. MFEnumDeviceSources with MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_GUID
     /// 2. IMFActivate interface to create IMFMediaSource
     /// 3. Query for IAMCameraControl and IAMVideoProcAmp interfaces
-    /// 
+    ///
     /// This stub intentionally returns an error to maintain the current working architecture
     /// where nokhwa handles capture and MediaFoundation is reserved for future control features.
     fn find_media_source(_device_index: u32) -> Result<IMFMediaSource, CameraError> {
         Err(CameraError::InitializationError(
-            "MediaFoundation device discovery not yet implemented - using nokhwa for capture".to_string()
+            "MediaFoundation device discovery not yet implemented - using nokhwa for capture"
+                .to_string(),
         ))
     }
-    
+
     /// Cache control ranges for efficient value conversion
     fn cache_control_ranges(&mut self) -> Result<(), CameraError> {
         // Cache camera control ranges
@@ -529,7 +639,7 @@ impl MediaFoundationControls {
             self.focus_range = self.query_camera_control_range(0); // Focus property
             self.exposure_range = self.query_camera_control_range(1); // Exposure property
         }
-        
+
         // Cache video processing ranges
         if let Some(ref video_proc_amp) = self.video_proc_amp {
             self.brightness_range = self.query_video_proc_range(0); // Brightness property
@@ -537,7 +647,7 @@ impl MediaFoundationControls {
             self.saturation_range = self.query_video_proc_range(3); // Saturation property
             self.white_balance_range = self.query_video_proc_range(4); // White balance property
         }
-        
+
         log::debug!("Cached control ranges - focus: {}, exposure: {}, brightness: {}, contrast: {}, saturation: {}, white_balance: {}",
             self.focus_range.is_some(),
             self.exposure_range.is_some(),
@@ -546,10 +656,10 @@ impl MediaFoundationControls {
             self.saturation_range.is_some(),
             self.white_balance_range.is_some()
         );
-        
+
         Ok(())
     }
-    
+
     /// Query camera control range
     fn query_camera_control_range(&self, property: i32) -> Option<ControlRange> {
         if let Some(ref camera_control) = self.camera_control {
@@ -559,15 +669,30 @@ impl MediaFoundationControls {
                 let mut step = 0i32;
                 let mut default = 0i32;
                 let mut flags = 0i32;
-                
-                if camera_control.GetRange(property, &mut min, &mut max, &mut step, &mut default, &mut flags).is_ok() {
-                    return Some(ControlRange { min, max, step, default });
+
+                if camera_control
+                    .GetRange(
+                        property,
+                        &mut min,
+                        &mut max,
+                        &mut step,
+                        &mut default,
+                        &mut flags,
+                    )
+                    .is_ok()
+                {
+                    return Some(ControlRange {
+                        min,
+                        max,
+                        step,
+                        default,
+                    });
                 }
             }
         }
         None
     }
-    
+
     /// Query video processing range
     fn query_video_proc_range(&self, property: i32) -> Option<ControlRange> {
         if let Some(ref video_proc_amp) = self.video_proc_amp {
@@ -577,54 +702,82 @@ impl MediaFoundationControls {
                 let mut step = 0i32;
                 let mut default = 0i32;
                 let mut flags = 0i32;
-                
-                if video_proc_amp.GetRange(property, &mut min, &mut max, &mut step, &mut default, &mut flags).is_ok() {
-                    return Some(ControlRange { min, max, step, default });
+
+                if video_proc_amp
+                    .GetRange(
+                        property,
+                        &mut min,
+                        &mut max,
+                        &mut step,
+                        &mut default,
+                        &mut flags,
+                    )
+                    .is_ok()
+                {
+                    return Some(ControlRange {
+                        min,
+                        max,
+                        step,
+                        default,
+                    });
                 }
             }
         }
         None
     }
-    
+
     /// Get current camera control value and flags
     fn get_camera_control_value(&self, property: i32) -> Result<(i32, i32), CameraError> {
         if let Some(ref camera_control) = self.camera_control {
             unsafe {
                 let mut value = 0i32;
                 let mut flags = 0i32;
-                
-                camera_control.Get(property, &mut value, &mut flags)
-                    .map_err(|e| CameraError::ControlError(format!("Failed to get camera control value: {}", e)))?;
-                
+
+                camera_control
+                    .Get(property, &mut value, &mut flags)
+                    .map_err(|e| {
+                        CameraError::ControlError(format!(
+                            "Failed to get camera control value: {}",
+                            e
+                        ))
+                    })?;
+
                 Ok((value, flags))
             }
         } else {
-            Err(CameraError::ControlError("Camera control interface not available".to_string()))
+            Err(CameraError::ControlError(
+                "Camera control interface not available".to_string(),
+            ))
         }
     }
-    
+
     /// Get current video processing value and flags
     fn get_video_proc_value(&self, property: i32) -> Result<(i32, i32), CameraError> {
         if let Some(ref video_proc_amp) = self.video_proc_amp {
             unsafe {
                 let mut value = 0i32;
                 let mut flags = 0i32;
-                
-                video_proc_amp.Get(property, &mut value, &mut flags)
-                    .map_err(|e| CameraError::ControlError(format!("Failed to get video proc value: {}", e)))?;
-                
+
+                video_proc_amp
+                    .Get(property, &mut value, &mut flags)
+                    .map_err(|e| {
+                        CameraError::ControlError(format!("Failed to get video proc value: {}", e))
+                    })?;
+
                 Ok((value, flags))
             }
         } else {
-            Err(CameraError::ControlError("Video processing interface not available".to_string()))
+            Err(CameraError::ControlError(
+                "Video processing interface not available".to_string(),
+            ))
         }
     }
-    
+
     /// Test if a camera control is supported
     fn test_camera_control_support(&self, property: i32) -> bool {
         self.query_camera_control_range(property).is_some()
     }
-    
+
     /// Test if a video processing control is supported
     fn test_video_proc_support(&self, property: i32) -> bool {
         self.query_video_proc_range(property).is_some()
@@ -639,7 +792,10 @@ impl Drop for MediaFoundationControls {
         unsafe {
             CoUninitialize();
         }
-        log::debug!("MediaFoundation controls resources cleaned up for device {}", self.device_index);
+        log::debug!(
+            "MediaFoundation controls resources cleaned up for device {}",
+            self.device_index
+        );
     }
 }
 
@@ -671,7 +827,7 @@ fn device_to_normalized_range(device_value: i32, range: &ControlRange) -> f32 {
 /// Convert WhiteBalance enum to Kelvin temperature for MediaFoundation
 fn white_balance_to_kelvin(wb: &WhiteBalance) -> i32 {
     match wb {
-        WhiteBalance::Auto => -1,        // Use auto mode
+        WhiteBalance::Auto => -1, // Use auto mode
         WhiteBalance::Incandescent => 2700,
         WhiteBalance::Fluorescent => 4200,
         WhiteBalance::Daylight => 5500,

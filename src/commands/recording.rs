@@ -2,18 +2,18 @@
 //!
 //! These commands provide an interface for recording video from cameras.
 
-use tauri::command;
-use std::sync::Arc;
 use std::collections::HashMap;
-use tokio::sync::{RwLock, Mutex as AsyncMutex};
+use std::sync::Arc;
+use tauri::command;
+use tokio::sync::{Mutex as AsyncMutex, RwLock};
 
-use crate::recording::{Recorder, RecordingConfig, RecordingStats, RecordingQuality};
 use crate::platform::PlatformCamera;
+use crate::recording::{Recorder, RecordingConfig, RecordingQuality, RecordingStats};
 use crate::types::CameraFormat;
 
 // Global recorder registry
 lazy_static::lazy_static! {
-    static ref RECORDER_REGISTRY: Arc<RwLock<HashMap<String, Arc<AsyncMutex<RecordingSession>>>>> = 
+    static ref RECORDER_REGISTRY: Arc<RwLock<HashMap<String, Arc<AsyncMutex<RecordingSession>>>>> =
         Arc::new(RwLock::new(HashMap::new()));
 }
 
@@ -25,7 +25,7 @@ struct RecordingSession {
 }
 
 /// Start recording from a camera to a file
-/// 
+///
 /// # Arguments
 /// * `device_id` - Camera device ID (or "0" for default)
 /// * `output_path` - Path to save the MP4 file
@@ -35,7 +35,7 @@ struct RecordingSession {
 /// * `quality` - Recording quality preset (optional)
 /// * `title` - Metadata title (optional)
 /// * `audio_device_id` - Audio device ID for recording (optional, enables audio when provided)
-/// 
+///
 /// # Returns
 /// * Session ID for tracking the recording
 #[allow(clippy::too_many_arguments)]
@@ -48,21 +48,33 @@ pub async fn start_recording(
     fps: f64,
     quality: Option<String>,
     title: Option<String>,
-    #[cfg(feature = "audio")]
-    audio_device_id: Option<String>,
+    #[cfg(feature = "audio")] audio_device_id: Option<String>,
 ) -> Result<String, String> {
     let camera_id = device_id.unwrap_or_else(|| "0".to_string());
-    
+
     #[cfg(feature = "audio")]
     {
         if let Some(ref audio_id) = audio_device_id {
-            log::info!("Starting recording from camera {} with audio {} to {}", camera_id, audio_id, output_path);
+            log::info!(
+                "Starting recording from camera {} with audio {} to {}",
+                camera_id,
+                audio_id,
+                output_path
+            );
         } else {
-            log::info!("Starting recording from camera {} (no audio) to {}", camera_id, output_path);
+            log::info!(
+                "Starting recording from camera {} (no audio) to {}",
+                camera_id,
+                output_path
+            );
         }
     }
     #[cfg(not(feature = "audio"))]
-    log::info!("Starting recording from camera {} to {}", camera_id, output_path);
+    log::info!(
+        "Starting recording from camera {} to {}",
+        camera_id,
+        output_path
+    );
 
     // Parse quality preset
     let recording_quality = match quality.as_deref() {
@@ -88,7 +100,11 @@ pub async fn start_recording(
     #[cfg(feature = "audio")]
     if let Some(audio_id) = audio_device_id {
         config = config.with_audio(crate::recording::AudioConfig {
-            device_id: if audio_id == "default" { None } else { Some(audio_id) },
+            device_id: if audio_id == "default" {
+                None
+            } else {
+                Some(audio_id)
+            },
             sample_rate: 48000,
             channels: 2,
             bitrate: 128_000,
@@ -99,12 +115,15 @@ pub async fn start_recording(
     let camera = super::capture::get_or_create_camera(
         camera_id.clone(),
         CameraFormat::new(config.width, config.height, fps as f32),
-    ).await.map_err(|e| format!("Failed to initialize camera: {}", e))?;
+    )
+    .await
+    .map_err(|e| format!("Failed to initialize camera: {}", e))?;
 
     // Start camera stream
     {
         let mut cam = camera.lock().await;
-        cam.start_stream().map_err(|e| format!("Failed to start camera stream: {}", e))?;
+        cam.start_stream()
+            .map_err(|e| format!("Failed to start camera stream: {}", e))?;
     }
 
     // Create recorder
@@ -131,20 +150,21 @@ pub async fn start_recording(
 }
 
 /// Write frames from the camera to the recording
-/// 
+///
 /// This should be called repeatedly to capture frames.
 /// Returns the number of frames recorded so far.
 #[command]
 pub async fn record_frame(session_id: String) -> Result<u64, String> {
     let session_arc = {
         let registry = RECORDER_REGISTRY.read().await;
-        registry.get(&session_id)
+        registry
+            .get(&session_id)
             .cloned()
             .ok_or_else(|| format!("Recording session not found: {}", session_id))?
     };
 
     let mut session = session_arc.lock().await;
-    
+
     if !session.is_running {
         return Err("Recording is not running".to_string());
     }
@@ -152,19 +172,22 @@ pub async fn record_frame(session_id: String) -> Result<u64, String> {
     // Capture frame from camera
     let frame = {
         let mut camera = session.camera.lock().await;
-        camera.capture_frame()
+        camera
+            .capture_frame()
             .map_err(|e| format!("Failed to capture frame: {}", e))?
     };
 
     // Write to recorder
-    session.recorder.write_frame(&frame)
+    session
+        .recorder
+        .write_frame(&frame)
         .map_err(|e| format!("Failed to write frame: {}", e))?;
 
     Ok(session.recorder.frame_count())
 }
 
 /// Stop recording and finalize the file
-/// 
+///
 /// # Returns
 /// * Recording statistics (frames, duration, file size, etc.)
 #[command]
@@ -172,7 +195,8 @@ pub async fn stop_recording(session_id: String) -> Result<RecordingStats, String
     // Remove session from registry
     let session_arc = {
         let mut registry = RECORDER_REGISTRY.write().await;
-        registry.remove(&session_id)
+        registry
+            .remove(&session_id)
             .ok_or_else(|| format!("Recording session not found: {}", session_id))?
     };
 
@@ -188,11 +212,17 @@ pub async fn stop_recording(session_id: String) -> Result<RecordingStats, String
     }
 
     // Finish recording
-    let stats = session.recorder.finish()
+    let stats = session
+        .recorder
+        .finish()
         .map_err(|e| format!("Failed to finalize recording: {}", e))?;
 
-    log::info!("Recording stopped: {} frames, {:.2}s, {} bytes",
-        stats.video_frames, stats.duration_secs, stats.bytes_written);
+    log::info!(
+        "Recording stopped: {} frames, {:.2}s, {} bytes",
+        stats.video_frames,
+        stats.duration_secs,
+        stats.bytes_written
+    );
 
     Ok(stats)
 }
@@ -202,13 +232,14 @@ pub async fn stop_recording(session_id: String) -> Result<RecordingStats, String
 pub async fn get_recording_status(session_id: String) -> Result<RecordingStatus, String> {
     let session_arc = {
         let registry = RECORDER_REGISTRY.read().await;
-        registry.get(&session_id)
+        registry
+            .get(&session_id)
             .cloned()
             .ok_or_else(|| format!("Recording session not found: {}", session_id))?
     };
 
     let session = session_arc.lock().await;
-    
+
     // Build audio status if audio feature enabled
     #[cfg(feature = "audio")]
     let audio_status = if session.recorder.audio_enabled() {
@@ -219,7 +250,7 @@ pub async fn get_recording_status(session_id: String) -> Result<RecordingStatus,
     } else {
         None
     };
-    
+
     Ok(RecordingStatus {
         session_id,
         is_running: session.is_running,
@@ -283,7 +314,7 @@ mod tests {
                 failed: false,
             }),
         };
-        
+
         let json = serde_json::to_string(&status).unwrap();
         assert!(json.contains("test_123"));
         assert!(json.contains("100"));

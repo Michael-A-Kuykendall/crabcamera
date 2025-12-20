@@ -1,5 +1,5 @@
 //! Save test outputs for physical verification
-//! 
+//!
 //! Run with: cargo run --example save_test_output --features recording --release
 //!
 //! Creates:
@@ -9,13 +9,11 @@
 
 use std::fs;
 use std::path::Path;
-use std::time::{Duration, Instant};
 use std::thread;
+use std::time::{Duration, Instant};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    env_logger::Builder::from_env(
-        env_logger::Env::default().default_filter_or("warn")
-    ).init();
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn")).init();
 
     let output_dir = Path::new("test_outputs");
     fs::create_dir_all(output_dir)?;
@@ -32,20 +30,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  1. Raw Nokhwa MJPEG Capture");
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
-    use nokhwa::Camera;
     use nokhwa::pixel_format::RgbFormat;
     use nokhwa::utils::{CameraIndex, RequestedFormat, RequestedFormatType};
+    use nokhwa::Camera;
 
     // NOTE: Don't use query() - it fails when camera is asleep.
     // Camera::new() directly wakes the camera via MediaFoundation.
     print!("  Opening camera (this wakes it up)... ");
-    let requested = RequestedFormat::new::<RgbFormat>(RequestedFormatType::AbsoluteHighestResolution);
+    let requested =
+        RequestedFormat::new::<RgbFormat>(RequestedFormatType::AbsoluteHighestResolution);
     let mut camera = Camera::new(CameraIndex::Index(0), requested)?;
     let fmt = camera.camera_format();
-    println!("{}x{} @ {}fps", fmt.resolution().width_x, fmt.resolution().height_y, fmt.frame_rate());
+    println!(
+        "{}x{} @ {}fps",
+        fmt.resolution().width_x,
+        fmt.resolution().height_y,
+        fmt.frame_rate()
+    );
 
     camera.open_stream()?;
-    
+
     // Warmup
     print!("  Warming up (5 frames)... ");
     for _ in 0..5 {
@@ -58,10 +62,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     print!("  Capturing MJPEG frame... ");
     let frame = camera.frame()?;
     let raw_bytes = frame.buffer_bytes();
-    
+
     // Check if it's JPEG
     let is_jpeg = raw_bytes.len() >= 3 && raw_bytes[0] == 0xFF && raw_bytes[1] == 0xD8;
-    
+
     let raw_path = output_dir.join("capture_raw.jpg");
     let raw_len = raw_bytes.len();
     if is_jpeg {
@@ -111,14 +115,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     print!("  Capturing RGB frame... ");
     let frame = platform_cam.capture_frame()?;
-    
+
     // Save as JPEG
     let crab_path = output_dir.join("capture_crabcamera.jpg");
     let img = image::RgbImage::from_raw(frame.width, frame.height, frame.data.clone())
         .ok_or("Failed to create image from CrabCamera frame")?;
     img.save(&crab_path)?;
-    println!("✅ Saved {}x{} ({} bytes RGB) to {}", 
-        frame.width, frame.height, frame.data.len(), crab_path.display());
+    println!(
+        "✅ Saved {}x{} ({} bytes RGB) to {}",
+        frame.width,
+        frame.height,
+        frame.data.len(),
+        crab_path.display()
+    );
 
     platform_cam.stop_stream()?;
     drop(platform_cam);
@@ -150,12 +159,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  Camera resolution: {}x{}", cam_w, cam_h);
 
     // Use 720p for encoding (faster)
-    let (rec_w, rec_h) = if cam_w > 1920 { (1280u32, 720u32) } else { (cam_w, cam_h) };
+    let (rec_w, rec_h) = if cam_w > 1920 {
+        (1280u32, 720u32)
+    } else {
+        (cam_w, cam_h)
+    };
     println!("  Recording resolution: {}x{}", rec_w, rec_h);
 
     let video_path = output_dir.join("recording_3sec.mp4");
-    let config = RecordingConfig::new(rec_w, rec_h, 30.0)
-        .with_title("CrabCamera Test Recording");
+    let config = RecordingConfig::new(rec_w, rec_h, 30.0).with_title("CrabCamera Test Recording");
 
     let mut recorder = Recorder::new(&video_path, config)?;
 
@@ -167,15 +179,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     while start.elapsed() < target_duration {
         let frame_start = Instant::now();
-        
+
         if let Ok(frame) = cam.capture_frame() {
             // Downscale if needed
             let data = if cam_w != rec_w {
-                downscale_rgb(&frame.data, cam_w as usize, cam_h as usize, rec_w as usize, rec_h as usize)
+                downscale_rgb(
+                    &frame.data,
+                    cam_w as usize,
+                    cam_h as usize,
+                    rec_w as usize,
+                    rec_h as usize,
+                )
             } else {
                 frame.data.clone()
             };
-            
+
             if recorder.write_rgb_frame(&data, rec_w, rec_h).is_ok() {
                 frame_count += 1;
                 if frame_count % 10 == 0 {
@@ -183,7 +201,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
         }
-        
+
         // Frame rate limiting
         let elapsed = frame_start.elapsed();
         if elapsed < frame_interval {
@@ -195,13 +213,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     cam.stop_stream()?;
 
     let stats = recorder.finish()?;
-    
+
     println!("\n  ✅ Recording complete!");
     println!("     File: {}", video_path.display());
     println!("     Frames: {}", stats.video_frames);
     println!("     Duration: {:.2}s", stats.duration_secs);
     println!("     Size: {} KB", stats.bytes_written / 1024);
-    println!("     Bitrate: {:.1} kbps", (stats.bytes_written as f64 * 8.0) / stats.duration_secs / 1000.0);
+    println!(
+        "     Bitrate: {:.1} kbps",
+        (stats.bytes_written as f64 * 8.0) / stats.duration_secs / 1000.0
+    );
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SUMMARY

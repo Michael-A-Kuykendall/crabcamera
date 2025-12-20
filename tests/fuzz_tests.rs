@@ -8,11 +8,11 @@ use proptest::prelude::*;
 #[cfg(feature = "audio")]
 mod audio_fuzz {
     use super::*;
-    use crabcamera::audio::{OpusEncoder, AudioFrame};
+    use crabcamera::audio::{AudioFrame, OpusEncoder};
 
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(1000))]
-        
+
         /// Fuzz the Opus encoder with random inputs
         /// The encoder should never panic, only return errors
         #[test]
@@ -36,14 +36,14 @@ mod audio_fuzz {
                 Ok(e) => e,
                 Err(_) => return Ok(()),
             };
-            
+
             let frame = AudioFrame {
                 samples,
                 sample_rate: 48000,
                 channels: 2,
                 timestamp,
             };
-            
+
             // Should not panic
             let _ = encoder.encode(&frame);
             let _ = encoder.flush();
@@ -59,14 +59,14 @@ mod audio_fuzz {
                 Ok(e) => e,
                 Err(_) => return Ok(()),
             };
-            
+
             let frame = AudioFrame {
                 samples,
                 sample_rate: frame_sample_rate,
                 channels: 2,
                 timestamp: 0.0,
             };
-            
+
             // Should return error, not panic
             let _ = encoder.encode(&frame);
         }
@@ -81,14 +81,14 @@ mod audio_fuzz {
                 Ok(e) => e,
                 Err(_) => return Ok(()),
             };
-            
+
             let frame = AudioFrame {
                 samples,
                 sample_rate: 48000,
                 channels: frame_channels,
                 timestamp: 0.0,
             };
-            
+
             // Should return error, not panic
             let _ = encoder.encode(&frame);
         }
@@ -98,11 +98,11 @@ mod audio_fuzz {
 #[cfg(feature = "recording")]
 mod recording_fuzz {
     use super::*;
-    use crabcamera::recording::{RecordingConfig, H264Encoder};
+    use crabcamera::recording::{H264Encoder, RecordingConfig};
 
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(500))]
-        
+
         /// Fuzz recording config creation
         #[test]
         fn fuzz_recording_config(
@@ -139,13 +139,13 @@ mod recording_fuzz {
             let width = width_mult * 16;
             let height = height_mult * 16;
             let expected_size = (width * height * 3) as usize;
-            
+
             // Create valid encoder
             let mut encoder = match H264Encoder::new(width, height, 30.0, 1_000_000) {
                 Ok(e) => e,
                 Err(_) => return Ok(()),
             };
-            
+
             // Pad or truncate RGB data to match expected size
             let rgb: Vec<u8> = if rgb_values.len() >= expected_size {
                 rgb_values[..expected_size].to_vec()
@@ -154,7 +154,7 @@ mod recording_fuzz {
                 padded.resize(expected_size, 128);
                 padded
             };
-            
+
             // Should not panic
             let _ = encoder.encode_rgb(&rgb);
         }
@@ -164,12 +164,12 @@ mod recording_fuzz {
 #[cfg(feature = "recording")]
 mod muxer_fuzz {
     use super::*;
-    use tempfile::tempdir;
     use std::fs::File;
+    use tempfile::tempdir;
 
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(100))]
-        
+
         /// Fuzz muxer with random video data
         #[test]
         fn fuzz_muxer_write_video(
@@ -178,24 +178,24 @@ mod muxer_fuzz {
             is_keyframe in proptest::bool::ANY,
         ) {
             use muxide::api::{Muxer, MuxerConfig};
-            
+
             let dir = match tempdir() {
                 Ok(d) => d,
                 Err(_) => return Ok(()),
             };
             let path = dir.path().join("fuzz_test.mp4");
-            
+
             let file = match File::create(&path) {
                 Ok(f) => f,
                 Err(_) => return Ok(()),
             };
-            
+
             let config = MuxerConfig::new(640, 480, 30.0);
             let mut muxer = match Muxer::new(file, config) {
                 Ok(m) => m,
                 Err(_) => return Ok(()),
             };
-            
+
             // Should not panic - may return error for invalid data
             let _ = muxer.write_video(pts, &data, is_keyframe);
         }

@@ -22,24 +22,23 @@ mod recording_tests {
 
     #[test]
     fn test_config_with_title() {
-        let config = RecordingConfig::from_quality(RecordingQuality::Medium)
-            .with_title("My Recording");
+        let config =
+            RecordingConfig::from_quality(RecordingQuality::Medium).with_title("My Recording");
         assert_eq!(config.title, Some("My Recording".to_string()));
     }
 
     #[test]
     fn test_recording_workflow() {
         let output = temp_dir().join("test_workflow.mp4");
-        let config = RecordingConfig::new(320, 240, 15.0)
-            .with_title("Integration Test");
+        let config = RecordingConfig::new(320, 240, 15.0).with_title("Integration Test");
 
-        let mut recorder = Recorder::new(&output, config)
-            .expect("Failed to create recorder");
+        let mut recorder = Recorder::new(&output, config).expect("Failed to create recorder");
 
         // Record 15 frames (1 second at 15fps)
         for _ in 0..15 {
             let rgb = vec![100u8; 320 * 240 * 3];
-            recorder.write_rgb_frame(&rgb, 320, 240)
+            recorder
+                .write_rgb_frame(&rgb, 320, 240)
                 .expect("Failed to write frame");
         }
 
@@ -50,7 +49,7 @@ mod recording_tests {
 
         assert_eq!(stats.video_frames, 15);
         assert!(stats.bytes_written > 0);
-        
+
         // Verify file exists
         assert!(std::fs::metadata(&output).is_ok());
 

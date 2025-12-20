@@ -94,12 +94,12 @@ mod tests {
     fn test_shared_clock() {
         let clock1 = PTSClock::new();
         let clock2 = PTSClock::from_instant(clock1.start_instant());
-        
+
         thread::sleep(Duration::from_millis(5));
-        
+
         let pts1 = clock1.pts();
         let pts2 = clock2.pts();
-        
+
         // Should be very close (within 1ms)
         assert!((pts1 - pts2).abs() < 0.001);
     }
@@ -108,10 +108,10 @@ mod tests {
     fn test_pts_at() {
         let start = Instant::now();
         let clock = PTSClock::from_instant(start);
-        
+
         thread::sleep(Duration::from_millis(10));
         let now = Instant::now();
-        
+
         let pts = clock.pts_at(now);
         assert!(pts >= 0.01, "Should be at least 10ms");
     }

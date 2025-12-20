@@ -41,9 +41,7 @@ pub struct AudioDevice {
 /// Returns error if audio host is unavailable.
 pub fn list_audio_devices() -> Result<Vec<AudioDevice>, CameraError> {
     let host = cpal::default_host();
-    let default_device_name = host
-        .default_input_device()
-        .and_then(|d| d.name().ok());
+    let default_device_name = host.default_input_device().and_then(|d| d.name().ok());
 
     let mut devices: Vec<AudioDevice> = host
         .input_devices()
@@ -52,7 +50,7 @@ pub fn list_audio_devices() -> Result<Vec<AudioDevice>, CameraError> {
         .filter_map(|(index, device)| {
             let name = device.name().ok()?;
             let config = device.default_input_config().ok()?;
-            
+
             // Generate synthetic ID: cpal doesn't expose unique device IDs on all platforms,
             // so we combine index with name hash to create a stable-ish identifier.
             // Format: "audio_{index}_{hash}" where hash is first 8 chars of name hash
@@ -64,7 +62,7 @@ pub fn list_audio_devices() -> Result<Vec<AudioDevice>, CameraError> {
                 format!("{:08x}", hasher.finish() & 0xFFFFFFFF)
             };
             let id = format!("audio_{}_{}", index, name_hash);
-            
+
             Some(AudioDevice {
                 id,
                 name: name.clone(),
@@ -76,12 +74,10 @@ pub fn list_audio_devices() -> Result<Vec<AudioDevice>, CameraError> {
         .collect();
 
     // Deterministic ordering: default first, then alphabetically
-    devices.sort_by(|a, b| {
-        match (a.is_default, b.is_default) {
-            (true, false) => std::cmp::Ordering::Less,
-            (false, true) => std::cmp::Ordering::Greater,
-            _ => a.name.cmp(&b.name),
-        }
+    devices.sort_by(|a, b| match (a.is_default, b.is_default) {
+        (true, false) => std::cmp::Ordering::Less,
+        (false, true) => std::cmp::Ordering::Greater,
+        _ => a.name.cmp(&b.name),
     });
 
     Ok(devices)
@@ -93,7 +89,7 @@ pub fn list_audio_devices() -> Result<Vec<AudioDevice>, CameraError> {
 /// Returns error if no default device is available.
 pub fn get_default_audio_device() -> Result<AudioDevice, CameraError> {
     let host = cpal::default_host();
-    
+
     let device = host
         .default_input_device()
         .ok_or_else(|| CameraError::AudioError("No default audio input device".to_string()))?;

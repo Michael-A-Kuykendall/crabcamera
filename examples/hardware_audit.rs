@@ -1,33 +1,31 @@
 //! Comprehensive Hardware Test - Tests ALL CrabCamera commands with real hardware
-//! 
+//!
 //! Run with: cargo run --example hardware_audit
 //!
 //! This tests every command that interacts with camera hardware.
 //! Results are printed to console and can be used to verify functionality.
 
-use crabcamera::commands::init::{
-    initialize_camera_system, get_available_cameras, get_system_diagnostics,
-    get_platform_info, test_camera_system, get_current_platform,
-    check_camera_availability, get_camera_formats, get_recommended_format,
-    get_optimal_settings,
+use crabcamera::commands::advanced::{
+    capture_burst_sequence, get_camera_controls, get_camera_performance, set_camera_controls,
+    test_camera_capabilities,
 };
 use crabcamera::commands::capture::{
-    capture_single_photo, capture_photo_sequence, capture_with_quality_retry,
-    start_camera_preview, stop_camera_preview, release_camera,
-    save_frame_to_disk, save_frame_compressed, get_capture_stats,
+    capture_photo_sequence, capture_single_photo, capture_with_quality_retry, get_capture_stats,
+    release_camera, save_frame_compressed, save_frame_to_disk, start_camera_preview,
+    stop_camera_preview,
 };
-use crabcamera::commands::advanced::{
-    get_camera_controls, set_camera_controls, test_camera_capabilities,
-    capture_burst_sequence, get_camera_performance,
-};
-use crabcamera::commands::quality::{
-    validate_frame_quality, validate_provided_frame,
-    get_quality_config, capture_best_quality_frame,
+use crabcamera::commands::init::{
+    check_camera_availability, get_available_cameras, get_camera_formats, get_current_platform,
+    get_optimal_settings, get_platform_info, get_recommended_format, get_system_diagnostics,
+    initialize_camera_system, test_camera_system,
 };
 use crabcamera::commands::permissions::{
-    request_camera_permission, check_camera_permission_status,
+    check_camera_permission_status, request_camera_permission,
 };
-use crabcamera::types::{CameraControls, BurstConfig};
+use crabcamera::commands::quality::{
+    capture_best_quality_frame, get_quality_config, validate_frame_quality, validate_provided_frame,
+};
+use crabcamera::types::{BurstConfig, CameraControls};
 use std::time::Duration;
 use tokio::time::sleep;
 
@@ -40,23 +38,34 @@ struct TestResult {
 
 impl TestResult {
     fn pass(name: &'static str) -> Self {
-        TestResult { name, passed: true, message: "OK".to_string() }
+        TestResult {
+            name,
+            passed: true,
+            message: "OK".to_string(),
+        }
     }
-    
+
     fn fail(name: &'static str, msg: impl Into<String>) -> Self {
-        TestResult { name, passed: false, message: msg.into() }
+        TestResult {
+            name,
+            passed: false,
+            message: msg.into(),
+        }
     }
 }
 
 #[tokio::main]
 async fn main() {
     println!("╔══════════════════════════════════════════════════════════════════╗");
-    println!("║          CrabCamera Hardware Audit - v{}                  ║", crabcamera::VERSION);
+    println!(
+        "║          CrabCamera Hardware Audit - v{}                  ║",
+        crabcamera::VERSION
+    );
     println!("╚══════════════════════════════════════════════════════════════════╝\n");
 
     let mut results: Vec<TestResult> = Vec::new();
     let mut device_id = String::from("0");
-    
+
     // ═══════════════════════════════════════════════════════════════════════
     // SECTION 1: INITIALIZATION & SYSTEM INFO
     // ═══════════════════════════════════════════════════════════════════════
@@ -107,7 +116,10 @@ async fn main() {
     print!("  [1.4] get_system_diagnostics ... ");
     match get_system_diagnostics().await {
         Ok(diag) => {
-            println!("✅ {} cameras, permission={}", diag.camera_count, diag.permission_status);
+            println!(
+                "✅ {} cameras, permission={}",
+                diag.camera_count, diag.permission_status
+            );
             results.push(TestResult::pass("get_system_diagnostics"));
         }
         Err(e) => {
@@ -120,7 +132,9 @@ async fn main() {
     print!("  [1.5] test_camera_system ... ");
     match test_camera_system().await {
         Ok(result) => {
-            let successes = result.test_results.iter()
+            let successes = result
+                .test_results
+                .iter()
                 .filter(|(_, r)| matches!(r, crabcamera::platform::CameraTestResult::Success))
                 .count();
             println!("✅ {} cameras, {} passed", result.cameras_found, successes);
@@ -165,11 +179,18 @@ async fn main() {
     print!("  [2.2] check_camera_availability({}) ... ", device_id);
     match check_camera_availability(device_id.clone()).await {
         Ok(available) => {
-            println!("{}", if available { "✅ Available" } else { "❌ Not available" });
-            results.push(if available { 
-                TestResult::pass("check_camera_availability") 
-            } else { 
-                TestResult::fail("check_camera_availability", "Not available") 
+            println!(
+                "{}",
+                if available {
+                    "✅ Available"
+                } else {
+                    "❌ Not available"
+                }
+            );
+            results.push(if available {
+                TestResult::pass("check_camera_availability")
+            } else {
+                TestResult::fail("check_camera_availability", "Not available")
             });
         }
         Err(e) => {
@@ -265,11 +286,46 @@ async fn main() {
     match test_camera_capabilities(device_id.clone()).await {
         Ok(caps) => {
             println!("✅");
-            println!("       Auto Focus:     {}", if caps.supports_auto_focus { "✓" } else { "✗" });
-            println!("       Manual Focus:   {}", if caps.supports_manual_focus { "✓" } else { "✗" });
-            println!("       Auto Exposure:  {}", if caps.supports_auto_exposure { "✓" } else { "✗" });
-            println!("       Manual Exposure:{}", if caps.supports_manual_exposure { "✓" } else { "✗" });
-            println!("       White Balance:  {}", if caps.supports_white_balance { "✓" } else { "✗" });
+            println!(
+                "       Auto Focus:     {}",
+                if caps.supports_auto_focus {
+                    "✓"
+                } else {
+                    "✗"
+                }
+            );
+            println!(
+                "       Manual Focus:   {}",
+                if caps.supports_manual_focus {
+                    "✓"
+                } else {
+                    "✗"
+                }
+            );
+            println!(
+                "       Auto Exposure:  {}",
+                if caps.supports_auto_exposure {
+                    "✓"
+                } else {
+                    "✗"
+                }
+            );
+            println!(
+                "       Manual Exposure:{}",
+                if caps.supports_manual_exposure {
+                    "✓"
+                } else {
+                    "✗"
+                }
+            );
+            println!(
+                "       White Balance:  {}",
+                if caps.supports_white_balance {
+                    "✓"
+                } else {
+                    "✗"
+                }
+            );
             results.push(TestResult::pass("test_camera_capabilities"));
         }
         Err(e) => {
@@ -316,7 +372,10 @@ async fn main() {
     print!("  [4.4] get_camera_performance({}) ... ", device_id);
     match get_camera_performance(device_id.clone()).await {
         Ok(perf) => {
-            println!("✅ {:.1}fps, latency={:.1}ms", perf.fps_actual, perf.capture_latency_ms);
+            println!(
+                "✅ {:.1}fps, latency={:.1}ms",
+                perf.fps_actual, perf.capture_latency_ms
+            );
             results.push(TestResult::pass("get_camera_performance"));
         }
         Err(e) => {
@@ -386,7 +445,10 @@ async fn main() {
     print!("  [6.1] capture_single_photo({}) ... ", device_id);
     let captured_frame = match capture_single_photo(Some(device_id.clone()), None).await {
         Ok(frame) => {
-            println!("✅ {}x{}, {} bytes", frame.width, frame.height, frame.size_bytes);
+            println!(
+                "✅ {}x{}, {} bytes",
+                frame.width, frame.height, frame.size_bytes
+            );
             results.push(TestResult::pass("capture_single_photo"));
             Some(frame)
         }
@@ -413,7 +475,9 @@ async fn main() {
 
         // Test: save_frame_compressed
         print!("  [6.3] save_frame_compressed ... ");
-        match save_frame_compressed(frame.clone(), "audit_compressed.jpg".to_string(), Some(85)).await {
+        match save_frame_compressed(frame.clone(), "audit_compressed.jpg".to_string(), Some(85))
+            .await
+        {
             Ok(msg) => {
                 println!("✅ {}", msg);
                 results.push(TestResult::pass("save_frame_compressed"));
@@ -496,8 +560,10 @@ async fn main() {
     print!("  [7.2] validate_frame_quality({}) ... ", device_id);
     match validate_frame_quality(Some(device_id.clone()), None).await {
         Ok(report) => {
-            println!("✅ overall={:.2}, blur={:.2}, exposure={:.2}", 
-                report.score.overall, report.score.blur, report.score.exposure);
+            println!(
+                "✅ overall={:.2}, blur={:.2}, exposure={:.2}",
+                report.score.overall, report.score.blur, report.score.exposure
+            );
             results.push(TestResult::pass("validate_frame_quality"));
         }
         Err(e) => {
@@ -525,7 +591,10 @@ async fn main() {
     print!("  [7.4] capture_best_quality_frame (5 attempts) ... ");
     match capture_best_quality_frame(Some(device_id.clone()), None, Some(5)).await {
         Ok(result) => {
-            println!("✅ {}x{}, score={:.2}", result.frame.width, result.frame.height, result.quality_report.score.overall);
+            println!(
+                "✅ {}x{}, score={:.2}",
+                result.frame.width, result.frame.height, result.quality_report.score.overall
+            );
             results.push(TestResult::pass("capture_best_quality_frame"));
         }
         Err(e) => {
@@ -568,7 +637,10 @@ async fn main() {
     println!("  Total Tests: {}", total);
     println!("  ✅ Passed:   {}", passed);
     println!("  ❌ Failed:   {}", failed);
-    println!("  Success Rate: {:.1}%\n", (passed as f64 / total as f64) * 100.0);
+    println!(
+        "  Success Rate: {:.1}%\n",
+        (passed as f64 / total as f64) * 100.0
+    );
 
     if failed > 0 {
         println!("  Failed Tests:");
@@ -580,6 +652,6 @@ async fn main() {
     println!("\n  Output files created:");
     println!("    → audit_raw.png");
     println!("    → audit_compressed.jpg");
-    
+
     println!("\n══════════════════════════════════════════════════════════════════════");
 }

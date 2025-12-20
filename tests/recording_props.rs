@@ -28,7 +28,7 @@ mod recording_tests {
             bitrate in 500_000u32..10_000_000,
         ) {
             let result = H264Encoder::new(width, height, fps, bitrate);
-            prop_assert!(result.is_ok(), "Encoder should accept {}x{} @ {}fps: {:?}", 
+            prop_assert!(result.is_ok(), "Encoder should accept {}x{} @ {}fps: {:?}",
                 width, height, fps, result.err());
         }
 
@@ -40,21 +40,21 @@ mod recording_tests {
         ) {
             let width = 320u32;
             let height = 240u32;
-            
+
             let mut encoder = H264Encoder::new(width, height, 30.0, 1_000_000)
                 .expect("Encoder creation should succeed");
-            
+
             // Create a uniform gray frame
             let rgb = vec![gray_level; (width * height * 3) as usize];
-            
+
             let encoded = encoder.encode_rgb(&rgb)
                 .expect("Encoding should succeed");
-            
+
             if !encoded.data.is_empty() {
                 // Check for Annex B start codes
                 let starts_with_4byte = encoded.data.starts_with(&[0, 0, 0, 1]);
                 let starts_with_3byte = encoded.data.starts_with(&[0, 0, 1]);
-                
+
                 prop_assert!(
                     starts_with_4byte || starts_with_3byte,
                     "Encoded frame should start with Annex B prefix, got: {:02x?}",
@@ -67,15 +67,15 @@ mod recording_tests {
         #[test]
         fn first_frame_is_keyframe(
             r in 0u8..255,
-            g in 0u8..255, 
+            g in 0u8..255,
             b in 0u8..255,
         ) {
             let width = 320u32;
             let height = 240u32;
-            
+
             let mut encoder = H264Encoder::new(width, height, 30.0, 1_000_000)
                 .expect("Encoder creation should succeed");
-            
+
             // Create a colored frame
             let mut rgb = Vec::with_capacity((width * height * 3) as usize);
             for _ in 0..(width * height) {
@@ -83,10 +83,10 @@ mod recording_tests {
                 rgb.push(g);
                 rgb.push(b);
             }
-            
+
             let encoded = encoder.encode_rgb(&rgb)
                 .expect("Encoding should succeed");
-            
+
             prop_assert!(encoded.is_keyframe, "First frame must be a keyframe");
         }
     }
@@ -105,14 +105,14 @@ mod recording_tests {
         ) {
             let dir = tempdir().expect("tempdir");
             let output = dir.path().join("test_output.mp4");
-            
+
             let width = 320u32;
             let height = 240u32;
-            
+
             let config = RecordingConfig::new(width, height, 30.0);
             let mut recorder = Recorder::new(&output, config)
                 .expect("Recorder creation should succeed");
-            
+
             // Write frames
             for i in 0..frame_count {
                 let gray = ((i * 17) % 256) as u8;
@@ -120,12 +120,12 @@ mod recording_tests {
                 recorder.write_rgb_frame(&rgb, width, height)
                     .expect("Frame write should succeed");
             }
-            
+
             let stats = recorder.finish()
                 .expect("Finish should succeed");
-            
+
             prop_assert_eq!(
-                stats.video_frames as usize, 
+                stats.video_frames as usize,
                 frame_count,
                 "Frame count mismatch: expected {}, got {}",
                 frame_count, stats.video_frames
@@ -140,28 +140,28 @@ mod recording_tests {
         ) {
             let dir = tempdir().expect("tempdir");
             let output = dir.path().join("test_bounded.mp4");
-            
+
             let width = 320u32;
             let height = 240u32;
-            
+
             let config = RecordingConfig::new(width, height, 30.0);
             let mut recorder = Recorder::new(&output, config)
                 .expect("Recorder creation should succeed");
-            
+
             let raw_frame_size = (width * height * 3) as usize;
-            
+
             for i in 0..frame_count {
                 let gray = ((i * 31) % 256) as u8;
                 let rgb = vec![gray; raw_frame_size];
                 recorder.write_rgb_frame(&rgb, width, height)
                     .expect("Frame write should succeed");
             }
-            
+
             let stats = recorder.finish()
                 .expect("Finish should succeed");
-            
+
             let max_reasonable_size = (raw_frame_size * frame_count) as u64;
-            
+
             prop_assert!(
                 stats.bytes_written < max_reasonable_size,
                 "Compressed output ({} bytes) should be smaller than raw ({} bytes)",
@@ -176,21 +176,21 @@ mod recording_tests {
         ) {
             let dir = tempdir().expect("tempdir");
             let output = dir.path().join("test_positive.mp4");
-            
+
             let config = RecordingConfig::new(320, 240, 30.0);
             let mut recorder = Recorder::new(&output, config)
                 .expect("Recorder creation should succeed");
-            
+
             for i in 0..frame_count {
                 let gray = ((i * 41) % 256) as u8;
                 let rgb = vec![gray; 320 * 240 * 3];
                 recorder.write_rgb_frame(&rgb, 320, 240)
                     .expect("Frame write should succeed");
             }
-            
+
             let stats = recorder.finish()
                 .expect("Finish should succeed");
-            
+
             prop_assert!(stats.bytes_written > 0, "Bytes written must be positive");
         }
 
@@ -202,24 +202,24 @@ mod recording_tests {
         ) {
             let dir = tempdir().expect("tempdir");
             let output = dir.path().join("test_duration.mp4");
-            
+
             let config = RecordingConfig::new(320, 240, fps);
             let mut recorder = Recorder::new(&output, config)
                 .expect("Recorder creation should succeed");
-            
+
             for i in 0..frame_count {
                 let gray = ((i * 47) % 256) as u8;
                 let rgb = vec![gray; 320 * 240 * 3];
                 recorder.write_rgb_frame(&rgb, 320, 240)
                     .expect("Frame write should succeed");
             }
-            
+
             let stats = recorder.finish()
                 .expect("Finish should succeed");
-            
+
             let expected_duration = frame_count as f64 / fps;
             let tolerance = 0.1; // 100ms tolerance
-            
+
             prop_assert!(
                 (stats.duration_secs - expected_duration).abs() < tolerance,
                 "Duration mismatch: expected ~{:.2}s, got {:.2}s (frames={}, fps={})",
@@ -243,7 +243,7 @@ mod recording_tests {
         ) {
             let config = RecordingConfig::new(width, height, fps)
                 .with_title(&title);
-            
+
             prop_assert_eq!(config.width, width);
             prop_assert_eq!(config.height, height);
             prop_assert!((config.fps - fps).abs() < 0.001);
@@ -269,7 +269,7 @@ mod format_tests {
             fps in 0.1f32..240.0,
         ) {
             let format = CameraFormat::new(width, height, fps);
-            
+
             prop_assert_eq!(format.width, width);
             prop_assert_eq!(format.height, height);
             prop_assert!((format.fps - fps).abs() < 0.001);
@@ -284,10 +284,10 @@ mod format_tests {
         ) {
             let width = if zero_width { 0 } else { 640 };
             let height = if zero_height { 0 } else { 480 };
-            
+
             // Currently CameraFormat doesn't validate - this documents current behavior
             let format = CameraFormat::new(width, height, 30.0);
-            
+
             // If either is zero, the format has zero pixels
             if zero_width || zero_height {
                 prop_assert!(

@@ -1,5 +1,5 @@
 //! CrabCamera Functional Test Suite
-//! 
+//!
 //! This test properly warms up the camera before testing all functionality.
 //! Run with: cargo run --example functional_test --features recording --release
 //!
@@ -9,16 +9,14 @@
 //! 3. Stream start (warmup period)
 //! 4. Test frame capture before real operations
 
-use std::time::{Duration, Instant};
-use std::thread;
-use nokhwa::{Camera, query};
 use nokhwa::pixel_format::RgbFormat;
 use nokhwa::utils::{ApiBackend, CameraIndex, RequestedFormat, RequestedFormatType};
+use nokhwa::{query, Camera};
+use std::thread;
+use std::time::{Duration, Instant};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    env_logger::Builder::from_env(
-        env_logger::Env::default().default_filter_or("info")
-    ).init();
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
     println!("╔══════════════════════════════════════════════════════════════════╗");
     println!("║       CrabCamera Functional Test Suite                           ║");
@@ -48,7 +46,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Err(e) => {
             println!("❌ {e}");
             results.fail("nokhwa_query_mf", &e.to_string());
-            
+
             // Try Auto backend as fallback
             print!("  [1.1b] Query cameras (Auto fallback)... ");
             match query(ApiBackend::Auto) {
@@ -77,11 +75,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Step 1.2: Create camera instance
     print!("\n  [1.2] Create camera instance... ");
-    let requested = RequestedFormat::new::<RgbFormat>(RequestedFormatType::AbsoluteHighestResolution);
+    let requested =
+        RequestedFormat::new::<RgbFormat>(RequestedFormatType::AbsoluteHighestResolution);
     let mut camera = match Camera::new(CameraIndex::Index(0), requested) {
         Ok(cam) => {
             let fmt = cam.camera_format();
-            println!("✅ {}x{} @ {}fps", fmt.resolution().width_x, fmt.resolution().height_y, fmt.frame_rate());
+            println!(
+                "✅ {}x{} @ {}fps",
+                fmt.resolution().width_x,
+                fmt.resolution().height_y,
+                fmt.frame_rate()
+            );
             results.pass("nokhwa_create_camera");
             cam
         }
@@ -125,7 +129,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     if warmup_success >= 3 {
-        println!("✅ {warmup_success}/5 frames in {:?}", warmup_start.elapsed());
+        println!(
+            "✅ {warmup_success}/5 frames in {:?}",
+            warmup_start.elapsed()
+        );
         results.pass("nokhwa_warmup");
     } else {
         println!("⚠️  Only {warmup_success}/5 warmup frames succeeded");
@@ -140,7 +147,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let res = frame.resolution();
             let is_jpeg = bytes.len() >= 3 && bytes[0] == 0xFF && bytes[1] == 0xD8;
             let data_type = if is_jpeg { "MJPEG" } else { "RAW" };
-            println!("✅ {}x{}, {} bytes ({})", res.width_x, res.height_y, bytes.len(), data_type);
+            println!(
+                "✅ {}x{}, {} bytes ({})",
+                res.width_x,
+                res.height_y,
+                bytes.len(),
+                data_type
+            );
             results.pass("nokhwa_capture_frame");
         }
         Err(e) => {
@@ -233,11 +246,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Ok(frame) => {
             let valid = frame.width > 0 && frame.height > 0 && !frame.data.is_empty();
             if valid {
-                println!("✅ {}x{}, {} bytes", frame.width, frame.height, frame.data.len());
+                println!(
+                    "✅ {}x{}, {} bytes",
+                    frame.width,
+                    frame.height,
+                    frame.data.len()
+                );
                 results.pass("crabcamera_capture");
             } else {
                 println!("❌ Invalid frame data");
-                results.fail("crabcamera_capture", "Invalid frame dimensions or empty data");
+                results.fail(
+                    "crabcamera_capture",
+                    "Invalid frame dimensions or empty data",
+                );
             }
         }
         Err(e) => {
@@ -260,7 +281,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("  PHASE 3: Recording Module (openh264 + muxide)");
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
-        use crabcamera::recording::{Recorder, RecordingConfig, H264Encoder};
+        use crabcamera::recording::{H264Encoder, Recorder, RecordingConfig};
 
         // Step 3.1: Create H264Encoder
         print!("  [3.1] H264Encoder::new(640x480)... ");
@@ -282,10 +303,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let test_rgb = vec![128u8; 320 * 240 * 3]; // Gray frame
                 match encoder.encode_rgb(&test_rgb) {
                     Ok(encoded) => {
-                        let is_annexb = encoded.data.starts_with(&[0, 0, 0, 1]) || 
-                                        encoded.data.starts_with(&[0, 0, 1]);
+                        let is_annexb = encoded.data.starts_with(&[0, 0, 0, 1])
+                            || encoded.data.starts_with(&[0, 0, 1]);
                         if is_annexb && !encoded.data.is_empty() {
-                            println!("✅ {} bytes, keyframe={}", encoded.data.len(), encoded.is_keyframe);
+                            println!(
+                                "✅ {} bytes, keyframe={}",
+                                encoded.data.len(),
+                                encoded.is_keyframe
+                            );
                             results.pass("encoder_encode");
                         } else {
                             println!("❌ Invalid Annex B output");
@@ -307,9 +332,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Step 3.3: Create Recorder and write frames
         print!("  [3.3] Recorder: Create + write 10 frames... ");
         let output_path = std::path::PathBuf::from("functional_test_output.mp4");
-        let config = RecordingConfig::new(320, 240, 15.0)
-            .with_title("Functional Test");
-        
+        let config = RecordingConfig::new(320, 240, 15.0).with_title("Functional Test");
+
         match Recorder::new(&output_path, config) {
             Ok(mut recorder) => {
                 let mut success = true;
@@ -325,7 +349,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 if success {
                     match recorder.finish() {
                         Ok(stats) => {
-                            println!("✅ {} frames, {} bytes", stats.video_frames, stats.bytes_written);
+                            println!(
+                                "✅ {} frames, {} bytes",
+                                stats.video_frames, stats.bytes_written
+                            );
                             results.pass("recorder_write");
                             // Cleanup
                             let _ = std::fs::remove_file(&output_path);
@@ -347,9 +374,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Step 3.4: Record from real camera
         print!("  [3.4] Record 2 seconds from camera... ");
-        
+
         // Re-init camera
-        let params = CameraInitParams::new(camera_id.clone()).with_format(CameraFormat::new(1920, 1080, 30.0));
+        let params = CameraInitParams::new(camera_id.clone())
+            .with_format(CameraFormat::new(1920, 1080, 30.0));
         match PlatformCamera::new(params) {
             Ok(mut cam) => {
                 if cam.start_stream().is_ok() {
@@ -362,44 +390,52 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     // Get actual dimensions
                     if let Ok(test_frame) = cam.capture_frame() {
                         let (w, h) = (test_frame.width, test_frame.height);
-                        
+
                         // Use 720p if camera is 4K (faster encoding)
                         let (rec_w, rec_h) = if w > 1920 { (1280, 720) } else { (w, h) };
-                        
+
                         let output = std::path::PathBuf::from("functional_test_camera.mp4");
                         let config = RecordingConfig::new(rec_w, rec_h, 30.0)
                             .with_title("Camera Recording Test");
-                        
+
                         match Recorder::new(&output, config) {
                             Ok(mut recorder) => {
                                 let start = Instant::now();
                                 let mut frame_count = 0u32;
-                                
+
                                 while start.elapsed() < Duration::from_secs(2) {
                                     if let Ok(frame) = cam.capture_frame() {
                                         // Downscale if needed
                                         let data = if w != rec_w {
-                                            downscale_rgb(&frame.data, w as usize, h as usize, rec_w as usize, rec_h as usize)
+                                            downscale_rgb(
+                                                &frame.data,
+                                                w as usize,
+                                                h as usize,
+                                                rec_w as usize,
+                                                rec_h as usize,
+                                            )
                                         } else {
                                             frame.data.clone()
                                         };
-                                        
+
                                         if recorder.write_rgb_frame(&data, rec_w, rec_h).is_ok() {
                                             frame_count += 1;
                                         }
                                     }
                                     thread::sleep(Duration::from_millis(33)); // ~30fps
                                 }
-                                
+
                                 let _ = cam.stop_stream();
                                 let _ = frame_count; // Silence unused warning
-                                
+
                                 match recorder.finish() {
                                     Ok(stats) => {
-                                        println!("✅ {} frames, {:.2}s, {} KB", 
-                                            stats.video_frames, 
+                                        println!(
+                                            "✅ {} frames, {:.2}s, {} KB",
+                                            stats.video_frames,
                                             stats.duration_secs,
-                                            stats.bytes_written / 1024);
+                                            stats.bytes_written / 1024
+                                        );
                                         results.pass("recorder_camera");
                                         let _ = std::fs::remove_file(&output);
                                     }
@@ -462,28 +498,40 @@ struct TestResults {
 
 impl TestResults {
     fn new() -> Self {
-        Self { passed: Vec::new(), failed: Vec::new() }
+        Self {
+            passed: Vec::new(),
+            failed: Vec::new(),
+        }
     }
-    
+
     fn pass(&mut self, name: &str) {
         self.passed.push(name.to_string());
     }
-    
+
     fn fail(&mut self, name: &str, reason: &str) {
         self.failed.push((name.to_string(), reason.to_string()));
     }
-    
+
     fn print_summary(&self) {
         println!("╔══════════════════════════════════════════════════════════════════╗");
         println!("║                     FUNCTIONAL TEST SUMMARY                      ║");
         println!("╚══════════════════════════════════════════════════════════════════╝\n");
-        
+
         let total = self.passed.len() + self.failed.len();
-        let pct = if total > 0 { (self.passed.len() * 100) / total } else { 0 };
-        
-        println!("  Total: {}  |  ✅ Passed: {}  |  ❌ Failed: {}  |  Rate: {}%\n",
-            total, self.passed.len(), self.failed.len(), pct);
-        
+        let pct = if total > 0 {
+            (self.passed.len() * 100) / total
+        } else {
+            0
+        };
+
+        println!(
+            "  Total: {}  |  ✅ Passed: {}  |  ❌ Failed: {}  |  Rate: {}%\n",
+            total,
+            self.passed.len(),
+            self.failed.len(),
+            pct
+        );
+
         if !self.failed.is_empty() {
             println!("  Failed Tests:");
             for (name, reason) in &self.failed {
@@ -491,7 +539,7 @@ impl TestResults {
             }
             println!();
         }
-        
+
         println!("  Passed Tests:");
         for name in &self.passed {
             println!("    ✅ {name}");

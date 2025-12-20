@@ -3,10 +3,10 @@
 pub mod capture;
 pub mod controls;
 
-use nokhwa::Camera;
-use crate::types::{CameraControls, CameraCapabilities, CameraFormat, CameraFrame};
-use crate::errors::CameraError;
 use self::controls::MediaFoundationControls;
+use crate::errors::CameraError;
+use crate::types::{CameraCapabilities, CameraControls, CameraFormat, CameraFrame};
+use nokhwa::Camera;
 
 /// Combined Windows camera interface with both capture and control capabilities
 pub struct WindowsCamera {
@@ -21,16 +21,20 @@ pub struct WindowsCamera {
 impl WindowsCamera {
     /// Create new Windows camera with both capture and control capabilities
     pub fn new(device_id: String, format: CameraFormat) -> Result<Self, CameraError> {
-        log::info!("Initializing Windows camera {} with MediaFoundation controls", device_id);
-        
+        log::info!(
+            "Initializing Windows camera {} with MediaFoundation controls",
+            device_id
+        );
+
         // Initialize nokhwa camera for capture
         let nokhwa_camera = capture::initialize_camera(&device_id, format)?;
-        
+
         // Initialize MediaFoundation controls
-        let device_index = device_id.parse::<u32>()
+        let device_index = device_id
+            .parse::<u32>()
             .map_err(|_| CameraError::InitializationError("Invalid device ID".to_string()))?;
         let mf_controls = MediaFoundationControls::new(device_index)?;
-        
+
         Ok(WindowsCamera {
             nokhwa_camera,
             mf_controls,
@@ -44,7 +48,10 @@ impl WindowsCamera {
     }
 
     /// Apply camera controls using MediaFoundation
-    pub fn apply_controls(&mut self, controls: &CameraControls) -> Result<Vec<String>, CameraError> {
+    pub fn apply_controls(
+        &mut self,
+        controls: &CameraControls,
+    ) -> Result<Vec<String>, CameraError> {
         self.mf_controls.apply_controls(controls)
     }
 
@@ -61,17 +68,19 @@ impl WindowsCamera {
     /// Start camera stream - must be called before capture_frame
     pub fn start_stream(&mut self) -> Result<(), CameraError> {
         log::debug!("Opening camera stream for device {}", self.device_id);
-        self.nokhwa_camera.open_stream()
+        self.nokhwa_camera
+            .open_stream()
             .map_err(|e| CameraError::StreamError(format!("Failed to open stream: {}", e)))
     }
 
     /// Stop camera stream
     pub fn stop_stream(&mut self) -> Result<(), CameraError> {
         log::debug!("Stopping camera stream for device {}", self.device_id);
-        self.nokhwa_camera.stop_stream()
+        self.nokhwa_camera
+            .stop_stream()
             .map_err(|e| CameraError::StreamError(format!("Failed to stop stream: {}", e)))
     }
-    
+
     /// Check if the stream is currently open
     pub fn is_stream_open(&self) -> bool {
         self.nokhwa_camera.is_stream_open()
@@ -90,4 +99,4 @@ impl WindowsCamera {
 }
 
 // Re-export public interface functions for compatibility
-pub use capture::{list_cameras, initialize_camera, capture_frame};
+pub use capture::{capture_frame, initialize_camera, list_cameras};

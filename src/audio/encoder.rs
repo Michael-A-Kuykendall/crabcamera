@@ -47,10 +47,10 @@ pub struct EncodedAudio {
 /// This type implements `Send` to allow moving the encoder to a dedicated audio thread.
 /// The underlying `libopus` encoder is NOT thread-safe for concurrent access, but IS safe
 /// to use from a single thread after being moved there.
-/// 
+///
 /// **Invariant:** Once created, an `OpusEncoder` must only be accessed from one thread
 /// at a time. The current architecture enforces this by:
-/// 1. Creating the encoder in `start_audio_capture()` 
+/// 1. Creating the encoder in `start_audio_capture()`
 /// 2. Moving it into a dedicated audio thread via `std::thread::spawn(move || ...)`
 /// 3. The encoder never escapes that thread until dropped
 ///
@@ -208,7 +208,7 @@ impl OpusEncoder {
         }
 
         // NOTE: Do NOT update buffer_start_pts here. The samples_encoded counter
-        // already tracks absolute position from recording start. Updating 
+        // already tracks absolute position from recording start. Updating
         // buffer_start_pts would cause double-counting of timestamps.
 
         Ok(encoded_packets)
@@ -315,7 +315,7 @@ mod tests {
     #[test]
     fn test_encode_full_frame() {
         let mut encoder = OpusEncoder::new(48000, 2, 128000).unwrap();
-        
+
         // Create a full frame worth of stereo samples (960 samples * 2 channels)
         let frame = AudioFrame {
             samples: vec![0.0f32; OPUS_FRAME_SAMPLES * 2],
@@ -332,7 +332,7 @@ mod tests {
     #[test]
     fn test_encode_partial_frame() {
         let mut encoder = OpusEncoder::new(48000, 2, 128000).unwrap();
-        
+
         // Less than a full frame
         let frame = AudioFrame {
             samples: vec![0.0f32; 100],
@@ -342,13 +342,16 @@ mod tests {
         };
 
         let encoded = encoder.encode(&frame).unwrap();
-        assert!(encoded.is_empty(), "Partial frame should not produce output");
+        assert!(
+            encoded.is_empty(),
+            "Partial frame should not produce output"
+        );
     }
 
     #[test]
     fn test_flush_remaining() {
         let mut encoder = OpusEncoder::new(48000, 2, 128000).unwrap();
-        
+
         // Add partial frame
         let frame = AudioFrame {
             samples: vec![0.0f32; 100],

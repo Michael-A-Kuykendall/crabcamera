@@ -1,6 +1,6 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 /// Platform enumeration
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -29,7 +29,7 @@ impl Platform {
     pub fn as_str(&self) -> &'static str {
         match self {
             Platform::Windows => "windows",
-            Platform::MacOS => "macos", 
+            Platform::MacOS => "macos",
             Platform::Linux => "linux",
             Platform::Unknown => "unknown",
         }
@@ -173,17 +173,17 @@ impl CameraFrame {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct CameraControls {
     pub auto_focus: Option<bool>,
-    pub focus_distance: Option<f32>,          // 0.0 = infinity, 1.0 = closest
+    pub focus_distance: Option<f32>, // 0.0 = infinity, 1.0 = closest
     pub auto_exposure: Option<bool>,
-    pub exposure_time: Option<f32>,           // Seconds
-    pub iso_sensitivity: Option<u32>,         // ISO value
+    pub exposure_time: Option<f32>,   // Seconds
+    pub iso_sensitivity: Option<u32>, // ISO value
     pub white_balance: Option<WhiteBalance>,
-    pub aperture: Option<f32>,                // f-stop value
-    pub zoom: Option<f32>,                    // Digital zoom factor
-    pub brightness: Option<f32>,              // -1.0 to 1.0
-    pub contrast: Option<f32>,                // -1.0 to 1.0
-    pub saturation: Option<f32>,              // -1.0 to 1.0
-    pub sharpness: Option<f32>,               // -1.0 to 1.0
+    pub aperture: Option<f32>,   // f-stop value
+    pub zoom: Option<f32>,       // Digital zoom factor
+    pub brightness: Option<f32>, // -1.0 to 1.0
+    pub contrast: Option<f32>,   // -1.0 to 1.0
+    pub saturation: Option<f32>, // -1.0 to 1.0
+    pub sharpness: Option<f32>,  // -1.0 to 1.0
     pub noise_reduction: Option<bool>,
     pub image_stabilization: Option<bool>,
 }
@@ -227,7 +227,7 @@ impl CameraControls {
             auto_focus: Some(false),
             focus_distance: Some(0.5),
             auto_exposure: Some(false),
-            exposure_time: Some(1.0/60.0),
+            exposure_time: Some(1.0 / 60.0),
             iso_sensitivity: Some(100),
             white_balance: Some(WhiteBalance::Daylight),
             aperture: Some(8.0),
@@ -245,18 +245,18 @@ impl CameraControls {
 /// Burst capture configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BurstConfig {
-    pub count: u32,                    // Number of photos
-    pub interval_ms: u32,              // Time between shots
+    pub count: u32,       // Number of photos
+    pub interval_ms: u32, // Time between shots
     pub bracketing: Option<ExposureBracketing>,
-    pub focus_stacking: bool,          // Vary focus for each shot
-    pub auto_save: bool,               // Automatically save all frames
+    pub focus_stacking: bool, // Vary focus for each shot
+    pub auto_save: bool,      // Automatically save all frames
     pub save_directory: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExposureBracketing {
-    pub stops: Vec<f32>,              // EV adjustments: [-2.0, 0.0, +2.0]
-    pub base_exposure: f32,           // Base exposure time in seconds
+    pub stops: Vec<f32>,    // EV adjustments: [-2.0, 0.0, +2.0]
+    pub base_exposure: f32, // Base exposure time in seconds
 }
 
 impl BurstConfig {
@@ -266,7 +266,7 @@ impl BurstConfig {
             interval_ms: 200,
             bracketing: Some(ExposureBracketing {
                 stops: vec![-1.0, 0.0, 1.0],
-                base_exposure: 1.0/125.0,
+                base_exposure: 1.0 / 125.0,
             }),
             focus_stacking: false,
             auto_save: true,
@@ -327,7 +327,6 @@ pub struct FrameMetadata {
     pub scene_mode: Option<String>,
     pub capture_settings: Option<CameraControls>,
 }
-
 
 /// Performance metrics for camera operations
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -396,7 +395,7 @@ impl CameraInitParams {
         self.controls.auto_exposure = Some(enabled);
         self
     }
-    
+
     /// Create parameters optimized for professional photography
     pub fn professional(device_id: String) -> Self {
         Self {

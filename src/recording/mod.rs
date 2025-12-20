@@ -18,15 +18,15 @@
 //! let stats = recorder.finish()?;
 //! ```
 
+mod config;
 mod encoder;
 mod recorder;
-mod config;
 
-pub use encoder::{H264Encoder, EncodedFrame};
-pub use recorder::Recorder;
-pub use config::{RecordingConfig, RecordingQuality, RecordingStats};
 #[cfg(feature = "audio")]
 pub use config::AudioConfig;
+pub use config::{RecordingConfig, RecordingQuality, RecordingStats};
+pub use encoder::{EncodedFrame, H264Encoder};
+pub use recorder::Recorder;
 
 #[cfg(test)]
 mod tests;

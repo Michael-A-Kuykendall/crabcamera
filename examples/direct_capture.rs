@@ -1,12 +1,12 @@
 //! Direct capture test - captures at native resolution with MJPEG decode
-//! 
+//!
 //! Run with: cargo run --example direct_capture
 
-use nokhwa::{Camera, query};
 use nokhwa::pixel_format::RgbFormat;
 use nokhwa::utils::{ApiBackend, CameraIndex, RequestedFormat, RequestedFormatType};
-use std::time::Duration;
+use nokhwa::{query, Camera};
 use std::thread;
+use std::time::Duration;
 
 fn main() {
     println!("═══════════════════════════════════════════════════════════════");
@@ -29,7 +29,8 @@ fn main() {
 
     // Create camera at highest resolution (which will give us MJPEG)
     println!("\n📋 Creating camera (native resolution)...");
-    let requested_format = RequestedFormat::new::<RgbFormat>(RequestedFormatType::AbsoluteHighestResolution);
+    let requested_format =
+        RequestedFormat::new::<RgbFormat>(RequestedFormatType::AbsoluteHighestResolution);
     let mut camera = match Camera::new(CameraIndex::Index(0), requested_format) {
         Ok(cam) => {
             println!("   ✅ Format: {:?}", cam.camera_format());
@@ -60,18 +61,18 @@ fn main() {
             let bytes = frame.buffer_bytes();
             let width = frame.resolution().width_x;
             let height = frame.resolution().height_y;
-            
+
             println!("   Raw: {}x{}, {} bytes", width, height, bytes.len());
-            
+
             // Check if MJPEG
             if bytes.len() >= 3 && bytes[0] == 0xFF && bytes[1] == 0xD8 {
                 println!("   Format: MJPEG (will decode)");
-                
+
                 match image::load_from_memory(&bytes) {
                     Ok(img) => {
                         let rgb = img.to_rgb8();
                         println!("   Decoded: {}x{} RGB", rgb.width(), rgb.height());
-                        
+
                         // Save
                         match rgb.save("direct_capture.jpg") {
                             Ok(_) => println!("   ✅ Saved to direct_capture.jpg"),
@@ -82,12 +83,12 @@ fn main() {
                 }
             } else {
                 println!("   Format: Raw RGB");
-                
+
                 // Check if valid
                 let nonzero = bytes.iter().filter(|&&b| b != 0).count();
                 let pct = (nonzero as f64 / bytes.len() as f64) * 100.0;
                 println!("   Non-zero pixels: {:.1}%", pct);
-                
+
                 if let Some(img) = image::RgbImage::from_vec(width, height, bytes.to_vec()) {
                     match img.save("direct_capture.jpg") {
                         Ok(_) => println!("   ✅ Saved to direct_capture.jpg"),
@@ -103,6 +104,6 @@ fn main() {
     println!("\n📋 Stopping stream...");
     let _ = camera.stop_stream();
     println!("   ✅ Done!");
-    
+
     println!("\n═══════════════════════════════════════════════════════════════");
 }
