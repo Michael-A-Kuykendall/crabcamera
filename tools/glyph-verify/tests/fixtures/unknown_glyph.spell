@@ -1,0 +1,5 @@
+#Spell: Bad
+^ Intent: demonstrate unknown glyph
+
+@X
+  $ not_a_real_glyph

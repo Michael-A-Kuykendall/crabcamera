@@ -13,11 +13,12 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{Stream, StreamConfig};
 
-use super::clock::PTSClock;
+use crate::timing::PTSClock;
 use super::device::find_audio_device;
 use crate::errors::CameraError;
 
@@ -182,6 +183,13 @@ impl AudioCapture {
     /// Returns `None` if no frame is available.
     pub fn try_read(&self) -> Option<AudioFrame> {
         self.receiver.try_recv().ok()
+    }
+
+    /// Read an audio frame with timeout
+    ///
+    /// Returns `None` if timeout.
+    pub fn recv_timeout(&self, timeout: Duration) -> Result<AudioFrame, crossbeam_channel::RecvTimeoutError> {
+        self.receiver.recv_timeout(timeout)
     }
 
     /// Read all available audio frames

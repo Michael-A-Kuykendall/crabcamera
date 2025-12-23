@@ -7,6 +7,7 @@ pub enum CameraError {
     CaptureError(String),
     ControlError(String),
     StreamError(String),
+    UnsupportedOperation(String),
     #[cfg(feature = "recording")]
     EncodingError(String),
     #[cfg(feature = "recording")]
@@ -27,6 +28,7 @@ impl fmt::Display for CameraError {
             CameraError::CaptureError(msg) => write!(f, "Capture error: {}", msg),
             CameraError::ControlError(msg) => write!(f, "Camera control error: {}", msg),
             CameraError::StreamError(msg) => write!(f, "Stream error: {}", msg),
+            CameraError::UnsupportedOperation(msg) => write!(f, "Unsupported operation: {}", msg),
             #[cfg(feature = "recording")]
             CameraError::EncodingError(msg) => write!(f, "Encoding error: {}", msg),
             #[cfg(feature = "recording")]

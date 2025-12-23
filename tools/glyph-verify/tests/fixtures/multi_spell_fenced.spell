@@ -1,0 +1,22 @@
+# This is a comment line; should be ignored
+
+```
+#Spell: IgnoredInsideFence
+^ Intent: should not be parsed
+```
+
+#Spell: A
+^ Intent: a
+
+@E
+  ! g1
+  - e1
+  : in -> out
+  > dep
+
+#Spell: B
+^ Intent: b
+
+@E
+  ! g2
+  - e2

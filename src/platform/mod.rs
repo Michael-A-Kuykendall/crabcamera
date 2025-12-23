@@ -85,6 +85,14 @@ impl MockCamera {
         Ok(())
     }
 
+    pub fn frame_callback<F>(&mut self, _callback: F) -> Result<(), CameraError>
+    where
+        F: Fn(CameraFrame) + Send + 'static,
+    {
+        // Mock doesn't support callback
+        Err(CameraError::UnsupportedOperation("Frame callback not supported in mock".to_string()))
+    }
+
     pub fn is_available(&self) -> bool {
         true
     }
