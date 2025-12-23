@@ -14,10 +14,9 @@ use std::time::{Duration, Instant};
 use std::thread;
 
 use crabcamera::audio::{
-    list_audio_devices, get_default_audio_device, AudioCapture, AudioFrame, 
-    OpusEncoder, PTSClock, AUDIO_SAMPLE_RATE, AUDIO_CHANNELS
+    list_audio_devices, get_default_audio_device, AudioCapture, 
+    OpusEncoder, PTSClock
 };
-use crabcamera::errors::CameraError;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // AUDIO DEVICE TESTS

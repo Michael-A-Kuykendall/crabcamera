@@ -220,7 +220,7 @@ mod commands_permissions_tests {
                 }
             }
             
-            if let Some(ref prev_message) = previous_message {
+            if let Some(ref _prev_message) = previous_message {
                 // Message might change but should remain non-empty
                 assert!(!info.message.is_empty(), "Message should not become empty");
             }

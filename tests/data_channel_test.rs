@@ -13,9 +13,8 @@ use crabcamera::commands::webrtc::{
     get_peer_connection_status, close_peer_connection
 };
 use crabcamera::webrtc::peer::{
-    PeerConnection, RTCConfiguration, DataChannel, DataChannelState, ConnectionState
+    PeerConnection, RTCConfiguration, ConnectionState
 };
-use std::collections::HashMap;
 
 #[tokio::test]
 async fn test_data_channel_basic_lifecycle() {
@@ -243,7 +242,7 @@ async fn test_data_channel_with_special_characters() {
     let result = create_peer_connection(peer_id.clone(), None).await;
     assert!(result.is_ok());
 
-    for (i, label) in special_labels.into_iter().enumerate() {
+    for (_i, label) in special_labels.into_iter().enumerate() {
         let result = create_data_channel(peer_id.clone(), label.to_string()).await;
         // Most labels should work, empty label might not
         if label.is_empty() {

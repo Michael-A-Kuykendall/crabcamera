@@ -6,8 +6,6 @@ use crabcamera::types::CameraFormat;
 use crabcamera::audio::list_audio_devices;
 use std::time::Duration;
 use std::fs;
-use std::fs::OpenOptions;
-use std::io::Write;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();

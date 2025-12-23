@@ -36,7 +36,7 @@ fn create_test_frame_with_focus(width: u32, height: u32, focus_pattern: &str) ->
             for y in 0..height {
                 for x in 0..width {
                     let dist = ((x as f32 - cx).powi(2) + (y as f32 - cy).powi(2)).sqrt();
-                    let sharpness = (1.0 - (dist / max_dist).min(1.0));
+                    let sharpness = 1.0 - (dist / max_dist).min(1.0);
                     
                     let base_color = if sharpness > 0.5 { 200 } else { 100 };
                     let noise = if sharpness > 0.7 { 50 } else { 10 };
