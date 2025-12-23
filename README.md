@@ -15,14 +15,14 @@
 [![Crates.io](https://img.shields.io/crates/v/crabcamera.svg)](https://crates.io/crates/crabcamera)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/rust-stable-brightgreen.svg)](https://rustup.rs/)
-[![Tests](https://img.shields.io/badge/tests-115+-brightgreen.svg)](https://github.com/Michael-A-Kuykendall/crabcamera/releases)
+[![Tests](https://img.shields.io/badge/tests-157+-brightgreen.svg)](https://github.com/Michael-A-Kuykendall/crabcamera/releases)
 [![Sponsor](https://img.shields.io/badge/❤️-Sponsor-ea4aaa?logo=github)](https://github.com/sponsors/Michael-A-Kuykendall)
 
 **🦀 CrabCamera will be free forever. 🦀** No asterisks. No "free for now." No pivot to paid.
 
 ## 🦀 What is CrabCamera?
 
-🦀 CrabCamera is the **first production-ready desktop camera + audio plugin** for Tauri applications. It provides unified camera and audio access across Windows, macOS, and Linux with professional controls, synchronized A/V recording, and zero-config setup. It's designed to be the **invisible infrastructure** that makes desktop media apps just work.
+**🦀 CrabCamera is the **first production-ready desktop camera + audio plugin** for Tauri applications. It provides unified camera and audio access across Windows, macOS, and Linux with professional controls, synchronized A/V recording, and complete headless operation. It's designed to be the **invisible infrastructure** that makes desktop media apps just work.
 
 | Feature | CrabCamera | Web APIs | Other Plugins |
 |---------|------------|----------|---------------|
@@ -48,13 +48,39 @@
 
 **BONUS:** Professional camera controls with platform-optimized settings for maximum image quality.
 
+## 🚀 Headless Operation (NEW in v0.6.0!) 🦀
+
+CrabCamera v0.6.0 introduces **complete headless operation** - run camera and audio recording without any GUI or Tauri app. Perfect for:
+
+- **Server-side recording** in production environments
+- **Automated testing** and CI/CD pipelines
+- **Scheduled captures** and monitoring systems
+- **API-first integrations** for custom applications
+
+```bash
+# Install the CLI tool
+cargo install crabcamera-cli
+
+# List all cameras and audio devices
+crabcamera-cli list-devices
+
+# Record 30 seconds of video + audio
+crabcamera-cli record --duration 30 --output recording.mp4 --camera 0 --audio default
+```
+
+## 🔗 Powered by Muxide 🦀
+
+CrabCamera uses **[Muxide](https://github.com/Michael-A-Kuykendall/muxide)** - the pure-Rust MP4 muxer that ensures your recordings are standards-compliant and immediately playable. No FFmpeg, no external dependencies, just reliable MP4 output.
+
+> **Check out Muxide** if you need MP4 muxing in your Rust project! It handles H.264, HEVC, AV1, AAC, and Opus with perfect timing.
+
 ## 🦀 Quick Start (30 seconds) 📷🎙️
 
 ### Installation
 
 ```toml
 [dependencies]
-crabcamera = { version = "0.5", features = ["recording", "audio"] }
+crabcamera = { version = "0.6", features = ["recording", "audio", "headless"] }
 tauri = { version = "2.0", features = ["protocol-asset"] }
 ```
 
@@ -144,7 +170,7 @@ console.log('✅ Recording saved with perfect A/V sync');
 - **Multi-camera Support**: Switch between multiple cameras seamlessly
 - **H.264 Encoding**: Industry-standard video codec
 
-### 🎙️ Audio Recording (NEW in v0.5.0!)
+### 🎙️ Audio Recording (Enhanced in v0.6.0!)
 - **Audio Device Enumeration**: Discover all audio input devices with capabilities
 - **Opus Codec**: State-of-the-art compression (40-256 kbps, adaptive bitrate)
 - **AAC Support**: Alternative codec for compatibility
@@ -189,7 +215,7 @@ get_platform_info() -> Result<PlatformInfo>
 test_camera_system() -> Result<SystemTestResult>
 ```
 
-### Audio Devices (NEW in v0.5.0!)
+### Audio Devices (Enhanced in v0.6.0!)
 ```rust
 // Enumerate all audio input devices
 list_audio_devices() -> Result<Vec<AudioDeviceInfo>>
@@ -220,7 +246,7 @@ get_recommended_format() -> Result<CameraFormat>
 get_optimal_settings() -> Result<CameraInitParams>
 ```
 
-### Recording (NEW Audio Support!)
+### Recording (Enhanced Audio Support in v0.6.0!)
 ```rust
 // Start recording with video + optional audio
 start_recording(RecordingConfig) -> Result<RecordingId>
@@ -229,7 +255,7 @@ start_recording(RecordingConfig) -> Result<RecordingId>
 pub struct RecordingConfig {
     pub output_path: String,
     pub video_config: VideoConfig,
-    pub audio_config: Option<AudioConfig>,  // NEW!
+    pub audio_config: Option<AudioConfig>,  // Enhanced!
 }
 
 pub struct AudioConfig {
