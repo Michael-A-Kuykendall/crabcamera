@@ -80,6 +80,12 @@ pub enum FocusStackError {
         got: (u32, u32),
     },
 
+    /// Frame data is corrupted or wrong size
+    DataCorruption {
+        frame_size: usize,
+        expected_size: usize,
+    },
+
     /// Alignment failed
     AlignmentFailed(String),
 
@@ -105,6 +111,13 @@ impl std::fmt::Display for FocusStackError {
                     f,
                     "Image dimension mismatch: expected {}x{}, got {}x{}",
                     expected.0, expected.1, got.0, got.1
+                )
+            }
+            Self::DataCorruption { frame_size, expected_size } => {
+                write!(
+                    f,
+                    "Frame data corruption: got {} bytes, expected {}",
+                    frame_size, expected_size
                 )
             }
             Self::AlignmentFailed(msg) => write!(f, "Alignment failed: {}", msg),

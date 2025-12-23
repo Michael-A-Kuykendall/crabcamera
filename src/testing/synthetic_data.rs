@@ -12,6 +12,7 @@ use crate::audio::AudioFrame;
 /// Create a synthetic test frame matching OBSBOT Tiny 4K output characteristics
 ///
 /// Based on real captures: 3840x2160 RGB24, ~25MB per frame
+#[must_use]
 pub fn synthetic_video_frame(frame_number: u64, width: u32, height: u32) -> CameraFrame {
     // Generate a frame with varying content to test encoder
     let mut data = vec![0u8; (width * height * 3) as usize];
@@ -35,6 +36,7 @@ pub fn synthetic_video_frame(frame_number: u64, width: u32, height: u32) -> Came
 ///
 /// Based on real captures: 48kHz stereo (2 channels) interleaved f32
 #[cfg(feature = "audio")]
+#[must_use]
 pub fn synthetic_audio_frame(frame_number: u64, samples_per_frame: usize) -> AudioFrame {
     // Generate a sine wave at 440Hz (A4) with varying amplitude
     // This tests the encoder with real-looking audio data
@@ -45,7 +47,8 @@ pub fn synthetic_audio_frame(frame_number: u64, samples_per_frame: usize) -> Aud
     let mut samples = vec![0.0f32; samples_per_frame * channels];
 
     for i in 0..samples_per_frame {
-        let t = (frame_number as f64 * samples_per_frame as f64 + i as f64) / sample_rate;
+        #[allow(clippy::cast_precision_loss)]
+        let t = (frame_number as f64).mul_add(samples_per_frame as f64, i as f64) / sample_rate;
         let value = (2.0 * std::f64::consts::PI * frequency * t).sin() as f32 * 0.3;
 
         // Stereo: same value in both channels
@@ -53,6 +56,7 @@ pub fn synthetic_audio_frame(frame_number: u64, samples_per_frame: usize) -> Aud
         samples[i * channels + 1] = value;
     }
 
+    #[allow(clippy::cast_precision_loss)]
     let timestamp = (frame_number as f64 * samples_per_frame as f64) / sample_rate;
 
     AudioFrame {

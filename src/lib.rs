@@ -38,9 +38,13 @@ pub mod commands;
 pub mod config;
 pub mod errors;
 pub mod focus_stack;
+#[cfg(feature = "headless")]
+pub mod headless;
 pub mod permissions;
 pub mod platform;
 pub mod quality;
+#[cfg(any(feature = "headless", feature = "audio"))]
+pub mod timing;
 pub mod types;
 pub mod webrtc;
 
@@ -62,7 +66,10 @@ pub mod testing;
 // Re-exports for convenience
 pub use errors::CameraError;
 pub use platform::{CameraSystem, PlatformCamera};
-pub use types::{CameraDeviceInfo, CameraFormat, CameraFrame, CameraInitParams, Platform};
+pub use types::{CameraDeviceInfo, CameraFormat, CameraFrame, CameraInitParams, FrameMetadata, Platform};
+
+#[cfg(feature = "headless")]
+pub use headless::{list_devices, list_formats, list_controls, HeadlessSession};
 
 use tauri::{
     plugin::{Builder, TauriPlugin},
