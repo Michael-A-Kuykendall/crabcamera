@@ -275,13 +275,6 @@ fn get_enabled_features() -> Vec<String> {
         "focus_stacking".to_string(),
     ];
 
-    #[cfg(feature = "contextlite")]
-    {
-        let mut features = features;
-        features.push("contextlite".to_string());
-        return features;
-    }
-
     #[allow(unreachable_code)]
     features
 }
