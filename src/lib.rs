@@ -47,9 +47,6 @@ pub mod timing;
 pub mod types;
 pub mod webrtc;
 
-#[cfg(feature = "contextlite")]
-pub mod contextlite;
-
 #[cfg(feature = "recording")]
 pub mod recording;
 
