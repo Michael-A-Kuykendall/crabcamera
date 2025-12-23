@@ -268,20 +268,10 @@ pub struct CameraSummary {
 
 /// Get list of enabled features
 fn get_enabled_features() -> Vec<String> {
-    let features = vec![
+    vec![
         "camera_capture".to_string(),
         "quality_validation".to_string(),
         "device_monitoring".to_string(),
         "focus_stacking".to_string(),
-    ];
-
-    #[cfg(feature = "contextlite")]
-    {
-        let mut features = features;
-        features.push("contextlite".to_string());
-        return features;
-    }
-
-    #[allow(unreachable_code)]
-    features
+    ]
 }
