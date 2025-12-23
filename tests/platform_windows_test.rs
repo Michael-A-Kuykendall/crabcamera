@@ -10,7 +10,7 @@ mod platform_windows_tests {
     use crabcamera::errors::CameraError;
     use crabcamera::platform::windows::{initialize_camera, list_cameras, WindowsCamera};
     use crabcamera::types::{CameraFormat, CameraInitParams, WhiteBalance, CameraControls};
-    use std::time::{Duration, Instant};
+    use std::time::Duration;
 
     /// Helper function to create test camera initialization parameters
     fn create_test_params(device_id: &str) -> CameraInitParams {
@@ -330,7 +330,7 @@ mod platform_windows_tests {
     }
 
     #[test]
-    fn test_windows_mediaFoundation_controls() {
+    fn test_windows_media_foundation_controls() {
         let params = create_test_params("0");
         
         match WindowsCamera::new(params.device_id, params.format) {
@@ -661,7 +661,7 @@ mod platform_windows_tests {
     }
 
     #[test]
-    fn test_windows_specific_mediaFoundation_backend() {
+    fn test_windows_specific_media_foundation_backend() {
         // Test Windows MediaFoundation specific behavior
         let result = list_cameras();
         

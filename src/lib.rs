@@ -33,7 +33,6 @@
 //! }
 //! ```
 
-pub mod camera;
 pub mod commands;
 pub mod config;
 pub mod errors;

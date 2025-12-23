@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex as SyncMutex};
 use tauri::command;
-use tokio::sync::{Mutex as AsyncMutex, RwLock};
+use tokio::sync::RwLock;
 
 use crate::platform::PlatformCamera;
 use crate::recording::{Recorder, RecordingConfig, RecordingQuality, RecordingStats};
@@ -226,7 +226,7 @@ pub async fn stop_recording(session_id: String) -> Result<RecordingStats, String
         // Get exclusive access and stop
         let session_mutex = Arc::try_unwrap(session_arc)
             .map_err(|_| "Recording session is still in use".to_string())?;
-        let mut session = session_mutex
+        let session = session_mutex
             .into_inner()
             .map_err(|_| "Mutex poisoned".to_string())?;
 

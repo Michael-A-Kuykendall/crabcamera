@@ -5,7 +5,6 @@ mod commands_init_tests {
         get_optimal_settings, get_platform_info, get_recommended_format, initialize_camera_system,
         test_camera_system, get_system_diagnostics,
     };
-    use crabcamera::tests::{set_mock_camera_mode, MockCaptureMode};
     use std::time::Duration;
     use tokio::time::timeout;
 
