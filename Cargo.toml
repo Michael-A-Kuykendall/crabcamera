@@ -35,15 +35,11 @@ cpal = { version = "0.15", optional = true }
 libopus_sys = { version = "0.3.2", features = ["bundled", "static"], optional = true }
 crossbeam-channel = { version = "0.5", optional = true }
 
-# ContextLite integration
-contextlite-client = { version = "2.0.7", optional = true }
-
 [features]
 default = []
 recording = ["dep:muxide", "dep:openh264"]
 audio = ["dep:cpal", "dep:libopus_sys", "dep:crossbeam-channel"]
 full-recording = ["recording", "audio"]
-contextlite = ["dep:contextlite-client"]
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.58", features = [
