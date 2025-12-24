@@ -8,6 +8,8 @@
 //! - Error handling and recovery
 //! - Performance under load
 
+#![cfg(feature = "webrtc")]
+
 use crabcamera::commands::webrtc::{
     start_webrtc_stream, stop_webrtc_stream, get_webrtc_stream_status, 
     update_webrtc_config

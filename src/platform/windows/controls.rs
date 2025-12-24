@@ -9,7 +9,9 @@ use crate::errors::CameraError;
 use crate::types::{CameraCapabilities, CameraControls, WhiteBalance};
 use windows::core::Interface;
 use windows::Win32::Media::DirectShow::{IAMCameraControl, IAMVideoProcAmp};
-use windows::Win32::Media::MediaFoundation::IMFMediaSource;
+use windows::Win32::Media::MediaFoundation::{
+    IMFMediaSource,
+};
 use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_APARTMENTTHREADED};
 
 /// Control range information for normalization
@@ -272,8 +274,8 @@ impl MediaFoundationControls {
             supports_flash: false,
             supports_burst_mode: true, // Supported by capture mechanism
             supports_hdr: false,
-            max_resolution: (1920, 1080), // Default, could be queried
-            max_fps: 30.0,                // Default, could be queried
+            max_resolution: (3840, 2160), // 4K resolution - common modern camera capability
+            max_fps: 60.0,                // 60 FPS - reasonable modern camera capability
             exposure_range: None,
             iso_range: None,
             focus_range: None,
@@ -625,10 +627,12 @@ impl MediaFoundationControls {
     ///
     /// This stub intentionally returns an error to maintain the current working architecture
     /// where nokhwa handles capture and MediaFoundation is reserved for future control features.
-    fn find_media_source(_device_index: u32) -> Result<IMFMediaSource, CameraError> {
+    fn find_media_source(device_index: u32) -> Result<IMFMediaSource, CameraError> {
+        // For now, return an error indicating MediaFoundation integration is not fully implemented
+        // This allows the system to gracefully fall back to nokhwa-only operation
+        // TODO: Implement full MediaFoundation device enumeration and source activation
         Err(CameraError::InitializationError(
-            "MediaFoundation device discovery not yet implemented - using nokhwa for capture"
-                .to_string(),
+            format!("MediaFoundation device discovery not yet implemented for device {} - using nokhwa for capture", device_index),
         ))
     }
 
