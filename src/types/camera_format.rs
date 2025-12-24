@@ -1,1 +1,0 @@
-{implement_camera_types_format_part}

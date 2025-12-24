@@ -146,6 +146,11 @@ impl QualityValidator {
         }
     }
 
+    /// Get the current validation configuration
+    pub fn config(&self) -> &ValidationConfig {
+        &self.config
+    }
+
     /// Validate frame quality comprehensively
     pub fn validate_frame(&self, frame: &CameraFrame) -> QualityReport {
         // Analyze blur

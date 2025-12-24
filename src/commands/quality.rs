@@ -103,17 +103,16 @@ pub async fn update_quality_config(config: ValidationConfigDto) -> Result<String
 /// Get current quality validation configuration
 #[command]
 pub async fn get_quality_config() -> Result<ValidationConfigDto, String> {
-    // Return default config for now - in a real implementation,
-    // we'd store and retrieve the actual config
-    let default_config = ValidationConfig::default();
+    let validator = QUALITY_VALIDATOR.read().await;
+    let config = validator.config();
 
     Ok(ValidationConfigDto {
-        blur_threshold: default_config.blur_threshold,
-        exposure_threshold: default_config.exposure_threshold,
-        overall_threshold: default_config.overall_threshold,
-        min_width: default_config.min_resolution.0,
-        min_height: default_config.min_resolution.1,
-        max_noise_level: default_config.max_noise_level,
+        blur_threshold: config.blur_threshold,
+        exposure_threshold: config.exposure_threshold,
+        overall_threshold: config.overall_threshold,
+        min_width: config.min_resolution.0,
+        min_height: config.min_resolution.1,
+        max_noise_level: config.max_noise_level,
     })
 }
 
@@ -381,10 +380,13 @@ mod tests {
         assert!(result.is_ok());
 
         let retrieved_config = get_quality_config().await.unwrap();
-        // Note: get_quality_config returns default config, not the updated one
-        // In a real implementation, this would be properly stored/retrieved
-        assert!(retrieved_config.blur_threshold >= 0.0);
-        // Don't check specific values since we return defaults
+        // Verify the config was actually stored and retrieved correctly
+        assert!((retrieved_config.blur_threshold - 0.8).abs() < 0.001);
+        assert!((retrieved_config.exposure_threshold - 0.8).abs() < 0.001);
+        assert!((retrieved_config.overall_threshold - 0.9).abs() < 0.001);
+        assert_eq!(retrieved_config.min_width, 1920);
+        assert_eq!(retrieved_config.min_height, 1080);
+        assert!((retrieved_config.max_noise_level - 0.2).abs() < 0.001);
     }
 
     #[tokio::test]

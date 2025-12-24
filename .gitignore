@@ -56,3 +56,5 @@ CLAUDE.md
 direct_capture.*
 audit_*
 debug_*
+test_outputs/
+test_capture_*.jpg

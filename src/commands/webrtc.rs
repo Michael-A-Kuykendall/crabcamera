@@ -5,14 +5,13 @@ use crate::webrtc::{
     WebRTCStreamer,
 };
 use std::collections::HashMap;
-use std::sync::Arc;
 use tauri::command;
 use tokio::sync::RwLock;
 
 // Global WebRTC state management
 lazy_static::lazy_static! {
-    static ref STREAMERS: Arc<RwLock<HashMap<String, WebRTCStreamer>>> = Arc::new(RwLock::new(HashMap::new()));
-    static ref PEER_CONNECTIONS: Arc<RwLock<HashMap<String, PeerConnection>>> = Arc::new(RwLock::new(HashMap::new()));
+    static ref STREAMERS: RwLock<HashMap<String, WebRTCStreamer>> = RwLock::new(HashMap::new());
+    static ref PEER_CONNECTIONS: RwLock<HashMap<String, PeerConnection>> = RwLock::new(HashMap::new());
 }
 
 /// Start WebRTC streaming for a camera
@@ -112,7 +111,7 @@ pub async fn create_peer_connection(
     log::info!("Creating WebRTC peer connection {}", peer_id);
 
     let rtc_config = config.unwrap_or_default();
-    let peer = PeerConnection::new(peer_id.clone(), rtc_config);
+    let peer = PeerConnection::new(peer_id.clone(), rtc_config).await?;
 
     // Store peer connection
     let mut peers = PEER_CONNECTIONS.write().await;

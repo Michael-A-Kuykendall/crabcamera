@@ -8,6 +8,8 @@
 //! - Error handling and recovery
 //! - Performance under load
 
+#![cfg(feature = "webrtc")]
+
 use crabcamera::commands::webrtc::{
     create_peer_connection, create_data_channel, send_data_channel_message,
     get_peer_connection_status, close_peer_connection
@@ -158,7 +160,7 @@ async fn test_data_channel_direct_api() {
     let peer_id = "direct_api_test".to_string();
     let config = RTCConfiguration::default();
 
-    let peer = PeerConnection::new(peer_id.clone(), config);
+    let peer = PeerConnection::new(peer_id.clone(), config).await.unwrap();
 
     // Test creating data channel
     let channel_result = peer.create_data_channel("test_channel".to_string()).await;
@@ -428,7 +430,7 @@ async fn test_data_channel_state_management() {
     let peer_id = "state_test_peer".to_string();
     let config = RTCConfiguration::default();
 
-    let peer = PeerConnection::new(peer_id, config);
+    let peer = PeerConnection::new(peer_id, config).await.unwrap();
 
     // Initially no data channels
     let stats = peer.get_stats().await;
