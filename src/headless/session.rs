@@ -44,7 +44,7 @@ impl<T> Queue<T> {
     }
 
     fn push_drop_oldest(&self, item: T) {
-        let mut g = self.inner.lock().unwrap();
+        let mut g = self.inner.lock().expect("lock poisoned");
         if g.closed {
             return;
         }
@@ -58,7 +58,7 @@ impl<T> Queue<T> {
     }
 
     fn pop_timeout(&self, timeout: Duration) -> Result<Option<T>, HeadlessError> {
-        let mut g = self.inner.lock().unwrap();
+        let mut g = self.inner.lock().expect("lock poisoned");
 
         if timeout == Duration::ZERO {
             return Ok(g.items.pop_front());
@@ -78,17 +78,17 @@ impl<T> Queue<T> {
             }
 
             let remaining = deadline - now;
-            let (ng, _) = self.cv.wait_timeout(g, remaining).unwrap();
+            let (ng, _) = self.cv.wait_timeout(g, remaining).expect("lock poisoned");
             g = ng;
         }
     }
 
     fn dropped(&self) -> u64 {
-        self.inner.lock().unwrap().dropped
+        self.inner.lock().expect("lock poisoned").dropped
     }
 
     fn close(&self) {
-        let mut g = self.inner.lock().unwrap();
+        let mut g = self.inner.lock().expect("lock poisoned");
         g.closed = true;
         self.cv.notify_all();
     }
@@ -99,7 +99,6 @@ struct Inner {
     camera: Mutex<Option<PlatformCamera>>,
     config: CaptureConfig,
     queue: Queue<Frame>,
-    #[allow(dead_code)]
     start_instant: Instant,
     next_sequence: Mutex<u64>,
     capture_thread: Mutex<Option<std::thread::JoinHandle<()>>>,
@@ -189,7 +188,7 @@ impl HeadlessSession {
 
 impl SessionHandle {
     pub fn start(&self) -> Result<(), HeadlessError> {
-        let mut state = self.inner.state.lock().unwrap();
+        let mut state = self.inner.state.lock().expect("lock poisoned");
         match *state {
             SessionState::Closed => return Err(HeadlessError::already_closed()),
             SessionState::Started => return Err(HeadlessError::already_started()),
@@ -206,7 +205,7 @@ impl SessionHandle {
             .spawn(move || capture_loop(inner))
             .map_err(|e| HeadlessError::invalid_argument(format!("spawn failed: {e}")))?;
 
-        *self.inner.capture_thread.lock().unwrap() = Some(handle);
+        *self.inner.capture_thread.lock().expect("lock poisoned") = Some(handle);
         *state = SessionState::Started;
 
         // Camera warmup: wait for first frame to ensure camera is ready
@@ -225,14 +224,14 @@ impl SessionHandle {
                 .name("crabcamera-headless-audio".to_string())
                 .spawn(move || audio_capture_loop(inner))
                 .map_err(|e| HeadlessError::invalid_argument(format!("audio spawn failed: {e}")))?;
-            *self.inner.audio_thread.lock().unwrap() = Some(audio_handle);
+            *self.inner.audio_thread.lock().expect("lock poisoned") = Some(audio_handle);
         }
 
         Ok(())
     }
 
     pub fn stop(&self, join_timeout: Duration) -> Result<(), HeadlessError> {
-        let state = self.inner.state.lock().unwrap();
+        let state = self.inner.state.lock().expect("lock poisoned");
         match *state {
             SessionState::Closed => return Err(HeadlessError::already_closed()),
             SessionState::Stopped => return Err(HeadlessError::already_stopped()),
@@ -244,7 +243,7 @@ impl SessionHandle {
             .stop_flag
             .store(true, std::sync::atomic::Ordering::Relaxed);
 
-        let join_handle = self.inner.capture_thread.lock().unwrap().take();
+        let join_handle = self.inner.capture_thread.lock().expect("lock poisoned").take();
         drop(state);
 
         if let Some(handle) = join_handle {
@@ -258,7 +257,7 @@ impl SessionHandle {
                 }
                 if start.elapsed() >= join_timeout {
                     // Best-effort: do not hang forever. Keep handle so a later stop/close can retry.
-                    *self.inner.capture_thread.lock().unwrap() = handle.take();
+                    *self.inner.capture_thread.lock().expect("lock poisoned") = handle.take();
                     return Err(HeadlessError::timeout());
                 }
                 std::thread::sleep(Duration::from_millis(5));
@@ -267,7 +266,7 @@ impl SessionHandle {
 
         #[cfg(feature = "audio")]
         {
-            let audio_join_handle = self.inner.audio_thread.lock().unwrap().take();
+            let audio_join_handle = self.inner.audio_thread.lock().expect("lock poisoned").take();
             if let Some(handle) = audio_join_handle {
                 let start = Instant::now();
                 let mut handle = Some(handle);
@@ -278,7 +277,7 @@ impl SessionHandle {
                         break;
                     }
                     if start.elapsed() >= join_timeout {
-                        *self.inner.audio_thread.lock().unwrap() = handle.take();
+                        *self.inner.audio_thread.lock().expect("lock poisoned") = handle.take();
                         return Err(HeadlessError::timeout());
                     }
                     std::thread::sleep(Duration::from_millis(5));
@@ -286,7 +285,7 @@ impl SessionHandle {
             }
         }
 
-        let mut state = self.inner.state.lock().unwrap();
+        let mut state = self.inner.state.lock().expect("lock poisoned");
         if *state != SessionState::Closed {
             *state = SessionState::Stopped;
         }
@@ -295,7 +294,7 @@ impl SessionHandle {
 
     pub fn close(&self, join_timeout: Duration) -> Result<(), HeadlessError> {
         {
-            let state = *self.inner.state.lock().unwrap();
+            let state = *self.inner.state.lock().expect("lock poisoned");
             if state == SessionState::Closed {
                 return Err(HeadlessError::already_closed());
             }
@@ -304,14 +303,14 @@ impl SessionHandle {
         let _ = self.stop(join_timeout);
 
         self.inner.queue.close();
-        *self.inner.camera.lock().unwrap() = None;
+        *self.inner.camera.lock().expect("lock poisoned") = None;
         #[cfg(feature = "audio")]
         {
             if let Some(audio_queue) = &self.inner.audio_queue {
                 audio_queue.close();
             }
         }
-        *self.inner.state.lock().unwrap() = SessionState::Closed;
+        *self.inner.state.lock().expect("lock poisoned") = SessionState::Closed;
         Ok(())
     }
 
@@ -322,7 +321,7 @@ impl SessionHandle {
 
     pub fn get_frame(&self, timeout: Duration) -> Result<Option<Frame>, HeadlessError> {
         self.ensure_not_closed()?;
-        let state = *self.inner.state.lock().unwrap();
+        let state = *self.inner.state.lock().expect("lock poisoned");
         match state {
             SessionState::Closed => return Err(HeadlessError::closed()),
             SessionState::Stopped => return Err(HeadlessError::stopped()),
@@ -341,7 +340,7 @@ impl SessionHandle {
             if !self.inner.audio_enabled {
                 return Err(HeadlessError::unsupported("audio not enabled"));
             }
-            let state = *self.inner.state.lock().unwrap();
+            let state = *self.inner.state.lock().expect("lock poisoned");
             match state {
                 SessionState::Closed => return Err(HeadlessError::closed()),
                 SessionState::Stopped => return Err(HeadlessError::stopped()),
@@ -367,7 +366,7 @@ impl SessionHandle {
         let mut controls = self.get_controls()?;
         apply_control_to_struct(&mut controls, control_id, value);
 
-        let mut camera_guard = self.inner.camera.lock().unwrap();
+        let mut camera_guard = self.inner.camera.lock().expect("lock poisoned");
         let cam_guard = camera_guard.as_mut().ok_or_else(HeadlessError::closed)?;
 
         cam_guard
@@ -378,7 +377,7 @@ impl SessionHandle {
 
     pub fn get_controls(&self) -> Result<CameraControls, HeadlessError> {
         self.ensure_not_closed()?;
-        let camera_guard = self.inner.camera.lock().unwrap();
+        let camera_guard = self.inner.camera.lock().expect("lock poisoned");
         let cam_guard = camera_guard.as_ref().ok_or_else(HeadlessError::closed)?;
         cam_guard.get_controls().map_err(HeadlessError::backend)
     }
@@ -434,7 +433,7 @@ impl SessionHandle {
     }
 
     fn ensure_not_closed(&self) -> Result<(), HeadlessError> {
-        let state = *self.inner.state.lock().unwrap();
+        let state = *self.inner.state.lock().expect("lock poisoned");
         if state == SessionState::Closed {
             return Err(HeadlessError::closed());
         }
@@ -449,7 +448,7 @@ impl Drop for SessionHandle {
 }
 
 fn capture_loop(inner: Arc<Inner>) {
-    let mut camera = match inner.camera.lock().unwrap().take() {
+    let mut camera = match inner.camera.lock().expect("lock poisoned").take() {
         Some(cam) => cam,
         None => return,
     };
@@ -480,7 +479,7 @@ fn capture_loop(inner: Arc<Inner>) {
     let _ = camera.stop_stream();
 
     // Return camera back to session for control queries after stop.
-    *inner.camera.lock().unwrap() = Some(camera);
+    *inner.camera.lock().expect("lock poisoned") = Some(camera);
 }
 
 #[cfg(feature = "audio")]
@@ -529,7 +528,7 @@ fn audio_capture_loop(_inner: Arc<Inner>) {
 
 fn normalize_frame(inner: &Inner, frame: CameraFrame) -> Frame {
     let sequence = {
-        let mut g = inner.next_sequence.lock().unwrap();
+        let mut g = inner.next_sequence.lock().expect("lock poisoned");
         let v = *g;
         *g = g.saturating_add(1);
         v
@@ -554,7 +553,7 @@ fn normalize_frame(inner: &Inner, frame: CameraFrame) -> Frame {
 #[cfg(feature = "audio")]
 fn normalize_audio_packet(inner: &Inner, frame: AudioFrame) -> AudioPacket {
     let sequence = {
-        let mut g = inner.audio_sequence.lock().unwrap();
+        let mut g = inner.audio_sequence.lock().expect("lock poisoned");
         let v = *g;
         *g = g.saturating_add(1);
         v

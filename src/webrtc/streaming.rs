@@ -62,6 +62,7 @@ pub struct StreamConfig {
     pub width: u32,        // Stream width
     pub height: u32,       // Stream height
     pub codec: VideoCodec, // Video codec
+    pub simulcast: Option<SimulcastConfig>, // Optional simulcast configuration
 }
 
 impl Default for StreamConfig {
@@ -72,8 +73,64 @@ impl Default for StreamConfig {
             width: 1280,
             height: 720,
             codec: VideoCodec::H264,
+            simulcast: None,
         }
     }
+}
+
+/// Simulcast configuration for multiple video layers
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulcastConfig {
+    pub layers: Vec<SimulcastLayer>,
+}
+
+impl Default for SimulcastConfig {
+    fn default() -> Self {
+        Self {
+            layers: vec![
+                SimulcastLayer {
+                    rid: "f".to_string(), // Full resolution
+                    width: 1280,
+                    height: 720,
+                    bitrate: 2_000_000,
+                    fps: 30,
+                },
+                SimulcastLayer {
+                    rid: "h".to_string(), // Half resolution
+                    width: 640,
+                    height: 360,
+                    bitrate: 500_000,
+                    fps: 15,
+                },
+                SimulcastLayer {
+                    rid: "q".to_string(), // Quarter resolution
+                    width: 320,
+                    height: 180,
+                    bitrate: 150_000,
+                    fps: 10,
+                },
+            ],
+        }
+    }
+}
+
+/// Individual simulcast layer configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulcastLayer {
+    pub rid: String,     // RTP Stream ID (f, h, q, etc.)
+    pub width: u32,      // Layer width
+    pub height: u32,     // Layer height
+    pub bitrate: u32,    // Layer bitrate in bps
+    pub fps: u32,        // Layer frame rate
+}
+
+/// Simulcast encoder for a specific layer
+#[derive(Clone)]
+pub struct SimulcastEncoder {
+    pub rid: String,
+    pub encoder: Arc<RwLock<H264WebRTCEncoder>>,
+    pub packetizer: Arc<RwLock<H264RTPPacketizer>>,
+    pub config: SimulcastLayer,
 }
 
 /// Supported video codecs for WebRTC streaming
@@ -641,28 +698,49 @@ pub struct StreamStats {
 }
 
 /// Convert camera frame to WebRTC-compatible format
-/// NOTE: Image resizing requires additional dependency (image crate resize feature)
-/// Current implementation returns original data - implement when real WebRTC integration is added
+/// Resizes frame to match stream configuration using Lanczos3 algorithm
 pub fn prepare_frame_for_webrtc(
     frame: &CameraFrame,
     config: &StreamConfig,
 ) -> Result<Vec<u8>, String> {
-    // Resize frame if needed
-    if frame.width != config.width || frame.height != config.height {
-        log::debug!(
-            "Resizing frame from {}x{} to {}x{}",
-            frame.width,
-            frame.height,
-            config.width,
-            config.height
-        );
-
-        // NOTE: Implement with image::imageops::resize() when needed
-        // For now, just return the original data
-        Ok(frame.data.clone())
-    } else {
-        Ok(frame.data.clone())
+    // If dimensions match, return original data
+    if frame.width == config.width && frame.height == config.height {
+        return Ok(frame.data.clone());
     }
+
+    log::debug!(
+        "Resizing frame from {}x{} to {}x{}",
+        frame.width,
+        frame.height,
+        config.width,
+        config.height
+    );
+
+    // Assume RGB8 format for resizing (most common)
+    // Create image buffer from frame data
+    let img = match image::RgbImage::from_raw(frame.width, frame.height, frame.data.clone()) {
+        Some(img) => img,
+        None => {
+            return Err(format!(
+                "Failed to create image buffer from frame data (expected {} bytes for {}x{} RGB, got {})",
+                frame.width as usize * frame.height as usize * 3,
+                frame.width,
+                frame.height,
+                frame.data.len()
+            ));
+        }
+    };
+
+    // Resize using Lanczos3 algorithm for quality
+    let resized = image::imageops::resize(
+        &img,
+        config.width,
+        config.height,
+        image::imageops::FilterType::Lanczos3,
+    );
+
+    // Convert back to RGB bytes
+    Ok(resized.into_raw())
 }
 
 #[cfg(test)]
@@ -704,6 +782,7 @@ mod tests {
             width: 1920,
             height: 1080,
             codec: VideoCodec::VP9,
+            simulcast: None,
         };
 
         let result = streamer.update_config(new_config.clone()).await;

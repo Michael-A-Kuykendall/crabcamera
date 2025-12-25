@@ -99,15 +99,13 @@ impl Recorder {
             builder = builder.audio(AudioCodec::Opus, audio_cfg.sample_rate, audio_cfg.channels);
         }
 
-        let mut metadata = Metadata::new()
-            .with_current_time()
-            .with_language("und"); // ISO 639-2/T for "undefined"
-
         if let Some(ref title) = config.title {
-            metadata = metadata.with_title(title);
+            let metadata = Metadata::new().with_title(title).with_current_time();
+            builder = builder.with_metadata(metadata);
+        } else {
+            let metadata = Metadata::new().with_current_time();
+            builder = builder.with_metadata(metadata);
         }
-
-        builder = builder.with_metadata(metadata);
 
         let muxer = builder
             .build()
@@ -425,7 +423,7 @@ impl Recorder {
     }
 
     /// Finish the recording and return statistics
-    pub fn finish(mut self) -> Result<RecordingStats, CameraError> {
+    pub fn finish(self) -> Result<RecordingStats, CameraError> {
         // Stop audio capture and flush remaining audio
         #[cfg(feature = "audio")]
         self.finish_audio();

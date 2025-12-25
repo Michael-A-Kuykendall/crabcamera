@@ -15,14 +15,14 @@
 [![Crates.io](https://img.shields.io/crates/v/crabcamera.svg)](https://crates.io/crates/crabcamera)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/rust-stable-brightgreen.svg)](https://rustup.rs/)
-[![Tests](https://img.shields.io/badge/tests-157+-brightgreen.svg)](https://github.com/Michael-A-Kuykendall/crabcamera/releases)
+[![Tests](https://img.shields.io/badge/tests-69+-brightgreen.svg)](https://github.com/Michael-A-Kuykendall/crabcamera/releases)
 [![Sponsor](https://img.shields.io/badge/❤️-Sponsor-ea4aaa?logo=github)](https://github.com/sponsors/Michael-A-Kuykendall)
 
 **🦀 CrabCamera will be free forever. 🦀** No asterisks. No "free for now." No pivot to paid.
 
 ## 🦀 What is CrabCamera?
 
-**🦀 CrabCamera is the **first production-ready desktop camera + audio plugin** for Tauri applications. It provides unified camera and audio access across Windows, macOS, and Linux with professional controls, synchronized A/V recording, and complete headless operation. It's designed to be the **invisible infrastructure** that makes desktop media apps just work.
+🦀 CrabCamera is the **first production-ready desktop camera + audio plugin** for Tauri applications. It provides unified camera and audio access across Windows, macOS, and Linux with professional controls, synchronized A/V recording, and zero-config setup. It's designed to be the **invisible infrastructure** that makes desktop media apps just work.
 
 | Feature | CrabCamera | Web APIs | Other Plugins |
 |---------|------------|----------|---------------|
@@ -32,8 +32,8 @@
 | **A/V Synchronization** | PTS-based sync 🏆 | Async/unreliable | N/A |
 | **Professional Controls** | Auto-focus, exposure 🏆 | Limited | Basic |
 | **Cross-Platform** | Unified API 🏆 | Platform dependent | Single platform |
-| **Production Ready** | **115+ tests, 80% coverage** 🏆 | No guarantees | Proof-of-concept |
-| **Memory Safety** | Zero unsafe code 🏆 | N/A | Manual management |
+| **Production Ready** | **69+ tests, 80% coverage** 🏆 | No guarantees | Proof-of-concept |
+| **Memory Safety** | Memory safe (zero unsafe in core logic, FFI safely wrapped) 🏆 | N/A | Manual management |
 
 ## 🎯 Perfect for Desktop Applications 🦀
 
@@ -48,31 +48,7 @@
 
 **BONUS:** Professional camera controls with platform-optimized settings for maximum image quality.
 
-## 🚀 Headless Operation (NEW in v0.6.0!) 🦀
-
-CrabCamera v0.6.0 introduces **complete headless operation** - run camera and audio recording without any GUI or Tauri app. Perfect for:
-
-- **Server-side recording** in production environments
-- **Automated testing** and CI/CD pipelines
-- **Scheduled captures** and monitoring systems
-- **API-first integrations** for custom applications
-
-```bash
-# Install the CLI tool
-cargo install crabcamera-cli
-
-# List all cameras and audio devices
-crabcamera-cli list-devices
-
-# Record 30 seconds of video + audio
-crabcamera-cli record --duration 30 --output recording.mp4 --camera 0 --audio default
-```
-
-## 🔗 Powered by Muxide 🦀
-
-CrabCamera uses **[Muxide](https://github.com/Michael-A-Kuykendall/muxide)** - the pure-Rust MP4 muxer that ensures your recordings are standards-compliant and immediately playable. No FFmpeg, no external dependencies, just reliable MP4 output.
-
-> **Check out Muxide** if you need MP4 muxing in your Rust project! It handles H.264, HEVC, AV1, AAC, and Opus with perfect timing.
+**Note:** WebRTC streaming is currently experimental and under active development.
 
 ## 🦀 Quick Start (30 seconds) 📷🎙️
 
@@ -80,7 +56,7 @@ CrabCamera uses **[Muxide](https://github.com/Michael-A-Kuykendall/muxide)** - t
 
 ```toml
 [dependencies]
-crabcamera = { version = "0.6", features = ["recording", "audio", "headless"] }
+crabcamera = { version = "0.5", features = ["recording", "audio"] }
 tauri = { version = "2.0", features = ["protocol-asset"] }
 ```
 
@@ -170,7 +146,7 @@ console.log('✅ Recording saved with perfect A/V sync');
 - **Multi-camera Support**: Switch between multiple cameras seamlessly
 - **H.264 Encoding**: Industry-standard video codec
 
-### 🎙️ Audio Recording (Enhanced in v0.6.0!)
+### 🎙️ Audio Recording (NEW in v0.5.0!)
 - **Audio Device Enumeration**: Discover all audio input devices with capabilities
 - **Opus Codec**: State-of-the-art compression (40-256 kbps, adaptive bitrate)
 - **AAC Support**: Alternative codec for compatibility
@@ -215,7 +191,7 @@ get_platform_info() -> Result<PlatformInfo>
 test_camera_system() -> Result<SystemTestResult>
 ```
 
-### Audio Devices (Enhanced in v0.6.0!)
+### Audio Devices (NEW in v0.5.0!)
 ```rust
 // Enumerate all audio input devices
 list_audio_devices() -> Result<Vec<AudioDeviceInfo>>
@@ -246,7 +222,7 @@ get_recommended_format() -> Result<CameraFormat>
 get_optimal_settings() -> Result<CameraInitParams>
 ```
 
-### Recording (Enhanced Audio Support in v0.6.0!)
+### Recording (NEW Audio Support!)
 ```rust
 // Start recording with video + optional audio
 start_recording(RecordingConfig) -> Result<RecordingId>
@@ -255,7 +231,7 @@ start_recording(RecordingConfig) -> Result<RecordingId>
 pub struct RecordingConfig {
     pub output_path: String,
     pub video_config: VideoConfig,
-    pub audio_config: Option<AudioConfig>,  // Enhanced!
+    pub audio_config: Option<AudioConfig>,  // NEW!
 }
 
 pub struct AudioConfig {
@@ -416,7 +392,7 @@ Memory (per recording):
 - **Video Codec**: H.264 (openh264 v0.9)
 - **Muxing**: Custom Muxide library (Rust-native MP4 writer)
 - **COM Interface Management**: Thread-safe Windows interfaces
-- **Zero unsafe code**: Memory safety guaranteed (except platform bindings)
+- **Memory safety**: Guaranteed in core logic (FFI bindings for encoding)
 
 ## 📚 API Reference 🦀
 
@@ -510,7 +486,7 @@ See our amazing [sponsors](SPONSORS.md) who make 🦀 CrabCamera possible! 🙏
 **✅ Ready for production (v0.5.0):**
 - Memory-safe Rust implementation
 - **115+ comprehensive tests passing** (80%+ code coverage)
-- Zero unsafe code in public API
+- Memory safe in public API (FFI bindings internal)
 - Comprehensive error handling with graceful degradation
 - Async/await throughout for non-blocking operations
 - Cross-platform compatibility verified (Windows/macOS/Linux)
@@ -670,7 +646,7 @@ Audio Pipeline:
 - ✅ openh264 upgraded (0.6 → 0.9, RUSTSEC-2025-0008 fixed)
 - ✅ Cross-platform CI/CD (Linux, macOS, Windows matrix)
 - ✅ All platform-specific issues resolved
-- ✅ Zero unsafe code in public API
+- ✅ Memory safe in public API (FFI bindings internal)
 
 #### 📈 Stats
 - **Lines of Code**: ~3,000 new (audio module)

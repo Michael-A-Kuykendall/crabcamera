@@ -12,7 +12,7 @@ pub enum HeadlessErrorKind {
     InvalidArgument,
     Unsupported,
     Backend,
-    Poisoned,
+    PoisonedLock,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -22,13 +22,6 @@ pub struct HeadlessError {
 }
 
 impl HeadlessError {
-    pub fn poisoned() -> Self {
-        Self {
-            kind: HeadlessErrorKind::Poisoned,
-            message: "mutex poisoned".to_string(),
-        }
-    }
-
     pub fn timeout() -> Self {
         Self {
             kind: HeadlessErrorKind::Timeout,
@@ -96,6 +89,13 @@ impl HeadlessError {
         Self {
             kind: HeadlessErrorKind::Backend,
             message: error.to_string(),
+        }
+    }
+
+    pub fn poisoned_lock() -> Self {
+        Self {
+            kind: HeadlessErrorKind::PoisonedLock,
+            message: "lock poisoned by previous panic".to_string(),
         }
     }
 }

@@ -53,6 +53,7 @@ async fn test_stream_lifecycle_with_custom_config() {
         width: 1920,
         height: 1080,
         codec: VideoCodec::VP9,
+        simulcast: None,
     };
 
     // Start stream with custom config
@@ -86,6 +87,7 @@ async fn test_stream_configuration_update() {
         width: 2560,
         height: 1440,
         codec: VideoCodec::AV1,
+        simulcast: None,
     };
 
     let result = update_webrtc_config(stream_id.clone(), new_config.clone()).await;
@@ -104,7 +106,7 @@ async fn test_stream_configuration_update() {
 
 #[tokio::test]
 async fn test_multiple_concurrent_streams() {
-    // TODO: WebRTC streaming is not yet fully implemented - skip for now
+    // TODO: Implement multiple concurrent streams test
     return;
 }
 
@@ -152,6 +154,7 @@ async fn test_webrtc_streamer_direct_creation() {
         width: 854,
         height: 480,
         codec: VideoCodec::H264,
+        simulcast: None,
     };
 
     let streamer = WebRTCStreamer::new(stream_id.clone(), config.clone());
@@ -175,6 +178,7 @@ async fn test_frame_subscription_and_delivery() {
         width: 640,
         height: 360,
         codec: VideoCodec::VP8,
+        simulcast: None,
     };
 
     let streamer = WebRTCStreamer::new(stream_id, config);
@@ -211,6 +215,7 @@ async fn test_stream_stats_accuracy() {
         width: 1600,
         height: 900,
         codec: VideoCodec::VP9,
+        simulcast: None,
     };
 
     // Start stream
@@ -235,7 +240,7 @@ async fn test_stream_stats_accuracy() {
 
 #[tokio::test]
 async fn test_system_status_aggregation() {
-    // TODO: WebRTC streaming is not yet fully implemented - skip for now
+    // TODO: Implement system status aggregation test
     return;
 }
 
@@ -248,6 +253,7 @@ async fn test_stream_quality_adaptation() {
         width: 1280,
         height: 720,
         codec: VideoCodec::H264,
+        simulcast: None,
     };
 
     let streamer = WebRTCStreamer::new(stream_id, initial_config);
@@ -263,6 +269,7 @@ async fn test_stream_quality_adaptation() {
         width: 640,        // Reduce resolution
         height: 360,
         codec: VideoCodec::H264,
+        simulcast: None,
     };
 
     let result = streamer.update_config(low_quality_config.clone()).await;
@@ -279,6 +286,7 @@ async fn test_stream_quality_adaptation() {
         width: 1920,
         height: 1080,
         codec: VideoCodec::VP9,
+        simulcast: None,
     };
 
     let result = streamer.update_config(high_quality_config).await;
@@ -350,7 +358,7 @@ async fn test_stream_interruption_recovery() {
 
 #[tokio::test]
 async fn test_high_load_streaming() {
-    // TODO: WebRTC streaming is not yet fully implemented - skip for now
+    // TODO: Implement high load streaming test
     return;
 }
 
@@ -366,6 +374,7 @@ async fn test_configuration_validation() {
             width: 7680,           // 8K width
             height: 4320,          // 8K height
             codec: VideoCodec::AV1,
+            simulcast: None,
         },
         StreamConfig {
             bitrate: 50_000,       // Very low bitrate
@@ -373,6 +382,7 @@ async fn test_configuration_validation() {
             width: 160,            // Very low resolution
             height: 120,
             codec: VideoCodec::H264,
+            simulcast: None,
         },
     ];
 

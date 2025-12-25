@@ -3,8 +3,6 @@
 //! These provide fuzz-like testing without requiring nightly Rust or cargo-fuzz.
 //! Run with: cargo test --test fuzz_tests --features "recording,audio"
 
-use proptest::prelude::*;
-
 #[cfg(feature = "audio")]
 mod audio_fuzz {
     use super::*;

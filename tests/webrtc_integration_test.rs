@@ -29,7 +29,7 @@ use tokio::time::sleep;
 /// Test complete WebRTC system integration
 #[tokio::test]
 async fn test_complete_webrtc_system_integration() {
-    // TODO: WebRTC streaming is not yet fully implemented - skip for now
+    // TODO: Implement full system integration test once streaming is connected to peer connections
     return;
 }
 
@@ -107,7 +107,7 @@ async fn test_full_p2p_connection_workflow() {
 /// Test streaming with data channels
 #[tokio::test]
 async fn test_streaming_with_data_channels() {
-    // TODO: WebRTC streaming is not yet fully implemented - skip for now
+    // TODO: Implement streaming with data channels test once streaming is connected to peer connections
     return;
 }
 
@@ -290,7 +290,7 @@ async fn test_sustained_load_performance() {
 /// Test concurrent operations
 #[tokio::test]
 async fn test_concurrent_webrtc_operations() {
-    // TODO: WebRTC streaming is not yet fully implemented - skip for now
+    // TODO: Implement concurrent operations test once streaming is connected to peer connections
     return;
 }
 
@@ -307,6 +307,7 @@ async fn test_dynamic_configuration_changes() {
         width: 640,
         height: 360,
         codec: VideoCodec::H264,
+        simulcast: None,
     };
 
     let result = start_webrtc_stream(device_id, stream_id.clone(), Some(initial_config)).await;
@@ -320,6 +321,7 @@ async fn test_dynamic_configuration_changes() {
             width: 854,
             height: 480,
             codec: VideoCodec::H264,
+            simulcast: None,
         },
         StreamConfig {
             bitrate: 2_000_000,
@@ -327,6 +329,7 @@ async fn test_dynamic_configuration_changes() {
             width: 1280,
             height: 720,
             codec: VideoCodec::VP8,
+            simulcast: None,
         },
         StreamConfig {
             bitrate: 4_000_000,
@@ -334,6 +337,7 @@ async fn test_dynamic_configuration_changes() {
             width: 1920,
             height: 1080,
             codec: VideoCodec::VP9,
+            simulcast: None,
         },
     ];
 
@@ -391,6 +395,6 @@ async fn test_error_propagation_handling() {
 /// Test WebRTC with different codec configurations
 #[tokio::test]
 async fn test_codec_compatibility_integration() {
-    // TODO: WebRTC streaming is not yet fully implemented - skip for now
+    // TODO: Implement codec compatibility test once streaming is connected to peer connections
     return;
 }

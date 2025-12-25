@@ -346,6 +346,43 @@ impl PeerConnection {
         }
     }
 
+    /// Add simulcast video transceivers
+    pub async fn add_simulcast_video_transceivers(&self, layers: &[crate::webrtc::streaming::SimulcastLayer]) -> Result<(), String> {
+        use webrtc::rtp_transceiver::rtp_codec::RTCRtpCodecCapability;
+        use webrtc::rtp_transceiver::rtp_transceiver_direction::RTCRtpTransceiverDirection;
+        use webrtc::rtp_transceiver::RTCRtpTransceiverInit;
+
+        for layer in layers {
+            log::info!("Adding simulcast transceiver for layer {}", layer.rid);
+
+            // Create H.264 codec capability
+            let _codec_capability = RTCRtpCodecCapability {
+                mime_type: "video/H264".to_string(),
+                clock_rate: 90000,
+                channels: 0,
+                sdp_fmtp_line: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f".to_string(),
+                rtcp_feedback: vec![],
+            };
+
+            // Create transceiver init with codec
+            let transceiver_init = RTCRtpTransceiverInit {
+                direction: RTCRtpTransceiverDirection::Sendonly,
+                send_encodings: vec![],
+            };
+
+            // Add transceiver
+            let _transceiver = self.peer_connection.add_transceiver_from_kind(
+                webrtc::rtp_transceiver::rtp_codec::RTPCodecType::Video,
+                Some(transceiver_init),
+            ).await.map_err(|e| format!("Failed to add transceiver: {}", e))?;
+
+            // Note: RID setting would be handled in SDP negotiation
+            log::debug!("Added transceiver for simulcast layer {}", layer.rid);
+        }
+
+        Ok(())
+    }
+
     /// Close peer connection
     pub async fn close(&self) -> Result<(), String> {
         log::info!("Closing peer connection {}", self.id);
@@ -358,11 +395,12 @@ impl PeerConnection {
     pub async fn get_stats(&self) -> PeerConnectionStats {
         let state = self.get_connection_state().await;
         let data_channels = self.data_channels.read().await;
+        let ice_candidates_count = self.local_candidates.read().await.len();
 
         PeerConnectionStats {
             peer_id: self.id.clone(),
             state,
-            ice_candidates_count: 0, // TODO: track gathered candidates
+            ice_candidates_count,
             data_channels_count: data_channels.len(),
             has_local_description: self.peer_connection.local_description().await.is_some(),
             has_remote_description: self.peer_connection.remote_description().await.is_some(),
