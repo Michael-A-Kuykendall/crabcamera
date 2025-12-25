@@ -8,7 +8,7 @@
 //!
 //! Run with: cargo run --example live_audio_test --features "recording,audio"
 
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🎤 CrabCamera Live Audio Test");

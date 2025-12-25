@@ -49,7 +49,7 @@ mod error_tests {
 
     #[test]
     fn test_all_error_variants() {
-        let mut errors = vec![
+        let errors = vec![
             CameraError::InitializationError("Init error".to_string()),
             CameraError::PermissionDenied("Permission error".to_string()),
             CameraError::CaptureError("Capture error".to_string()),

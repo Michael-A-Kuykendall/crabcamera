@@ -19,28 +19,28 @@ lazy_static::lazy_static! {
 pub async fn start_webrtc_stream(
     device_id: String,
     stream_id: String,
-    config: Option<StreamConfig>,
+    _config: Option<StreamConfig>,
 ) -> Result<String, String> {
     log::info!(
-        "Starting WebRTC stream {} for device {}",
-        stream_id,
-        device_id
+        "Starting WebRTC stream {} for device {} (mock implementation - real camera integration pending)",
+        stream_id, device_id
     );
 
-    let stream_config = config.unwrap_or_default();
-    let streamer = WebRTCStreamer::new(stream_id.clone(), stream_config);
+    // Create streamer with default config if none provided
+    let config = _config.unwrap_or_default();
+    let streamer = WebRTCStreamer::new(stream_id.clone(), config);
 
-    // Start streaming
-    streamer.start_streaming(device_id.clone()).await?;
+    // Start the actual streaming
+    streamer.start_streaming(device_id).await?;
 
-    // Store streamer
+    // Store in global map
     let mut streamers = STREAMERS.write().await;
+    if streamers.contains_key(&stream_id) {
+        return Err(format!("WebRTC stream {} already exists", stream_id));
+    }
     streamers.insert(stream_id.clone(), streamer);
 
-    Ok(format!(
-        "WebRTC stream {} started for device {}",
-        stream_id, device_id
-    ))
+    Ok(format!("WebRTC stream {} started (mock mode)", stream_id))
 }
 
 /// Stop WebRTC streaming

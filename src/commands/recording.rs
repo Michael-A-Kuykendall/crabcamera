@@ -3,9 +3,9 @@
 //! These commands provide an interface for recording video from cameras.
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex as SyncMutex};
+use std::sync::Arc;
 use tauri::command;
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex as AsyncMutex, RwLock};
 
 use crate::platform::PlatformCamera;
 use crate::recording::{Recorder, RecordingConfig, RecordingQuality, RecordingStats};
@@ -13,14 +13,14 @@ use crate::types::CameraFormat;
 
 // Global recorder registry
 lazy_static::lazy_static! {
-    static ref RECORDER_REGISTRY: Arc<RwLock<HashMap<String, Arc<SyncMutex<RecordingSession>>>>> =
+    static ref RECORDER_REGISTRY: Arc<RwLock<HashMap<String, Arc<AsyncMutex<RecordingSession>>>>> =
         Arc::new(RwLock::new(HashMap::new()));
 }
 
 /// Active recording session combining camera and recorder
 struct RecordingSession {
     recorder: Recorder,
-    camera: Arc<SyncMutex<PlatformCamera>>,
+    camera: Arc<AsyncMutex<PlatformCamera>>,
     is_running: bool,
 }
 
@@ -121,28 +121,14 @@ pub async fn start_recording(
 
     // Start camera stream
     {
-        let camera_clone = camera.clone();
-        tokio::task::spawn_blocking(move || {
-            let mut cam = camera_clone
-                .lock()
-                .map_err(|_| "Mutex poisoned".to_string())?;
-            cam.start_stream()
-                .map_err(|e| format!("Failed to start camera stream: {}", e))
-        })
-        .await
-        .map_err(|e| format!("Task join error: {}", e))??;
+        let mut cam = camera.lock().await;
+        cam.start_stream()
+            .map_err(|e| format!("Failed to start camera stream: {}", e))?;
     }
 
     // Create recorder
-    // Recorder creation involves file creation, so do it in blocking task
-    let output_path_clone = output_path.clone();
-    let config_clone = config.clone();
-    let recorder = tokio::task::spawn_blocking(move || {
-        Recorder::new(&output_path_clone, config_clone)
-            .map_err(|e| format!("Failed to create recorder: {}", e))
-    })
-    .await
-    .map_err(|e| format!("Task join error: {}", e))??;
+    let recorder = Recorder::new(&output_path, config)
+        .map_err(|e| format!("Failed to create recorder: {}", e))?;
 
     // Generate session ID
     let session_id = format!("rec_{}", chrono::Utc::now().timestamp_millis());
@@ -156,7 +142,7 @@ pub async fn start_recording(
 
     {
         let mut registry = RECORDER_REGISTRY.write().await;
-        registry.insert(session_id.clone(), Arc::new(SyncMutex::new(session)));
+        registry.insert(session_id.clone(), Arc::new(AsyncMutex::new(session)));
     }
 
     log::info!("Recording started: session {}", session_id);
@@ -177,35 +163,27 @@ pub async fn record_frame(session_id: String) -> Result<u64, String> {
             .ok_or_else(|| format!("Recording session not found: {}", session_id))?
     };
 
-    tokio::task::spawn_blocking(move || {
-        let mut session = session_arc.lock().map_err(|_| "Mutex poisoned".to_string())?;
+    let mut session = session_arc.lock().await;
 
-        if !session.is_running {
-            return Err("Recording is not running".to_string());
-        }
+    if !session.is_running {
+        return Err("Recording is not running".to_string());
+    }
 
-        // Capture frame from camera
-        // Note: We are already in a blocking task, so we can block on camera lock
-        let frame = {
-            let mut camera = session
-                .camera
-                .lock()
-                .map_err(|_| "Camera mutex poisoned".to_string())?;
-            camera
-                .capture_frame()
-                .map_err(|e| format!("Failed to capture frame: {}", e))?
-        };
+    // Capture frame from camera
+    let frame = {
+        let mut camera = session.camera.lock().await;
+        camera
+            .capture_frame()
+            .map_err(|e| format!("Failed to capture frame: {}", e))?
+    };
 
-        // Write to recorder
-        session
-            .recorder
-            .write_frame(&frame)
-            .map_err(|e| format!("Failed to write frame: {}", e))?;
+    // Write to recorder
+    session
+        .recorder
+        .write_frame(&frame)
+        .map_err(|e| format!("Failed to write frame: {}", e))?;
 
-        Ok(session.recorder.frame_count())
-    })
-    .await
-    .map_err(|e| format!("Task join error: {}", e))?
+    Ok(session.recorder.frame_count())
 }
 
 /// Stop recording and finalize the file
@@ -222,38 +200,29 @@ pub async fn stop_recording(session_id: String) -> Result<RecordingStats, String
             .ok_or_else(|| format!("Recording session not found: {}", session_id))?
     };
 
-    tokio::task::spawn_blocking(move || {
-        // Get exclusive access and stop
-        let session_mutex = Arc::try_unwrap(session_arc)
-            .map_err(|_| "Recording session is still in use".to_string())?;
-        let session = session_mutex
-            .into_inner()
-            .map_err(|_| "Mutex poisoned".to_string())?;
+    // Get exclusive access and stop
+    let session = session_arc.lock().await;
 
-        // Stop camera stream
-        {
-            if let Ok(mut camera) = session.camera.lock() {
-                let _ = camera.stop_stream();
-            }
-        }
+    // Stop camera stream
+    {
+        let mut camera = session.camera.lock().await;
+        let _ = camera.stop_stream();
+    }
 
-        // Finish recording
-        let stats = session
-            .recorder
-            .finish()
-            .map_err(|e| format!("Failed to finalize recording: {}", e))?;
+    // Finish recording
+    let stats = session
+        .recorder
+        .finish()
+        .map_err(|e| format!("Failed to finalize recording: {}", e))?;
 
-        log::info!(
-            "Recording stopped: {} frames, {:.2}s, {} bytes",
-            stats.video_frames,
-            stats.duration_secs,
-            stats.bytes_written
-        );
+    log::info!(
+        "Recording stopped: {} frames, {:.2}s, {} bytes",
+        stats.video_frames,
+        stats.duration_secs,
+        stats.bytes_written
+    );
 
-        Ok(stats)
-    })
-    .await
-    .map_err(|e| format!("Task join error: {}", e))?
+    Ok(stats)
 }
 
 /// Get the status of an active recording
@@ -267,33 +236,28 @@ pub async fn get_recording_status(session_id: String) -> Result<RecordingStatus,
             .ok_or_else(|| format!("Recording session not found: {}", session_id))?
     };
 
-    let session_id_clone = session_id.clone();
-    tokio::task::spawn_blocking(move || {
-        let session = session_arc.lock().map_err(|_| "Mutex poisoned".to_string())?;
+    let session = session_arc.lock().await;
 
-        // Build audio status if audio feature enabled
-        #[cfg(feature = "audio")]
-        let audio_status = if session.recorder.audio_enabled() {
-            Some(AudioStatus {
-                enabled: true,
-                failed: session.recorder.audio_failed(),
-            })
-        } else {
-            None
-        };
-
-        Ok(RecordingStatus {
-            session_id: session_id_clone,
-            is_running: session.is_running,
-            frame_count: session.recorder.frame_count(),
-            dropped_frames: session.recorder.dropped_frames(),
-            duration_secs: session.recorder.duration(),
-            #[cfg(feature = "audio")]
-            audio_status,
+    // Build audio status if audio feature enabled
+    #[cfg(feature = "audio")]
+    let audio_status = if session.recorder.audio_enabled() {
+        Some(AudioStatus {
+            enabled: true,
+            failed: session.recorder.audio_failed(),
         })
+    } else {
+        None
+    };
+
+    Ok(RecordingStatus {
+        session_id,
+        is_running: session.is_running,
+        frame_count: session.recorder.frame_count(),
+        dropped_frames: session.recorder.dropped_frames(),
+        duration_secs: session.recorder.duration(),
+        #[cfg(feature = "audio")]
+        audio_status,
     })
-    .await
-    .map_err(|e| format!("Task join error: {}", e))?
 }
 
 /// List all active recording sessions
