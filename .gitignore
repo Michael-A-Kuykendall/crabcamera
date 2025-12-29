@@ -31,9 +31,8 @@ __pycache__/
 
 # Internal development documentation (not for public repo)
 .github/copilot-instructions.md
-docs/SORCERY.md
-docs/AUDIO_SPELLBOOK.md
-docs/*_SPELLBOOK.md
+docs/_internal/**
+!docs/_internal/.gitkeep
 internal/
 .internal/
 *.d
@@ -56,5 +55,3 @@ CLAUDE.md
 direct_capture.*
 audit_*
 debug_*
-test_outputs/
-test_capture_*.jpg

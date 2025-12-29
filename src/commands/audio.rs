@@ -55,7 +55,7 @@ impl From<AudioDevice> for AudioDeviceInfo {
 /// # Returns
 /// List of audio devices, sorted with default device first
 #[command]
-pub fn list_audio_devices() -> Result<Vec<AudioDeviceInfo>, String> {
+pub async fn list_audio_devices() -> Result<Vec<AudioDeviceInfo>, String> {
     enumerate_audio_devices()
         .map(|devices| devices.into_iter().map(AudioDeviceInfo::from).collect())
         .map_err(|e| {
@@ -69,7 +69,7 @@ pub fn list_audio_devices() -> Result<Vec<AudioDeviceInfo>, String> {
 /// # Returns
 /// The default audio device, or an error if none available
 #[command]
-pub fn get_default_audio_device() -> Result<AudioDeviceInfo, String> {
+pub async fn get_default_audio_device() -> Result<AudioDeviceInfo, String> {
     crate::audio::get_default_audio_device()
         .map(AudioDeviceInfo::from)
         .map_err(|e| {

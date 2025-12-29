@@ -57,6 +57,7 @@ contextlite-client = { version = "2.0.7", optional = true }
 
 # WebRTC dependencies (v0.6.0)
 webrtc = { version = "0.14", optional = true }
+webrtc-util = "0.12.0"
 
 [features]
 default = []

@@ -177,7 +177,6 @@ impl OpusEncoder {
             // Encode to Opus
             let mut output = vec![0u8; 4000]; // Max Opus packet size
             let len = unsafe {
-                #[allow(clippy::cast_possible_truncation)]
                 libopus_sys::opus_encode_float(
                     self.encoder,
                     frame_samples.as_ptr(),
@@ -189,11 +188,11 @@ impl OpusEncoder {
 
             if len < 0 {
                 return Err(CameraError::AudioError(format!(
-                    "Opus encoding failed: error code {len}"
+                    "Opus encoding failed: error code {}",
+                    len
                 )));
             }
 
-            #[allow(clippy::cast_sign_loss)]
             output.truncate(len as usize);
 
             encoded_packets.push(EncodedAudio {
@@ -215,10 +214,6 @@ impl OpusEncoder {
     /// Flush remaining samples
     ///
     /// Call this when recording ends to encode any remaining buffered samples.
-    ///
-    /// # Errors
-    ///
-    /// Returns `CameraError::AudioError` if Opus encoding fails.
     pub fn flush(&mut self) -> Result<Vec<EncodedAudio>, CameraError> {
         if self.sample_buffer.is_empty() {
             return Ok(Vec::new());
@@ -233,15 +228,14 @@ impl OpusEncoder {
 
         // Encode remaining
         let mut encoded_packets = Vec::new();
-        let frame_duration = OPUS_FRAME_SAMPLES as f64 / f64::from(self.sample_rate);
+        let frame_duration = OPUS_FRAME_SAMPLES as f64 / self.sample_rate as f64;
 
         while self.sample_buffer.len() >= samples_per_frame {
             let frame_samples: Vec<f32> = self.sample_buffer.drain(..samples_per_frame).collect();
-            let pts = self.samples_encoded as f64 / f64::from(self.sample_rate);
+            let pts = self.samples_encoded as f64 / self.sample_rate as f64;
 
             let mut output = vec![0u8; 4000];
             let len = unsafe {
-                #[allow(clippy::cast_possible_truncation)]
                 libopus_sys::opus_encode_float(
                     self.encoder,
                     frame_samples.as_ptr(),
@@ -253,11 +247,11 @@ impl OpusEncoder {
 
             if len < 0 {
                 return Err(CameraError::AudioError(format!(
-                    "Opus flush failed: error code {len}"
+                    "Opus flush failed: error code {}",
+                    len
                 )));
             }
 
-            #[allow(clippy::cast_sign_loss)]
             output.truncate(len as usize);
 
             encoded_packets.push(EncodedAudio {
@@ -273,14 +267,12 @@ impl OpusEncoder {
     }
 
     /// Get the configured sample rate
-    #[must_use]
-    pub const fn sample_rate(&self) -> u32 {
+    pub fn sample_rate(&self) -> u32 {
         self.sample_rate
     }
 
     /// Get the configured channel count
-    #[must_use]
-    pub const fn channels(&self) -> u16 {
+    pub fn channels(&self) -> u16 {
         self.channels
     }
 }

@@ -53,9 +53,20 @@ fn create_test_controls() -> CameraControls {
 async fn test_set_get_camera_controls() {
     // Acquire async lock to prevent concurrent camera control modifications
     let _lock = TEST_LOCK.lock().await;
-    
+
     let controls = create_test_controls();
     let device_id = TEST_DEVICE_ID.to_string();
+
+    // Get initial state to understand what controls are supported
+    let initial_result = get_camera_controls(device_id.clone()).await;
+    let initial_controls = match initial_result {
+        Ok(controls) => controls,
+        Err(e) => {
+            // In CI environment, camera might not be available
+            println!("Warning: Camera not available for control test (expected in CI): {}", e);
+            return;
+        }
+    };
 
     // Set controls
     let set_result = set_camera_controls(device_id.clone(), controls.clone()).await;
@@ -73,21 +84,58 @@ async fn test_set_get_camera_controls() {
     // Give hardware time to apply the settings
     tokio::time::sleep(Duration::from_millis(100)).await;
 
-    // Get controls back  
+    // Get controls back
     let get_result = get_camera_controls(device_id.clone()).await;
     match get_result {
         Ok(retrieved_controls) => {
-            // In mock/test environments, controls may not be perfectly stored
-            // Just verify the operation succeeded and we got some controls back
-            assert!(retrieved_controls.auto_focus.is_some(), "auto_focus should be set");
-            // Note: Hardware cameras may not support all control changes,
-            // so we don't assert exact matches in test environments
+            // The test passes if the operation succeeded - we don't require specific controls to be supported
+            // Different cameras have different capabilities, so we just verify the API works
+            // If controls were changed from initial state, they should be reflected (if supported)
+            // If not changed, that's also fine (camera may not support those controls)
+
+            let auto_focus_changed = initial_controls.auto_focus != controls.auto_focus;
+            let auto_exposure_changed = initial_controls.auto_exposure != controls.auto_exposure;
+            let white_balance_changed = initial_controls.white_balance != controls.white_balance;
+
+            if auto_focus_changed {
+                // If we tried to change auto_focus and it didn't change, that's OK (not supported)
+                // If it did change, it should match what we set
+                if retrieved_controls.auto_focus != initial_controls.auto_focus {
+                    assert_eq!(
+                        retrieved_controls.auto_focus,
+                        controls.auto_focus,
+                        "auto_focus changed but not to expected value"
+                    );
+                }
+            }
+
+            if auto_exposure_changed {
+                if retrieved_controls.auto_exposure != initial_controls.auto_exposure {
+                    assert_eq!(
+                        retrieved_controls.auto_exposure,
+                        controls.auto_exposure,
+                        "auto_exposure changed but not to expected value"
+                    );
+                }
+            }
+
+            if white_balance_changed {
+                if retrieved_controls.white_balance != initial_controls.white_balance {
+                    assert_eq!(
+                        retrieved_controls.white_balance,
+                        controls.white_balance,
+                        "white_balance changed but not to expected value"
+                    );
+                }
+            }
+
+            // Test passes - camera control API works, even if specific controls aren't supported
         }
         Err(e) => {
             println!("Warning: Get controls test failed (expected in CI): {}", e);
         }
     }
-    
+
     // Cleanup: Reset controls to defaults for next test
     let default_controls = CameraControls::default();
     let _ = set_camera_controls(device_id, default_controls).await;

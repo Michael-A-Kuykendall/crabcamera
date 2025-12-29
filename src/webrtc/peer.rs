@@ -1,10 +1,17 @@
 use webrtc::peer_connection::RTCPeerConnection;
 use webrtc::api::APIBuilder;
+use webrtc::api::media_engine::MediaEngine;
 use webrtc::ice_transport::ice_candidate::RTCIceCandidate;
 use webrtc::peer_connection::sdp::sdp_type::RTCSdpType;
 use webrtc::peer_connection::sdp::session_description::RTCSessionDescription;
 use webrtc::data_channel::RTCDataChannel;
 use webrtc::data_channel::data_channel_init::RTCDataChannelInit;
+use webrtc::track::track_local::track_local_static_rtp::TrackLocalStaticRTP;
+use webrtc::rtp_transceiver::RTCRtpTransceiver;
+use webrtc::track::track_local::TrackLocalWriter;
+use webrtc::rtp::packet::Packet;
+use webrtc_util::Unmarshal;
+use std::io::Cursor;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -176,18 +183,45 @@ impl From<RTCIceCandidate> for IceCandidate {
 }
 
 /// WebRTC peer connection manager
+#[derive(Clone)]
 pub struct PeerConnection {
     id: String,
     peer_connection: Arc<RTCPeerConnection>,
     data_channels: Arc<RwLock<HashMap<String, Arc<RTCDataChannel>>>>,
     local_candidates: Arc<RwLock<Vec<IceCandidate>>>,
+    video_tracks: Arc<RwLock<HashMap<String, Arc<TrackLocalStaticRTP>>>>,
+    transceivers: Arc<RwLock<Vec<Arc<RTCRtpTransceiver>>>>,
 }
 
 impl PeerConnection {
     /// Create a new peer connection
     pub async fn new(id: String, config: RTCConfiguration) -> Result<Self, String> {
-        // Create WebRTC API
-        let api = APIBuilder::new().build();
+        // Create WebRTC API with H.264 codec support
+        let mut media_engine = MediaEngine::default();
+        
+        // Register H.264 codec
+        use webrtc::rtp_transceiver::rtp_codec::RTCRtpCodecParameters;
+        use webrtc::rtp_transceiver::rtp_codec::RTPCodecType;
+        
+        let h264_codec = RTCRtpCodecParameters {
+            capability: webrtc::rtp_transceiver::rtp_codec::RTCRtpCodecCapability {
+                mime_type: "video/H264".to_string(),
+                clock_rate: 90000,
+                channels: 0,
+                sdp_fmtp_line: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f".to_string(),
+                rtcp_feedback: vec![],
+            },
+            payload_type: 96,
+            ..Default::default()
+        };
+        
+        media_engine.register_codec(h264_codec, RTPCodecType::Video)
+            .map_err(|e| format!("Failed to register H.264 codec: {}", e))?;
+        
+        let mut api_builder = APIBuilder::new();
+        api_builder = api_builder.with_media_engine(media_engine);
+        
+        let api = api_builder.build();
 
         // Create peer connection config
         let rtc_config = webrtc::peer_connection::configuration::RTCConfiguration {
@@ -226,11 +260,23 @@ impl PeerConnection {
             Box::pin(async {})
         }));
 
+        // Set up connection state change handler for SRTP logging
+        let peer_id_state = id.clone();
+        peer_connection.on_peer_connection_state_change(Box::new(move |state| {
+            log::info!("Peer {} connection state changed to: {:?}", peer_id_state, state);
+            if state == webrtc::peer_connection::peer_connection_state::RTCPeerConnectionState::Connected {
+                log::info!("SRTP key exchange successful for peer {} - secure transmission enabled", peer_id_state);
+            }
+            Box::pin(async {})
+        }));
+
         Ok(Self {
             id,
             peer_connection,
             data_channels: Arc::new(RwLock::new(HashMap::new())),
             local_candidates,
+            video_tracks: Arc::new(RwLock::new(HashMap::new())),
+            transceivers: Arc::new(RwLock::new(Vec::new())),
         })
     }
 
@@ -312,14 +358,24 @@ impl PeerConnection {
 
         let config = RTCDataChannelInit {
             ordered: Some(true),
+            max_packet_life_time: None,
             max_retransmits: None,
-            ..Default::default()
+            protocol: Some("".to_string()),
+            negotiated: None,
         };
 
         let data_channel = self.peer_connection.create_data_channel(&label, Some(config)).await
             .map_err(|e| format!("Failed to create data channel: {}", e))?;
 
-        let channel_id = format!("{}_{}", self.id, label);
+        // Set up message handler
+        let label_clone = label.clone();
+        let peer_id = self.id.clone();
+        data_channel.on_message(Box::new(move |msg| {
+            log::info!("Received data channel message on {} for peer {}: {:?}", label_clone, peer_id, msg.data);
+            Box::pin(async {})
+        }));
+
+        let channel_id = format!("{}_{}", self.id, label.clone());
         self.data_channels.write().await.insert(label, data_channel);
 
         Ok(channel_id)
@@ -346,17 +402,19 @@ impl PeerConnection {
         }
     }
 
-    /// Add simulcast video transceivers
+    /// Add simulcast video transceivers with associated tracks
     pub async fn add_simulcast_video_transceivers(&self, layers: &[crate::webrtc::streaming::SimulcastLayer]) -> Result<(), String> {
         use webrtc::rtp_transceiver::rtp_codec::RTCRtpCodecCapability;
         use webrtc::rtp_transceiver::rtp_transceiver_direction::RTCRtpTransceiverDirection;
         use webrtc::rtp_transceiver::RTCRtpTransceiverInit;
+        use webrtc::track::track_local::track_local_static_rtp::TrackLocalStaticRTP;
+        use webrtc::rtp_transceiver::rtp_codec::RTPCodecType;
 
         for layer in layers {
-            log::info!("Adding simulcast transceiver for layer {}", layer.rid);
+            log::info!("Adding simulcast transceiver and track for layer {}", layer.rid);
 
             // Create H.264 codec capability
-            let _codec_capability = RTCRtpCodecCapability {
+            let codec_capability = RTCRtpCodecCapability {
                 mime_type: "video/H264".to_string(),
                 clock_rate: 90000,
                 channels: 0,
@@ -364,23 +422,67 @@ impl PeerConnection {
                 rtcp_feedback: vec![],
             };
 
-            // Create transceiver init with codec
+            // Create RTP track for this layer
+            let track = Arc::new(TrackLocalStaticRTP::new(
+                codec_capability,
+                format!("video-{}", layer.rid),
+                format!("crabcamera-video-{}", self.id),
+            ));
+
+            // Create transceiver init
             let transceiver_init = RTCRtpTransceiverInit {
                 direction: RTCRtpTransceiverDirection::Sendonly,
                 send_encodings: vec![],
             };
 
             // Add transceiver
-            let _transceiver = self.peer_connection.add_transceiver_from_kind(
-                webrtc::rtp_transceiver::rtp_codec::RTPCodecType::Video,
+            let transceiver = self.peer_connection.add_transceiver_from_kind(
+                RTPCodecType::Video,
                 Some(transceiver_init),
             ).await.map_err(|e| format!("Failed to add transceiver: {}", e))?;
 
-            // Note: RID setting would be handled in SDP negotiation
-            log::debug!("Added transceiver for simulcast layer {}", layer.rid);
+            // Get the sender from the transceiver and replace its track
+            let sender = transceiver.sender().await;
+            sender.replace_track(Some(track.clone())).await
+                .map_err(|e| format!("Failed to replace track on sender: {}", e))?;
+
+            // Store track and transceiver
+            {
+                let mut tracks = self.video_tracks.write().await;
+                tracks.insert(layer.rid.clone(), track);
+            }
+            {
+                let mut transceivers = self.transceivers.write().await;
+                transceivers.push(transceiver);
+            }
+
+            log::debug!("Added transceiver and track for simulcast layer {}", layer.rid);
         }
 
         Ok(())
+    }
+
+    /// Send RTP packet to video track
+    pub async fn send_rtp_to_track(&self, rid: &str, rtp_packet: &[u8]) -> Result<(), String> {
+        let tracks = self.video_tracks.read().await;
+        if let Some(track) = tracks.get(rid) {
+            // Parse the RTP packet bytes into a Packet struct
+            let mut cursor = Cursor::new(rtp_packet);
+            let packet = Packet::unmarshal(&mut cursor)
+                .map_err(|e| format!("Failed to parse RTP packet: {}", e))?;
+            
+            track.write_rtp(&packet).await
+                .map_err(|e| format!("Failed to send RTP packet to track {}: {}", rid, e))?;
+            Ok(())
+        } else {
+            Err(format!("Video track {} not found", rid))
+        }
+    }
+
+    /// Get available video track RIDs
+    pub async fn get_video_track_rids(&self) -> Vec<String> {
+        let tracks = self.video_tracks.read().await;
+        tracks.keys().cloned().collect()
     }
 
     /// Close peer connection
