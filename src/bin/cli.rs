@@ -1,4 +1,4 @@
-use crabcamera::headless::{list_devices, list_formats, CaptureConfig, BufferPolicy, AudioMode, HeadlessSession, ControlId, ControlValue};
+use crabcamera::headless::*;
 use crabcamera::types::CameraFormat;
 use std::env;
 use std::time::Duration;
@@ -18,7 +18,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "list-controls" => cmd_list_controls(&args),
         "set-control" => cmd_set_control(&args),
         _ => {
-            eprintln!("Unknown command: {command}");
+            eprintln!("Unknown command: {}", command);
             std::process::exit(1);
         }
     }
@@ -26,7 +26,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn cmd_list_devices(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     let devices = list_devices()?;
-    if args.iter().any(|arg| arg == "--json") {
+    if args.contains(&"--json".to_string()) {
         println!("{}", serde_json::to_string(&devices)?);
     } else {
         for d in devices {
@@ -43,7 +43,7 @@ fn cmd_list_formats(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     }
     let device_id = &args[2];
     let formats = list_formats(device_id)?;
-    if args.iter().any(|arg| arg == "--json") {
+    if args.contains(&"--json".to_string()) {
         println!("{}", serde_json::to_string(&formats)?);
     } else {
         for f in formats {
@@ -113,10 +113,12 @@ fn cmd_capture(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
             } else {
                 println!("Frame: {}x{} {} seq:{}", f.width, f.height, f.format, f.sequence);
             }
-        } else if json {
-            println!("null");
         } else {
-            println!("Timeout");
+            if json {
+                println!("null");
+            } else {
+                println!("Timeout");
+            }
         }
     }
 
@@ -148,7 +150,7 @@ fn cmd_list_controls(args: &[String]) -> Result<(), Box<dyn std::error::Error>> 
     let controls = session.list_controls()?;
     session.close(Duration::from_millis(100))?;
 
-    if args.iter().any(|arg| arg == "--json") {
+    if args.contains(&"--json".to_string()) {
         println!("{}", serde_json::to_string(&controls)?);
     } else {
         for (info, value) in controls {
@@ -169,9 +171,12 @@ fn cmd_set_control(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     let value_str = &args[4];
 
     // Parse control_id
-    let Ok(control_id) = control_id_str.parse::<ControlId>() else {
-        eprintln!("Invalid control_id: {control_id_str}");
-        std::process::exit(1);
+    let control_id = match control_id_str.parse::<ControlId>() {
+        Ok(id) => id,
+        Err(_) => {
+            eprintln!("Invalid control_id: {}", control_id_str);
+            std::process::exit(1);
+        }
     };
 
     // Parse value based on control
@@ -193,7 +198,7 @@ fn cmd_set_control(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     // Close
     session.close(Duration::from_millis(100))?;
 
-    if args.iter().any(|arg| arg == "--json") {
+    if args.contains(&"--json".to_string()) {
         println!("{{}}");
     } else {
         println!("OK");
@@ -203,13 +208,13 @@ fn cmd_set_control(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn parse_control_value(id: ControlId, s: &str) -> Result<ControlValue, Box<dyn std::error::Error>> {
-    use ControlValue::{Bool, F32, U32};
+    use ControlValue::*;
     match id {
         ControlId::AutoFocus | ControlId::AutoExposure | ControlId::NoiseReduction | ControlId::ImageStabilization => {
             match s {
                 "true" | "1" => Ok(Bool(true)),
                 "false" | "0" => Ok(Bool(false)),
-                _ => Err(format!("Invalid bool value: {s}").into()),
+                _ => Err(format!("Invalid bool value: {}", s).into()),
             }
         }
         ControlId::FocusDistance | ControlId::ExposureTime | ControlId::Aperture | ControlId::Zoom | ControlId::Brightness | ControlId::Contrast | ControlId::Saturation | ControlId::Sharpness => {
@@ -221,7 +226,7 @@ fn parse_control_value(id: ControlId, s: &str) -> Result<ControlValue, Box<dyn s
             if s == "auto" {
                 Ok(ControlValue::WhiteBalance(crabcamera::types::WhiteBalance::Auto))
             } else {
-                Err(format!("Only 'auto' supported for white balance, got: {s}").into())
+                Err(format!("Only 'auto' supported for white balance, got: {}", s).into())
             }
         }
     }
@@ -250,7 +255,6 @@ fn parse_format(s: &str) -> Result<CameraFormat, Box<dyn std::error::Error>> {
     Ok(CameraFormat {
         width,
         height,
-        #[allow(clippy::cast_precision_loss)]
         fps: fps as f32,
         format_type: format_type.to_string(),
     })

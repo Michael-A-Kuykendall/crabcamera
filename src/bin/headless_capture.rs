@@ -42,7 +42,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         Err(e) => {
-            println!("  ❌ Error listing audio devices: {e}");
+            println!("  ❌ Error listing audio devices: {}", e);
         }
     }
 
@@ -91,6 +91,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut audio_count = 0;
     let mut frame_saved = false;
+    let mut audio_saved = false;
 
     while frame_count < 10 && start_time.elapsed() < Duration::from_secs(10) {
         match session.get_frame(Duration::from_millis(1000)) {
@@ -110,7 +111,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("  Timeout waiting for frame");
             }
             Err(e) => {
-                eprintln!("  Error getting frame: {e}");
+                eprintln!("  Error getting frame: {}", e);
                 break;
             }
         }
@@ -122,8 +123,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("  Audio {}: {} samples seq:{} size:{} bytes channels:{}",
                     audio_count, packet.data.len() / 4, packet.sequence, packet.data.len(), packet.channels);
                 
-use std::fs::OpenOptions;
-use std::io::Write;
+                // Append audio data to file
+                use std::fs::OpenOptions;
+                use std::io::Write;
                 let mut file = OpenOptions::new()
                     .create(true)
                     .append(true)
@@ -135,20 +137,20 @@ use std::io::Write;
                 // No audio packet available, continue
             }
             Err(e) => {
-                eprintln!("  Error getting audio: {e}");
+                eprintln!("  Error getting audio: {}", e);
             }
         }
     }
 
     let dropped = session.dropped_frames()?;
-    println!("\n📊 Captured {frame_count} frames, {audio_count} audio packets, {dropped} dropped");
+    println!("\n📊 Captured {} frames, {} audio packets, {} dropped", frame_count, audio_count, dropped);
 
     // Step 7: Stop capture
     println!("⏹️  Stopping capture...");
     match session.stop(Duration::from_millis(10000)) {
         Ok(()) => {}
         Err(e) => {
-            eprintln!("Warning: Stop timed out, but session may still be stopping: {e:?}");
+            eprintln!("Warning: Stop timed out, but session may still be stopping: {:?}", e);
         }
     }
 

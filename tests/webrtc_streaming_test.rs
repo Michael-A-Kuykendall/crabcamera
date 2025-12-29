@@ -14,7 +14,7 @@ use crabcamera::commands::webrtc::{
     start_webrtc_stream, stop_webrtc_stream, get_webrtc_stream_status, 
     update_webrtc_config
 };
-use crabcamera::webrtc::streaming::{StreamConfig, VideoCodec, WebRTCStreamer};
+use crabcamera::webrtc::streaming::{StreamConfig, StreamMode, VideoCodec, WebRTCStreamer};
 
 use std::time::Duration;
 use tokio::time::timeout;
@@ -25,7 +25,13 @@ async fn test_stream_lifecycle_basic() {
     let stream_id = "test_stream_basic".to_string();
 
     // Start stream
-    let result = start_webrtc_stream(device_id.clone(), stream_id.clone(), None).await;
+    let result = start_webrtc_stream(
+        device_id.clone(),
+        stream_id.clone(),
+        None,
+        Some(StreamMode::SyntheticTest),
+    )
+    .await;
     assert!(result.is_ok(), "Failed to start stream: {:?}", result);
 
     // Verify stream is active
@@ -57,7 +63,13 @@ async fn test_stream_lifecycle_with_custom_config() {
     };
 
     // Start stream with custom config
-    let result = start_webrtc_stream(device_id, stream_id.clone(), Some(config.clone())).await;
+    let result = start_webrtc_stream(
+        device_id,
+        stream_id.clone(),
+        Some(config.clone()),
+        Some(StreamMode::SyntheticTest),
+    )
+    .await;
     assert!(result.is_ok(), "Failed to start stream with custom config");
 
     // Verify config is applied
@@ -77,7 +89,13 @@ async fn test_stream_configuration_update() {
     let stream_id = "test_stream_update".to_string();
 
     // Start with default config
-    let result = start_webrtc_stream(device_id, stream_id.clone(), None).await;
+    let result = start_webrtc_stream(
+        device_id,
+        stream_id.clone(),
+        None,
+        Some(StreamMode::SyntheticTest),
+    )
+    .await;
     assert!(result.is_ok());
 
     // Update configuration
@@ -134,11 +152,23 @@ async fn test_stream_double_start_prevention() {
     let stream_id = "test_stream_double".to_string();
 
     // Start stream first time
-    let result = start_webrtc_stream(device_id.clone(), stream_id.clone(), None).await;
+    let result = start_webrtc_stream(
+        device_id.clone(),
+        stream_id.clone(),
+        None,
+        Some(StreamMode::SyntheticTest),
+    )
+    .await;
     assert!(result.is_ok(), "First start should succeed");
 
     // Try to start same stream again - should handle gracefully
-    let _result = start_webrtc_stream(device_id, stream_id.clone(), None).await;
+    let _result = start_webrtc_stream(
+        device_id,
+        stream_id.clone(),
+        None,
+        Some(StreamMode::SyntheticTest),
+    )
+    .await;
     // Current implementation allows this, but we verify it handles gracefully
     
     // Cleanup
@@ -219,7 +249,13 @@ async fn test_stream_stats_accuracy() {
     };
 
     // Start stream
-    let result = start_webrtc_stream(device_id, stream_id.clone(), Some(config.clone())).await;
+    let result = start_webrtc_stream(
+        device_id,
+        stream_id.clone(),
+        Some(config.clone()),
+        Some(StreamMode::SyntheticTest),
+    )
+    .await;
     assert!(result.is_ok());
 
     // Get stats
@@ -331,7 +367,13 @@ async fn test_stream_interruption_recovery() {
     let stream_id = "recovery_test_stream".to_string();
 
     // Start stream
-    let result = start_webrtc_stream(device_id.clone(), stream_id.clone(), None).await;
+    let result = start_webrtc_stream(
+        device_id.clone(),
+        stream_id.clone(),
+        None,
+        Some(StreamMode::SyntheticTest),
+    )
+    .await;
     assert!(result.is_ok());
 
     // Verify stream is active
@@ -344,7 +386,13 @@ async fn test_stream_interruption_recovery() {
     assert!(result.is_ok());
 
     // Restart stream (recovery)
-    let result = start_webrtc_stream(device_id, stream_id.clone(), None).await;
+    let result = start_webrtc_stream(
+        device_id,
+        stream_id.clone(),
+        None,
+        Some(StreamMode::SyntheticTest),
+    )
+    .await;
     assert!(result.is_ok(), "Should be able to restart stream after interruption");
 
     // Verify stream is active again

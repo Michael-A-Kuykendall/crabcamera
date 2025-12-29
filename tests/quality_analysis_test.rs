@@ -19,6 +19,7 @@ use crabcamera::quality::{
     QualityValidator, ValidationConfig,
 };
 use crabcamera::types::{CameraFormat, CameraFrame};
+use std::time::Instant;
 use tokio;
 
 /// Mock device ID for testing
@@ -487,8 +488,45 @@ async fn test_analyze_quality_trends() {
 /// Performance benchmark for quality analysis operations
 #[test]
 fn test_quality_analysis_performance() {
-    // TODO: Skip performance test that may fail on slower hardware
-    return;
+    let detector = BlurDetector::default();
+    let analyzer = ExposureAnalyzer::default();
+    let validator = QualityValidator::default();
+
+    // Test various frame sizes
+    let sizes = [(320, 240), (640, 480), (1280, 720), (1920, 1080)];
+
+    for (width, height) in sizes.iter() {
+        let frame = create_test_frame_with_pattern(*width, *height, "checkboard");
+        
+        // Benchmark blur detection
+        let start = Instant::now();
+        let blur_metrics = detector.analyze_frame(&frame);
+        let blur_time = start.elapsed();
+        
+        // Benchmark exposure analysis
+        let start = Instant::now();
+        let exposure_metrics = analyzer.analyze_frame(&frame);
+        let exposure_time = start.elapsed();
+        
+        // Benchmark full validation
+        let start = Instant::now();
+        let quality_report = validator.validate_frame(&frame);
+        let validation_time = start.elapsed();
+        
+        println!("Performance for {}x{} frame:", width, height);
+        println!("  Blur detection: {:?}", blur_time);
+        println!("  Exposure analysis: {:?}", exposure_time);
+        println!("  Full validation: {:?}", validation_time);
+        println!("  Quality score: {:.3}", quality_report.score.overall);
+        
+        // Verify reasonable performance (under 2000ms for large frames - quality analysis is compute intensive)
+        assert!(validation_time.as_millis() < 2000);
+        
+        // Verify results are valid
+        assert!(blur_metrics.quality_score >= 0.0);
+        assert!(exposure_metrics.quality_score >= 0.0);
+        assert!(quality_report.score.overall >= 0.0);
+    }
 }
 
 /// Test mathematical correctness of quality algorithms

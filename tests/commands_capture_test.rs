@@ -12,10 +12,6 @@ mod commands_capture_tests {
     use std::time::{Duration, Instant};
     use tokio::time::timeout;
 
-    fn setup_mock_environment() {
-        std::env::set_var("CRABCAMERA_USE_MOCK", "1");
-    }
-
     // Helper function to create a test frame
     fn create_test_frame() -> CameraFrame {
         let test_data = vec![255u8; 640 * 480 * 3]; // RGB data
@@ -38,7 +34,6 @@ mod commands_capture_tests {
 
     #[tokio::test]
     async fn test_capture_single_photo_with_device_id() {
-        setup_mock_environment();
         set_mock_camera_mode("test_camera_1", MockCaptureMode::Success);
 
         let result = capture_single_photo(Some("test_camera_1".to_string()), None).await;
@@ -56,7 +51,6 @@ mod commands_capture_tests {
 
     #[tokio::test]
     async fn test_capture_single_photo_with_format() {
-        setup_mock_environment();
         set_mock_camera_mode("test_camera_format", MockCaptureMode::Success);
 
         let format = CameraFormat::new(1920, 1080, 60.0);
@@ -156,7 +150,6 @@ mod commands_capture_tests {
 
     #[tokio::test]
     async fn test_start_camera_preview() {
-        setup_mock_environment();
         set_mock_camera_mode("preview_start", MockCaptureMode::Success);
 
         let result = start_camera_preview("preview_start".to_string(), None).await;

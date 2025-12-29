@@ -227,7 +227,9 @@ impl AudioCapture {
 impl Drop for AudioCapture {
     fn drop(&mut self) {
         // Ensure stream is stopped before drop
-        let _ = self.stop();
+        if let Err(e) = self.stop() {
+            log::warn!("Error stopping audio capture in drop: {}", e);
+        }
         // Stream is dropped here, which joins any internal threads
         self.stream = None;
     }

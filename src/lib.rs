@@ -32,9 +32,7 @@
 //!         .expect("error while running tauri application");
 //! }
 //! ```
-
-pub mod commands;
-pub mod config;
+pub mod commands;pub mod config;
 pub mod errors;
 pub mod focus_stack;
 #[cfg(feature = "headless")]
@@ -45,8 +43,10 @@ pub mod quality;
 #[cfg(any(feature = "headless", feature = "audio"))]
 pub mod timing;
 pub mod types;
-#[cfg(feature = "webrtc")]
 pub mod webrtc;
+
+#[cfg(feature = "contextlite")]
+pub mod contextlite;
 
 #[cfg(feature = "recording")]
 pub mod recording;
@@ -137,6 +137,8 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             #[cfg(feature = "webrtc")]
             commands::webrtc::get_local_ice_candidates,
             #[cfg(feature = "webrtc")]
+            commands::webrtc::add_video_transceivers,
+            #[cfg(feature = "webrtc")]
             commands::webrtc::create_data_channel,
             #[cfg(feature = "webrtc")]
             commands::webrtc::send_data_channel_message,
@@ -148,6 +150,12 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::webrtc::list_peer_connections,
             #[cfg(feature = "webrtc")]
             commands::webrtc::get_webrtc_system_status,
+            #[cfg(feature = "webrtc")]
+            commands::webrtc::pause_webrtc_stream,
+            #[cfg(feature = "webrtc")]
+            commands::webrtc::resume_webrtc_stream,
+            #[cfg(feature = "webrtc")]
+            commands::webrtc::set_webrtc_stream_bitrate,
             // Quality validation commands
             commands::quality::validate_frame_quality,
             commands::quality::validate_provided_frame,

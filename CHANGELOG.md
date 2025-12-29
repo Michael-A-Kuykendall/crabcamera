@@ -5,6 +5,92 @@ All notable changes to CrabCamera will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### 🚀 **WebRTC LIVE STREAMING** — Real-Time Broadcasting Made Simple 🎥📡
+
+**CrabCamera now supports production-ready WebRTC streaming** with real camera feeds, professional controls, and seamless browser integration. Stream H.264 video and Opus audio directly from your desktop application to any WebRTC-compatible endpoint.
+
+**Release Stats:**
+- ✅ **WebRTC Core**: Complete peer connection, RTP forwarding, and SDP negotiation
+- ✅ **Real Camera Streaming**: Live H.264/Opus from actual hardware devices  
+- ✅ **Browser Integration**: HTML test page + SDP offer/answer workflow
+- ✅ **Stream Controls**: Pause/resume, bitrate adjustment, status monitoring
+- ✅ **Property Testing**: Proptest invariants for RTP packetizers
+- ✅ **Contract Testing**: Synthetic streaming validation with real encoded data
+- ✅ **Cross-Platform**: Windows/macOS/Linux WebRTC support
+
+---
+
+### 📡 WebRTC Streaming Architecture
+
+#### ✨ New Features
+
+- **WebRTC Streamer** (`#WebRTCStreamer`)
+  - Real-time H.264 video encoding with RTP packetization
+  - Opus audio encoding with synchronized RTP streams
+  - TrackLocalStaticRTP for efficient peer connection forwarding
+  - Configurable stream modes (Live camera vs Synthetic testing)
+
+- **RTP Packetizers** (`#RTPPacketizer`)
+  - H.264 RTP fragmentation with proper marker bits
+  - Opus RTP packetization with correct timestamp handling
+  - 32-bit RTP timestamp width compliance
+  - Sequence number and SSRC management
+
+- **Peer Connection Management** (`#WebRTCPeerConnection`)
+  - SDP offer generation for browser compatibility
+  - Remote SDP answer application
+  - ICE candidate exchange handling
+  - Connection state monitoring and error reporting
+
+- **Stream Controls** (`#WebRTCControls`)
+  - Pause/resume streaming without disconnecting
+  - Dynamic bitrate adjustment during streaming
+  - Camera status monitoring (active/paused/stopped)
+  - Stream mode switching (Live ↔ Synthetic)
+
+- **Tauri WebRTC Commands** (`#TauriWebRTCCommands`)
+  - `start_webrtc_stream` - Initialize WebRTC with camera
+  - `get_webrtc_offer` - Generate SDP for browser connection
+  - `apply_webrtc_answer` - Complete peer connection handshake
+  - `update_webrtc_config` - Control streaming parameters
+  - `stop_webrtc_stream` - Clean shutdown with resource cleanup
+
+#### 🧪 Testing & Quality
+
+- **Property-Based Testing**: Proptest invariants for RTP packetizers
+  - H.264 NAL unit fragmentation correctness
+  - Opus frame timestamp progression
+  - RTP header field validation
+  - 1000+ test cases per packetizer
+
+- **Contract Testing**: Synthetic streaming validation
+  - Real encoded data production (not mocks)
+  - WebRTCStreamer behavioral contracts
+  - Stream lifecycle testing (start/stop/pause/resume)
+  - Memory safety under streaming load
+
+- **Integration Testing**: End-to-end WebRTC workflows
+  - Real camera streaming with hardware validation
+  - Browser compatibility testing with HTML test page
+  - Cross-platform peer connection establishment
+
+#### 📚 Documentation & Examples
+
+- **WebRTC Examples**: Complete streaming demonstrations
+  - `webrtc_real_camera_test.rs` - Live camera streaming
+  - `webrtc_test.html` - Browser receiver test page
+  - `visual_camera_test.rs` - Camera validation utilities
+
+- **API Documentation**: Comprehensive WebRTC integration guide
+  - SDP negotiation workflow
+  - Stream configuration options
+  - Error handling patterns
+  - Performance optimization tips
+
+---
+
 ## [0.5.0] - 2025-12-19
 
 ### 🎬🎙️ **AUDIO RECORDING & PERFECT A/V SYNC** — THE GAME-CHANGER 🎉

@@ -14,11 +14,11 @@ use crabcamera::commands::webrtc::{
     start_webrtc_stream, stop_webrtc_stream, get_webrtc_stream_status,
     create_peer_connection, create_webrtc_offer, create_webrtc_answer,
     set_remote_description, add_ice_candidate, create_data_channel,
-    get_peer_connection_status,
+    get_peer_connection_status, associate_stream_with_peer,
     close_peer_connection, list_peer_connections,
     get_webrtc_system_status, update_webrtc_config
 };
-use crabcamera::webrtc::streaming::{StreamConfig, VideoCodec};
+use crabcamera::webrtc::streaming::{StreamConfig, VideoCodec, StreamMode};
 use crabcamera::webrtc::peer::{
     IceCandidate, ConnectionState
 };
@@ -29,8 +29,38 @@ use tokio::time::sleep;
 /// Test complete WebRTC system integration
 #[tokio::test]
 async fn test_complete_webrtc_system_integration() {
-    // TODO: Implement full system integration test once streaming is connected to peer connections
-    return;
+    let device_id = "test_device_integration".to_string();
+    let stream_id = "test_stream_integration".to_string();
+    let peer_id = "test_peer_integration".to_string();
+
+    // Start WebRTC stream in synthetic test mode
+    let result = start_webrtc_stream(device_id.clone(), stream_id.clone(), None, Some(StreamMode::SyntheticTest)).await;
+    assert!(result.is_ok(), "Failed to start WebRTC stream: {:?}", result);
+
+    // Create peer connection
+    let result = create_peer_connection(peer_id.clone(), None).await;
+    assert!(result.is_ok(), "Failed to create peer connection: {:?}", result);
+
+    // TODO: Associate stream with peer once peer connection is fully established
+    // let result = associate_stream_with_peer(stream_id.clone(), peer_id.clone()).await;
+    // assert!(result.is_ok(), "Failed to associate stream with peer: {:?}", result);
+
+    // Let it run for a short time to generate some frames
+    sleep(Duration::from_millis(2000)).await;
+
+    // Check stream status
+    let status = get_webrtc_stream_status(stream_id.clone()).await;
+    assert!(status.is_ok(), "Failed to get stream status");
+    let status = status.unwrap();
+    assert!(status.is_active, "Stream should be active");
+
+    // Check peer status
+    let peer_status = get_peer_connection_status(peer_id.clone()).await;
+    assert!(peer_status.is_ok(), "Failed to get peer status");
+
+    // Clean up
+    let _ = close_peer_connection(peer_id).await;
+    let _ = stop_webrtc_stream(stream_id).await;
 }
 
 /// Test full peer-to-peer connection workflow
@@ -221,7 +251,7 @@ async fn test_system_recovery_resilience() {
 
     for cycle in 0..3 {
         // Start stream
-        let result = start_webrtc_stream(device_id.clone(), stream_id.clone(), None).await;
+        let result = start_webrtc_stream(device_id.clone(), stream_id.clone(), None, None).await;
         assert!(result.is_ok(), "Failed to start stream in cycle {}", cycle);
 
         // Stop stream (simulate interruption)
@@ -263,7 +293,7 @@ async fn test_sustained_load_performance() {
 
         // Create resources
         let peer_result = create_peer_connection(peer_id.clone(), None).await;
-        let stream_result = start_webrtc_stream(device_id, stream_id.clone(), None).await;
+        let stream_result = start_webrtc_stream(device_id, stream_id.clone(), None, None).await;
 
         assert!(peer_result.is_ok(), "Peer creation failed under load at op {}", operation_count);
         assert!(stream_result.is_ok(), "Stream creation failed under load at op {}", operation_count);
@@ -310,7 +340,7 @@ async fn test_dynamic_configuration_changes() {
         simulcast: None,
     };
 
-    let result = start_webrtc_stream(device_id, stream_id.clone(), Some(initial_config)).await;
+    let result = start_webrtc_stream(device_id, stream_id.clone(), Some(initial_config), None).await;
     assert!(result.is_ok());
 
     // Gradually increase quality (simulating adaptive streaming)

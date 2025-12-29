@@ -300,7 +300,9 @@ impl SessionHandle {
             }
         }
 
-        let _ = self.stop(join_timeout);
+        if let Err(e) = self.stop(join_timeout) {
+            log::warn!("Error stopping session during close: {}", e);
+        }
 
         self.inner.queue.close();
         *self.inner.camera.lock().expect("lock poisoned") = None;
@@ -443,7 +445,9 @@ impl SessionHandle {
 
 impl Drop for SessionHandle {
     fn drop(&mut self) {
-        let _ = self.close(Duration::from_millis(100));
+        if let Err(e) = self.close(Duration::from_millis(100)) {
+            log::warn!("Error closing session in drop: {}", e);
+        }
     }
 }
 

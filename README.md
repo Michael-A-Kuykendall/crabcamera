@@ -15,7 +15,7 @@
 [![Crates.io](https://img.shields.io/crates/v/crabcamera.svg)](https://crates.io/crates/crabcamera)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/rust-stable-brightgreen.svg)](https://rustup.rs/)
-[![Tests](https://img.shields.io/badge/tests-69+-brightgreen.svg)](https://github.com/Michael-A-Kuykendall/crabcamera/releases)
+[![Tests](https://img.shields.io/badge/tests-67+-brightgreen.svg)](https://github.com/Michael-A-Kuykendall/crabcamera/releases)
 [![Sponsor](https://img.shields.io/badge/❤️-Sponsor-ea4aaa?logo=github)](https://github.com/sponsors/Michael-A-Kuykendall)
 
 **🦀 CrabCamera will be free forever. 🦀** No asterisks. No "free for now." No pivot to paid.
@@ -30,6 +30,7 @@
 | **Hardware Access** | Direct camera + audio 🏆 | Browser restricted | Basic video only |
 | **Audio Recording** | Opus/AAC + sync 🏆 | Unreliable | N/A |
 | **A/V Synchronization** | PTS-based sync 🏆 | Async/unreliable | N/A |
+| **WebRTC Streaming** | Real-time H.264/Opus 🏆 | Browser native | Limited |
 | **Professional Controls** | Auto-focus, exposure 🏆 | Limited | Basic |
 | **Cross-Platform** | Unified API 🏆 | Platform dependent | Single platform |
 | **Production Ready** | **69+ tests, 80% coverage** 🏆 | No guarantees | Proof-of-concept |
@@ -48,7 +49,7 @@
 
 **BONUS:** Professional camera controls with platform-optimized settings for maximum image quality.
 
-**Note:** WebRTC streaming is currently experimental and under active development.
+**NEW:** Real-time WebRTC streaming with H.264 video and Opus audio for live broadcasting and video chat applications.
 
 ## 🦀 Quick Start (30 seconds) 📷🎙️
 
@@ -247,6 +248,35 @@ stop_recording() -> Result<RecordingStatus>
 
 // Get recording status with sync info
 get_recording_status() -> Result<RecordingStatus>
+```
+
+### WebRTC Streaming (NEW!)
+```rust
+// Start WebRTC stream with real camera
+start_webrtc_stream(WebRTCConfig) -> Result<WebRTCStreamId>
+
+// WebRTC config for live streaming:
+pub struct WebRTCConfig {
+    pub stream_id: String,
+    pub video_config: VideoConfig,
+    pub audio_config: Option<AudioConfig>,
+    pub mode: StreamMode,  // Live or Synthetic
+}
+
+// Get SDP offer for browser connection
+get_webrtc_offer(stream_id: String) -> Result<String>
+
+// Apply remote SDP answer
+apply_webrtc_answer(stream_id: String, answer: String) -> Result<()>
+
+// Control streaming (pause/resume/bitrate)
+update_webrtc_config(stream_id: String, config: WebRTCUpdate) -> Result<()>
+
+// Stop WebRTC stream
+stop_webrtc_stream(stream_id: String) -> Result<()>
+
+// Get stream status and statistics
+get_webrtc_stream_status(stream_id: String) -> Result<WebRTCStatus>
 ```
 
 ### Capture & Streaming

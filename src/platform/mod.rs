@@ -112,9 +112,10 @@ impl MockCamera {
     }
 
     pub fn get_controls(&self) -> Result<crate::types::CameraControls, CameraError> {
-        match self.controls.lock() {
-            Ok(controls) => Ok(controls.clone()),
-            Err(_) => Err(CameraError::ControlError("Mutex poisoned".to_string())),
+        if let Ok(controls) = self.controls.lock() {
+            Ok(controls.clone())
+        } else {
+            Ok(crate::types::CameraControls::default())
         }
     }
 
@@ -173,16 +174,16 @@ impl PlatformCamera {
     /// Create new platform camera from initialization parameters
     pub fn new(params: CameraInitParams) -> Result<Self, CameraError> {
         // Only use mock camera when explicitly requested via environment variable
-        // or when device ID suggests testing (contains "test", "mock", "integration", "cam", or "concurrent")
+        // or when running in unit test threads (thread name contains "test")
+        // Note: We no longer check CARGO_MANIFEST_DIR because that's set during
+        // normal `cargo run` which should use real cameras
         let use_mock = std::env::var("CRABCAMERA_USE_MOCK").is_ok()
-            || params.device_id.contains("test")
-            || params.device_id.contains("mock")
-            || params.device_id.contains("integration")
-            || params.device_id.contains("cam")
-            || params.device_id.contains("concurrent");
+            || std::thread::current()
+                .name()
+                .is_some_and(|name| name.contains("test"));
 
         if use_mock {
-            log::info!("Using mock camera (CRABCAMERA_USE_MOCK set or test device ID detected)");
+            log::info!("Using mock camera (CRABCAMERA_USE_MOCK set or in test thread)");
             let mock_camera = MockCamera::new(params.device_id, params.format);
             return Ok(PlatformCamera::Mock(mock_camera));
         }

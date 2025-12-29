@@ -5,7 +5,7 @@ use openh264::encoder::FrameType;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, RwLock};
 use tokio::sync::broadcast;
-use crate::CameraFrame;
+use crate::types::CameraFrame;
 
 // Opus encoder imports
 #[cfg(feature = "audio")]
@@ -142,6 +142,13 @@ pub enum VideoCodec {
     AV1,
 }
 
+/// Streaming mode for WebRTC
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum StreamMode {
+    RealCamera,     // Use physical camera
+    SyntheticTest,  // Generate synthetic frames for testing
+}
+
 /// WebRTC streaming manager
 #[derive(Clone)]
 pub struct WebRTCStreamer {
@@ -151,6 +158,21 @@ pub struct WebRTCStreamer {
     stream_id: String,
     h264_packetizer: Arc<RwLock<Option<H264RTPPacketizer>>>,
     opus_packetizer: Arc<RwLock<Option<OpusRTPPacketizer>>>,
+    device_id: Arc<RwLock<String>>,
+    rtp_sender: Arc<RwLock<Option<tokio::sync::mpsc::UnboundedSender<RtpPayload>>>>,
+    paused: Arc<RwLock<bool>>,
+    failure_count: Arc<RwLock<u32>>,
+    max_failures: u32,
+    mode: Arc<RwLock<StreamMode>>,
+    camera_status: Arc<RwLock<CameraStatus>>,
+}
+
+/// Camera availability status
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum CameraStatus {
+    Available,
+    Unavailable(String), // Reason for unavailability
+    Failed(String),      // Runtime failure reason
 }
 
 /// Encoded frame for WebRTC transmission
@@ -342,7 +364,9 @@ impl H264RTPPacketizer {
         let nal_units = Self::parse_annex_b_nal_units(access_unit)?;
         let mut payloads = Vec::new();
 
-        for nal_unit in nal_units {
+        for (idx, nal_unit) in nal_units.iter().enumerate() {
+            let is_last_nal = idx + 1 == nal_units.len();
+
             if nal_unit.len() <= self.mtu - 12 { // 12 bytes RTP header
                 // Single NAL unit packet
                 let mut payload = vec![0u8; 1]; // FU header will be NAL header
@@ -353,12 +377,12 @@ impl H264RTPPacketizer {
                     data: payload,
                     timestamp,
                     sequence_number: self.sequence_number,
-                    marker: true, // Last packet in frame
+                    marker: is_last_nal,
                 });
                 self.sequence_number = self.sequence_number.wrapping_add(1);
             } else {
                 // Fragment using FU-A
-                payloads.extend(self.fragment_nal_unit(nal_unit, timestamp)?);
+                payloads.extend(self.fragment_nal_unit(nal_unit, timestamp, is_last_nal)?);
             }
         }
 
@@ -407,7 +431,12 @@ impl H264RTPPacketizer {
     }
 
     /// Fragment a large NAL unit using FU-A
-    fn fragment_nal_unit(&mut self, nal_unit: &[u8], timestamp: u64) -> Result<Vec<RtpPayload>, String> {
+    fn fragment_nal_unit(
+        &mut self,
+        nal_unit: &[u8],
+        timestamp: u64,
+        is_last_nal_in_access_unit: bool,
+    ) -> Result<Vec<RtpPayload>, String> {
         if nal_unit.is_empty() {
             return Ok(Vec::new());
         }
@@ -436,7 +465,7 @@ impl H264RTPPacketizer {
                 data: payload,
                 timestamp,
                 sequence_number: self.sequence_number,
-                marker: is_last,
+                marker: is_last && is_last_nal_in_access_unit,
             });
 
             self.sequence_number = self.sequence_number.wrapping_add(1);
@@ -493,6 +522,13 @@ impl WebRTCStreamer {
             stream_id,
             h264_packetizer: Arc::new(RwLock::new(None)),
             opus_packetizer: Arc::new(RwLock::new(None)),
+            device_id: Arc::new(RwLock::new(String::new())),
+            rtp_sender: Arc::new(RwLock::new(None)),
+            paused: Arc::new(RwLock::new(false)),
+            failure_count: Arc::new(RwLock::new(0)),
+            max_failures: 10, // Back to reasonable limit
+            mode: Arc::new(RwLock::new(StreamMode::RealCamera)),
+            camera_status: Arc::new(RwLock::new(CameraStatus::Available)),
         }
     }
 
@@ -510,9 +546,16 @@ impl WebRTCStreamer {
             device_id
         );
 
+        // Store device ID for the streaming loop
+        {
+            let mut stored_device_id = self.device_id.write().unwrap();
+            *stored_device_id = device_id.clone();
+        }
+
         // Start frame processing task
         let streamer = self.clone();
         tokio::spawn(async move {
+            log::info!("Spawned streaming task for device {}", device_id);
             streamer.stream_processing_loop(device_id).await;
         });
 
@@ -528,6 +571,13 @@ impl WebRTCStreamer {
 
         *is_streaming = false;
         log::info!("Stopping WebRTC stream {}", self.stream_id);
+
+        // Clear device ID
+        {
+            let mut stored_device_id = self.device_id.write().unwrap();
+            *stored_device_id = String::new();
+        }
+
         Ok(())
     }
 
@@ -566,6 +616,75 @@ impl WebRTCStreamer {
         self.frame_sender.subscribe()
     }
 
+    /// Set RTP sender for forwarding packets to peer connection
+    pub async fn set_rtp_sender(&self, sender: tokio::sync::mpsc::UnboundedSender<RtpPayload>) {
+        let mut rtp_sender = self.rtp_sender.write().unwrap();
+        *rtp_sender = Some(sender);
+    }
+
+    /// Clear RTP sender
+    pub async fn clear_rtp_sender(&self) {
+        let mut rtp_sender = self.rtp_sender.write().unwrap();
+        *rtp_sender = None;
+    }
+
+    /// Pause streaming (stop sending RTP packets)
+    pub async fn pause_stream(&self) {
+        let mut paused = self.paused.write().unwrap();
+        *paused = true;
+        log::info!("Stream {} paused", self.stream_id);
+    }
+
+    /// Resume streaming
+    pub async fn resume_stream(&self) {
+        let mut paused = self.paused.write().unwrap();
+        *paused = false;
+        log::info!("Stream {} resumed", self.stream_id);
+    }
+
+    /// Set streaming mode
+    pub async fn set_mode(&self, mode: StreamMode) {
+        let mut current_mode = self.mode.write().unwrap();
+        *current_mode = mode.clone();
+        log::info!("Stream {} mode set to {:?}", self.stream_id, mode);
+    }
+
+    /// Get current streaming mode
+    pub async fn get_mode(&self) -> StreamMode {
+        (*self.mode.read().unwrap()).clone()
+    }
+
+    /// Get camera status
+    pub async fn get_camera_status(&self) -> CameraStatus {
+        (*self.camera_status.read().unwrap()).clone()
+    }
+
+    /// Set target bitrate
+    pub async fn set_bitrate(&self, bitrate: u32) {
+        let mut config = self.config.write().unwrap();
+        config.bitrate = bitrate;
+        log::info!("Stream {} bitrate set to {} bps", self.stream_id, bitrate);
+    }
+
+    /// Handle streaming failure
+    async fn handle_failure(&self) {
+        let mut count = self.failure_count.write().unwrap();
+        *count += 1;
+        if *count > self.max_failures {
+            log::error!("Too many failures ({}), stopping stream {}", *count, self.stream_id);
+            let mut streaming = self.is_streaming.write().unwrap();
+            *streaming = false;
+        } else {
+            log::warn!("Stream failure {} for {}", *count, self.stream_id);
+        }
+    }
+
+    /// Reset failure count
+    async fn reset_failures(&self) {
+        let mut count = self.failure_count.write().unwrap();
+        *count = 0;
+    }
+
     /// Packetize H.264 frame into RTP payloads
     pub async fn packetize_h264_frame(&self, frame: &EncodedFrame) -> Result<Vec<RtpPayload>, String> {
         let mut packetizer = self.h264_packetizer.write().unwrap();
@@ -593,6 +712,8 @@ impl WebRTCStreamer {
     pub async fn get_stats(&self) -> StreamStats {
         let config = self.get_config().await;
         let is_active = self.is_streaming().await;
+        let mode = self.get_mode().await;
+        let camera_status = self.get_camera_status().await;
 
         StreamStats {
             stream_id: self.stream_id.clone(),
@@ -602,6 +723,8 @@ impl WebRTCStreamer {
             resolution: (config.width, config.height),
             codec: config.codec,
             subscribers: self.frame_sender.receiver_count(),
+            mode,
+            camera_status,
         }
     }
 
@@ -609,16 +732,89 @@ impl WebRTCStreamer {
     async fn stream_processing_loop(&self, device_id: String) {
         log::info!("Starting stream processing loop for device {}", device_id);
 
+        let mode = self.get_mode().await;
+        let mut camera: Option<crate::platform::PlatformCamera> = None;
+        let mut camera_available = false;
+
+        // Initialize camera based on mode
+        match mode {
+            StreamMode::RealCamera => {
+                let config = self.get_config().await;
+                let camera_params = crate::types::CameraInitParams {
+                    device_id: device_id.clone(),
+                    format: crate::types::CameraFormat {
+                        width: config.width,
+                        height: config.height,
+                        fps: config.max_fps as f32,
+                        format_type: "MJPEG".to_string(),
+                    },
+                    controls: crate::types::CameraControls::default(),
+                };
+
+                match crate::platform::PlatformCamera::new(camera_params) {
+                    Ok(cam) => {
+                        camera = Some(cam);
+                        if let Some(ref mut camera) = camera {
+                            if let Err(e) = camera.start_stream() {
+                                log::warn!("Failed to start camera stream: {:?}", e);
+                                let mut status = self.camera_status.write().unwrap();
+                                *status = CameraStatus::Failed(format!("Start failed: {}", e));
+                            } else {
+                                camera_available = true;
+                                let mut status = self.camera_status.write().unwrap();
+                                *status = CameraStatus::Available;
+                                log::info!("Camera stream started successfully");
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        log::warn!("Failed to initialize camera: {:?}", e);
+                        let mut status = self.camera_status.write().unwrap();
+                        *status = CameraStatus::Unavailable(format!("Init failed: {}", e));
+                    }
+                }
+            }
+            StreamMode::SyntheticTest => {
+                log::info!("Using synthetic test frames for device {}", device_id);
+                let mut status = self.camera_status.write().unwrap();
+                *status = CameraStatus::Unavailable("Synthetic test mode".to_string());
+            }
+        }
+
         let mut frame_counter = 0u64;
         let mut last_keyframe = 0u64;
         let keyframe_interval = 30; // Keyframe every 30 frames
 
         while *self.is_streaming.read().unwrap() {
-            // TODO: Integrate with real camera capture from nokhwa
-            // For now, simulate frame capture and encoding
-            // In production: capture frame from camera, encode to H264, send
+            // Capture frame based on mode and camera availability
+            let camera_frame = match mode {
+                StreamMode::RealCamera => {
+                    if camera_available {
+                        if let Some(ref mut camera) = camera {
+                            match camera.capture_frame() {
+                                Ok(frame) => Some(frame),
+                                Err(e) => {
+                                    log::warn!("Camera capture failed: {:?}", e);
+                                    let mut status = self.camera_status.write().unwrap();
+                                    *status = CameraStatus::Failed(format!("Capture failed: {}", e));
+                                    None
+                                }
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                }
+                StreamMode::SyntheticTest => None, // Always use synthetic
+            };
 
-            let config = self.get_config().await;
+            let camera_frame = match camera_frame {
+                Some(frame) => frame,
+                None => self.generate_synthetic_frame(frame_counter),
+            };
+
             let frame_type = if frame_counter - last_keyframe >= keyframe_interval {
                 last_keyframe = frame_counter;
                 WebRTCFrameType::Keyframe
@@ -626,62 +822,123 @@ impl WebRTCStreamer {
                 WebRTCFrameType::Delta
             };
 
-            let encoded_frame = EncodedFrame {
-                data: self.create_encoded_frame(&config, &frame_type).await,
-                timestamp: frame_counter * (1000 / config.max_fps as u64),
-                frame_type,
-                width: config.width,
-                height: config.height,
+// Encode the captured frame
+                let encoded_frame = match self.encode_camera_frame(&camera_frame, &frame_type).await {
+                    Ok(encoded) => encoded,
+                    Err(e) => {
+                        log::error!("Failed to encode frame: {:?}", e);
+                    self.handle_failure().await;
+                    continue;
+                }
             };
 
             // Send frame to subscribers
-            if self.frame_sender.send(encoded_frame).is_err() {
+            if self.frame_sender.send(encoded_frame.clone()).is_err() {
                 log::warn!("No subscribers for frame on stream {}", device_id);
             }
+
+            // Packetize and send RTP packets if sender is set and not paused
+            let is_paused = *self.paused.read().unwrap();
+            if !is_paused {
+                let rtp_sender_opt = {
+                    let rtp_sender_guard = self.rtp_sender.read().unwrap();
+                    rtp_sender_guard.clone()
+                };
+                
+                if let Some(rtp_sender) = rtp_sender_opt {
+                    let rtp_packets = match self.packetize_h264_frame(&encoded_frame).await {
+                        Ok(packets) => packets,
+                        Err(e) => {
+                            log::error!("Failed to packetize frame: {:?}", e);
+                            self.handle_failure().await;
+                            continue;
+                        }
+                    };
+
+                    for packet in rtp_packets {
+                        if rtp_sender.send(packet).is_err() {
+                            log::warn!("Failed to send RTP packet - peer may be disconnected");
+                            self.handle_failure().await;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Reset failures on successful frame
+            self.reset_failures().await;
 
             frame_counter += 1;
 
             // Frame rate limiting
             tokio::time::sleep(tokio::time::Duration::from_millis(
-                1000 / config.max_fps as u64,
+                1000 / self.get_config().await.max_fps as u64,
             ))
             .await;
+        }
+
+        // Stop camera stream if it was started
+        if camera_available {
+            if let Some(ref mut camera) = camera {
+                if let Err(e) = camera.stop_stream() {
+                    log::error!("Failed to stop camera stream: {:?}", e);
+                }
+            }
         }
 
         log::info!("Stream processing loop ended for device {}", device_id);
     }
 
-    /// Create encoded frame data using real H.264 encoding
-    async fn create_encoded_frame(
+    /// Encode a captured camera frame for WebRTC
+    async fn encode_camera_frame(
         &self,
-        config: &StreamConfig,
-        _frame_type: &WebRTCFrameType,
-    ) -> Vec<u8> {
-        // Create a dummy YUV420 frame (black) for now - TODO: integrate with real camera capture
+        frame: &crate::types::CameraFrame,
+        frame_type: &WebRTCFrameType,
+    ) -> Result<EncodedFrame, String> {
+        // Create encoder instance (in practice, you'd want to cache this)
+        let mut encoder = H264WebRTCEncoder::new(frame.width, frame.height)?;
+
+        // Force keyframe if needed
+        if matches!(frame_type, WebRTCFrameType::Keyframe) {
+            encoder.force_keyframe();
+        }
+
+        // Encode the frame
+        let encoded = encoder.encode_frame(frame)?;
+
+        Ok(encoded)
+    }
+
+    /// Generate a synthetic test frame for fallback when camera is unavailable
+    fn generate_synthetic_frame(&self, frame_counter: u64) -> crate::types::CameraFrame {
+        let config = self.config.read().unwrap();
         let width = config.width;
         let height = config.height;
-        let y_size = (width * height) as usize;
-        let uv_size = ((width / 2) * (height / 2)) as usize;
-        let mut yuv_data = vec![0u8; y_size + 2 * uv_size];
-        // Y plane: 0 (black)
-        // U and V: 128 (neutral)
-
-        for i in y_size..y_size + uv_size {
-            yuv_data[i] = 128;
+        
+        // Generate a simple pattern: alternating black/white frames
+        let pattern = (frame_counter / 30) % 2; // Change every 30 frames
+        let pixel_value = if pattern == 0 { 0u8 } else { 255u8 };
+        
+        let mut data = vec![pixel_value; (width * height * 3) as usize];
+        
+        // Add some variation based on frame counter
+        for i in 0..data.len() {
+            data[i] = data[i].saturating_add((frame_counter as u8).wrapping_mul(5));
         }
-        for i in y_size + uv_size..y_size + 2 * uv_size {
-            yuv_data[i] = 128;
+
+        let size_bytes = data.len();
+
+        crate::types::CameraFrame {
+            id: uuid::Uuid::new_v4().to_string(),
+            data,
+            width,
+            height,
+            format: "RGB8".to_string(),
+            timestamp: chrono::Utc::now(),
+            device_id: "synthetic".to_string(),
+            size_bytes,
+            metadata: crate::types::FrameMetadata::default(),
         }
-
-        // Create YUVBuffer from the data
-        let yuv_buffer = YUVBuffer::from_vec(yuv_data, width as usize, height as usize);
-
-        // Create encoder
-        let mut encoder = Encoder::new().expect("Failed to create encoder");
-
-        // Encode
-        let encoded = encoder.encode(&yuv_buffer).expect("Failed to encode");
-        encoded.to_vec()
     }
 }
 
@@ -695,6 +952,8 @@ pub struct StreamStats {
     pub resolution: (u32, u32),
     pub codec: VideoCodec,
     pub subscribers: usize,
+    pub mode: StreamMode,
+    pub camera_status: CameraStatus,
 }
 
 /// Convert camera frame to WebRTC-compatible format
