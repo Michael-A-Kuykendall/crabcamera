@@ -1,0 +1,53 @@
+name: 🚀 Create GitHub Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📦 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 📋 Extract release notes from CHANGELOG.md
+      id: extract-release-notes
+      run: |
+        # Extract version from tag (remove 'v' prefix)
+        VERSION=${GITHUB_REF#refs/tags/v}
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        
+        # Find the changelog section for this version
+        # Look for "## [VERSION]" and extract until next "## [" or end of file
+        awk -v version="$VERSION" '
+          BEGIN { in_section = 0; found = 0 }
+          /^## \['\''?'version/ { in_section = 1; found = 1; next }
+          /^## \[/ && in_section { in_section = 0; exit }
+          in_section { print }
+          END { if (!found) { print "No changelog entry found for version " version } }
+        ' CHANGELOG.md > release_notes.md
+        
+        # Escape newlines for GitHub output
+        {
+          echo 'notes<<EOF'
+          cat release_notes.md
+          echo EOF
+        } >> $GITHUB_OUTPUT
+        
+    - name: 🚀 Create GitHub Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release v${{ steps.extract-release-notes.outputs.VERSION }}
+        body: ${{ steps.extract-release-notes.outputs.notes }}
+        draft: false
+        prerelease: false
