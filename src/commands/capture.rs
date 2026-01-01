@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex as SyncMutex};
 use tauri::command;
 use tokio::sync::RwLock;
+use std::fs::File;
 
 // Global camera registry with async-friendly locking for the map, but sync locking for the camera
 lazy_static::lazy_static! {
@@ -397,7 +398,7 @@ pub async fn save_frame_compressed(
         file_path
     );
 
-    let _quality = quality.unwrap_or(85); // Default JPEG quality
+    let quality = quality.unwrap_or(85); // Default JPEG quality
 
     // Convert frame to image and compress
     let img = image::RgbImage::from_vec(frame.width, frame.height, frame.data)
@@ -408,7 +409,9 @@ pub async fn save_frame_compressed(
     // Save with compression in a spawn_blocking task
     let file_path_clone = file_path.clone();
     match tokio::task::spawn_blocking(move || {
-        dynamic_img.save_with_format(&file_path_clone, image::ImageFormat::Jpeg)
+        let mut file = File::create(&file_path_clone)?;
+        let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut file, quality);
+        dynamic_img.write_with_encoder(encoder)
     })
     .await
     {

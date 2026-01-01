@@ -211,8 +211,6 @@ async fn test_ice_candidate_handling() {
     let status = get_peer_connection_status(peer_id.clone()).await;
     assert!(status.is_ok());
     let status = status.unwrap();
-    // ICE candidates count should be non-negative (always true but kept for clarity)
-    assert!(status.ice_candidates_count >= 0);
 
     // Get local candidates
     let local_candidates = get_local_ice_candidates(peer_id.clone()).await;

@@ -91,7 +91,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut audio_count = 0;
     let mut frame_saved = false;
-    let mut audio_saved = false;
 
     while frame_count < 10 && start_time.elapsed() < Duration::from_secs(10) {
         match session.get_frame(Duration::from_millis(1000)) {
