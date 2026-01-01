@@ -5,7 +5,6 @@
 
 #[cfg(feature = "audio")]
 mod audio_fuzz {
-    use super::*;
     use crabcamera::audio::{AudioFrame, OpusEncoder};
     use proptest::prelude::*;
 
@@ -96,7 +95,6 @@ mod audio_fuzz {
 
 #[cfg(feature = "recording")]
 mod recording_fuzz {
-    use super::*;
     use crabcamera::recording::{H264Encoder, RecordingConfig};
     use proptest::prelude::*;
 
@@ -163,7 +161,6 @@ mod recording_fuzz {
 
 #[cfg(feature = "recording")]
 mod muxer_fuzz {
-    use super::*;
     use std::fs::File;
     use tempfile::tempdir;
     use proptest::prelude::*;
@@ -178,7 +175,7 @@ mod muxer_fuzz {
             data in proptest::collection::vec(0u8..255, 0..10000),
             is_keyframe in proptest::bool::ANY,
         ) {
-            use muxide::api::{Muxer, MuxerConfig};
+            use muxide::api::{MuxerBuilder, VideoCodec};
 
             let dir = match tempdir() {
                 Ok(d) => d,
@@ -191,8 +188,10 @@ mod muxer_fuzz {
                 Err(_) => return Ok(()),
             };
 
-            let config = MuxerConfig::new(640, 480, 30.0);
-            let mut muxer = match Muxer::new(file, config) {
+            let builder = MuxerBuilder::new(file)
+                .video(VideoCodec::H264, 640, 480, 30.0);
+            
+            let mut muxer = match builder.build() {
                 Ok(m) => m,
                 Err(_) => return Ok(()),
             };

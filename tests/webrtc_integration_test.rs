@@ -14,7 +14,7 @@ use crabcamera::commands::webrtc::{
     start_webrtc_stream, stop_webrtc_stream, get_webrtc_stream_status,
     create_peer_connection, create_webrtc_offer, create_webrtc_answer,
     set_remote_description, add_ice_candidate, create_data_channel,
-    get_peer_connection_status, associate_stream_with_peer,
+    get_peer_connection_status,
     close_peer_connection, list_peer_connections,
     get_webrtc_system_status, update_webrtc_config
 };

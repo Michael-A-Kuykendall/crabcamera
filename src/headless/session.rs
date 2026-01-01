@@ -99,6 +99,7 @@ struct Inner {
     camera: Mutex<Option<PlatformCamera>>,
     config: CaptureConfig,
     queue: Queue<Frame>,
+    #[allow(dead_code)] // Used conditionally based on audio feature
     start_instant: Instant,
     next_sequence: Mutex<u64>,
     capture_thread: Mutex<Option<std::thread::JoinHandle<()>>>,
