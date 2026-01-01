@@ -75,7 +75,19 @@ pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
 }
 
 /// Initialize camera on Windows with MediaFoundation backend
-pub fn initialize_camera(device_id: &str, _format: CameraFormat) -> Result<Camera, CameraError> {
+///
+/// # Arguments
+/// * `device_id` - The camera device index as a string
+/// * `format` - Requested camera format (currently ignored - nokhwa uses highest resolution)
+///
+/// # Note
+/// The `format` parameter is currently not applied because nokhwa's MediaFoundation
+/// backend works best with AbsoluteHighestResolution mode. Format negotiation happens
+/// at the frame capture level via MJPEG decoding.
+pub fn initialize_camera(device_id: &str, format: CameraFormat) -> Result<Camera, CameraError> {
+    log::debug!("Requested format: {}x{} @ {}fps (note: nokhwa will use highest resolution)", 
+        format.width, format.height, format.fps);
+    
     let device_index = device_id
         .parse::<u32>()
         .map_err(|_| CameraError::InitializationError("Invalid device ID".to_string()))?;
@@ -95,7 +107,7 @@ pub fn initialize_camera(device_id: &str, _format: CameraFormat) -> Result<Camer
 /// Capture frame from Windows camera
 /// Note: nokhwa returns MJPEG data even when RgbFormat is requested,
 /// so we need to decode it manually to RGB
-pub fn capture_frame(camera: &mut Camera) -> Result<CameraFrame, CameraError> {
+pub fn capture_frame(camera: &mut Camera, device_id: &str) -> Result<CameraFrame, CameraError> {
     let frame = camera
         .frame()
         .map_err(|e| CameraError::CaptureError(format!("Failed to capture frame: {}", e)))?;
@@ -144,7 +156,7 @@ pub fn capture_frame(camera: &mut Camera) -> Result<CameraFrame, CameraError> {
         rgb_data,
         width,
         height,
-        "0".to_string(), // Default device ID - should be passed in properly
+        device_id.to_string(),
     );
 
     Ok(camera_frame.with_format("RGB8".to_string()))

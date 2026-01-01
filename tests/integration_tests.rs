@@ -359,6 +359,9 @@ mod integration_tests {
 
     #[tokio::test]
     async fn test_edge_cases() {
+        // Enable mock cameras for edge case testing
+        std::env::set_var("CRABCAMERA_USE_MOCK", "1");
+
         // Test various edge cases
 
         // Empty device ID

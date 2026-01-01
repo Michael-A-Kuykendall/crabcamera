@@ -11,11 +11,12 @@
 //! - `clock`: PTS (Presentation Timestamp) synchronization
 
 mod capture;
-mod clock;
 mod device;
 mod encoder;
 
 pub use capture::{AudioCapture, AudioFrame};
-pub use clock::PTSClock;
 pub use device::{get_default_audio_device, list_audio_devices, AudioDevice};
 pub use encoder::{EncodedAudio, OpusEncoder};
+
+// Re-export PTSClock from timing module
+pub use crate::timing::PTSClock;

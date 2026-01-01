@@ -232,7 +232,9 @@ impl Recorder {
             }
 
             // Flush remaining
-            let _ = capture.stop();
+            if let Err(e) = capture.stop() {
+                log::warn!("Failed to stop audio capture cleanly: {}", e);
+            }
             if let Ok(packets) = encoder.flush() {
                 for packet in packets {
                     let _ = sender.try_send(packet);
@@ -423,6 +425,7 @@ impl Recorder {
     }
 
     /// Finish the recording and return statistics
+    #[allow(unused_mut)]
     pub fn finish(mut self) -> Result<RecordingStats, CameraError> {
         // Stop audio capture and flush remaining audio
         #[cfg(feature = "audio")]
@@ -467,13 +470,23 @@ impl Recorder {
 
         // Wait for audio thread to finish (it will flush its encoder)
         if let Some(handle) = self.audio_thread.take() {
-            let _ = handle.join();
+            match handle.join() {
+                Ok(_) => {
+                    // Thread completed normally
+                }
+                Err(panic_payload) => {
+                    log::error!("Audio thread panicked: {:?}", panic_payload);
+                    self.audio_failed = true;
+                }
+            }
         }
 
         // Drain any remaining packets from the channel
         if let Some(ref receiver) = self.audio_receiver {
             while let Ok(packet) = receiver.try_recv() {
-                let _ = self.muxer.write_audio(packet.timestamp, &packet.data);
+                if let Err(e) = self.muxer.write_audio(packet.timestamp, &packet.data) {
+                    log::warn!("Failed to write remaining audio packet in finish: {}", e);
+                }
             }
         }
     }
@@ -555,9 +568,7 @@ mod tests {
             let gray = (i * 8) as u8;
             let rgb = vec![gray; 640 * 480 * 3];
 
-            recorder
-                .write_rgb_frame(&rgb, 640, 480)
-                .expect("Frame write should succeed");
+            assert!(recorder.write_rgb_frame(&rgb, 640, 480).is_ok(), "Frame write should succeed");
         }
 
         let stats = recorder.finish().expect("Finish should succeed");

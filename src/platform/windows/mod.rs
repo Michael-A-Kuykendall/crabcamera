@@ -44,7 +44,7 @@ impl WindowsCamera {
 
     /// Capture a frame using nokhwa
     pub fn capture_frame(&mut self) -> Result<CameraFrame, CameraError> {
-        capture::capture_frame(&mut self.nokhwa_camera)
+        capture::capture_frame(&mut self.nokhwa_camera, &self.device_id)
     }
 
     /// Apply camera controls using MediaFoundation
@@ -88,7 +88,9 @@ impl WindowsCamera {
 
     /// Check if camera is available
     pub fn is_available(&self) -> bool {
-        // If we successfully created the camera, it's available
+        // Camera availability is determined by successful initialization
+        // Since the Camera object was created successfully, it's available
+        // For more robust checking, we could attempt a test frame capture
         true
     }
 

@@ -2,13 +2,13 @@ use crate::platform::PlatformCamera;
 use crate::quality::QualityValidator;
 use crate::types::{CameraFormat, CameraFrame, CameraInitParams};
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex as SyncMutex};
 use tauri::command;
-use tokio::sync::{Mutex as AsyncMutex, RwLock};
+use tokio::sync::RwLock;
 
-// Global camera registry with async-friendly locking
+// Global camera registry with async-friendly locking for the map, but sync locking for the camera
 lazy_static::lazy_static! {
-    static ref CAMERA_REGISTRY: Arc<RwLock<HashMap<String, Arc<AsyncMutex<PlatformCamera>>>>> = Arc::new(RwLock::new(HashMap::new()));
+    static ref CAMERA_REGISTRY: Arc<RwLock<HashMap<String, Arc<SyncMutex<PlatformCamera>>>>> = Arc::new(RwLock::new(HashMap::new()));
 }
 
 /// Capture a single photo from the specified camera with automatic reconnection
@@ -68,10 +68,16 @@ pub async fn capture_photo_sequence(
 
     // Start stream once
     {
-        let mut camera_guard = camera.lock().await;
-        if let Err(e) = camera_guard.start_stream() {
-            log::warn!("Failed to start camera stream: {}", e);
-        }
+        let camera_clone = camera.clone();
+        tokio::task::spawn_blocking(move || {
+            if let Ok(mut camera_guard) = camera_clone.lock() {
+                if let Err(e) = camera_guard.start_stream() {
+                    log::warn!("Failed to start camera stream: {}", e);
+                }
+            }
+        })
+        .await
+        .map_err(|e| format!("Task join error: {}", e))?;
     }
 
     let mut frames = Vec::new();
@@ -79,14 +85,17 @@ pub async fn capture_photo_sequence(
     for i in 0..count {
         log::debug!("Capturing photo {} of {}", i + 1, count);
 
-        let mut camera_guard = camera.lock().await;
-        match camera_guard.capture_frame() {
-            Ok(frame) => frames.push(frame),
-            Err(e) => {
-                log::error!("Failed to capture frame {}: {}", i + 1, e);
-                return Err(format!("Failed to capture frame {}: {}", i + 1, e));
-            }
-        }
+        let camera_clone = camera.clone();
+        let frame = tokio::task::spawn_blocking(move || {
+            let mut camera_guard = camera_clone
+                .lock()
+                .map_err(|_| "Mutex poisoned".to_string())?;
+            camera_guard.capture_frame().map_err(|e| format!("Failed to capture frame: {}", e))
+        })
+        .await
+        .map_err(|e| format!("Task join error: {}", e))??;
+
+        frames.push(frame);
 
         // Wait between captures (except for the last one)
         if i < count - 1 {
@@ -125,10 +134,16 @@ pub async fn capture_with_quality_retry(
 
     // Start stream once
     {
-        let mut camera_guard = camera.lock().await;
-        if let Err(e) = camera_guard.start_stream() {
-            log::warn!("Failed to start camera stream: {}", e);
-        }
+        let camera_clone = camera.clone();
+        tokio::task::spawn_blocking(move || {
+            if let Ok(mut camera_guard) = camera_clone.lock() {
+                if let Err(e) = camera_guard.start_stream() {
+                    log::warn!("Failed to start camera stream: {}", e);
+                }
+            }
+        })
+        .await
+        .map_err(|e| format!("Task join error: {}", e))?;
     }
 
     let validator = QualityValidator::default();
@@ -137,19 +152,15 @@ pub async fn capture_with_quality_retry(
     for attempt in 1..=attempts {
         // Capture frame
         let frame = {
-            let mut camera_guard = camera.lock().await;
-            match camera_guard.capture_frame() {
-                Ok(f) => f,
-                Err(e) => {
-                    log::warn!("Capture attempt {} failed: {}", attempt, e);
-                    if attempt < attempts {
-                        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-                        continue;
-                    } else {
-                        return Err(format!("All {} capture attempts failed", attempts));
-                    }
-                }
-            }
+            let camera_clone = camera.clone();
+            tokio::task::spawn_blocking(move || {
+                let mut camera_guard = camera_clone
+                    .lock()
+                    .map_err(|_| "Mutex poisoned".to_string())?;
+                camera_guard.capture_frame().map_err(|e| e.to_string())
+            })
+            .await
+            .map_err(|e| format!("Task join error: {}", e))??
         };
 
         // Validate quality
@@ -216,17 +227,25 @@ pub async fn start_camera_preview(
         Err(e) => return Err(e),
     };
 
-    let mut camera_guard = camera.lock().await;
-    match camera_guard.start_stream() {
-        Ok(_) => {
-            log::info!("Camera preview started for device: {}", device_id);
-            Ok(format!("Preview started for camera {}", device_id))
+    let camera_clone = camera.clone();
+    let device_id_clone = device_id.clone();
+    tokio::task::spawn_blocking(move || {
+        let mut camera_guard = camera_clone
+            .lock()
+            .map_err(|_| "Mutex poisoned".to_string())?;
+        match camera_guard.start_stream() {
+            Ok(_) => {
+                log::info!("Camera preview started for device: {}", device_id_clone);
+                Ok(format!("Preview started for camera {}", device_id_clone))
+            }
+            Err(e) => {
+                log::error!("Failed to start camera preview: {}", e);
+                Err(format!("Failed to start camera preview: {}", e))
+            }
         }
-        Err(e) => {
-            log::error!("Failed to start camera preview: {}", e);
-            Err(format!("Failed to start camera preview: {}", e))
-        }
-    }
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
 }
 
 /// Stop camera preview
@@ -237,17 +256,25 @@ pub async fn stop_camera_preview(device_id: String) -> Result<String, String> {
     let registry = CAMERA_REGISTRY.read().await;
 
     if let Some(camera) = registry.get(&device_id) {
-        let mut camera_guard = camera.lock().await;
-        match camera_guard.stop_stream() {
-            Ok(_) => {
-                log::info!("Camera preview stopped for device: {}", device_id);
-                Ok(format!("Preview stopped for camera {}", device_id))
+        let camera_clone = camera.clone();
+        let device_id_clone = device_id.clone();
+        tokio::task::spawn_blocking(move || {
+            let mut camera_guard = camera_clone
+                .lock()
+                .map_err(|_| "Mutex poisoned".to_string())?;
+            match camera_guard.stop_stream() {
+                Ok(_) => {
+                    log::info!("Camera preview stopped for device: {}", device_id_clone);
+                    Ok(format!("Preview stopped for camera {}", device_id_clone))
+                }
+                Err(e) => {
+                    log::error!("Failed to stop camera preview: {}", e);
+                    Err(format!("Failed to stop camera preview: {}", e))
+                }
             }
-            Err(e) => {
-                log::error!("Failed to stop camera preview: {}", e);
-                Err(format!("Failed to stop camera preview: {}", e))
-            }
-        }
+        })
+        .await
+        .map_err(|e| format!("Task join error: {}", e))?
     } else {
         let msg = format!("No active camera found with ID: {}", device_id);
         log::warn!("{}", msg);
@@ -263,9 +290,16 @@ pub async fn release_camera(device_id: String) -> Result<String, String> {
     let mut registry = CAMERA_REGISTRY.write().await;
 
     if let Some(camera) = registry.remove(&device_id) {
-        let mut camera_guard = camera.lock().await;
-        let _ = camera_guard.stop_stream(); // Ignore errors on cleanup
-        log::info!("Camera {} released", device_id);
+        let camera_clone = camera.clone();
+        let device_id_clone = device_id.clone();
+        tokio::task::spawn_blocking(move || {
+            if let Ok(mut camera_guard) = camera_clone.lock() {
+                let _ = camera_guard.stop_stream(); // Ignore errors on cleanup
+                log::info!("Camera {} released", device_id_clone);
+            }
+        })
+        .await
+        .ok();
         Ok(format!("Camera {} released", device_id))
     } else {
         let msg = format!("No active camera found with ID: {}", device_id);
@@ -280,15 +314,24 @@ pub async fn get_capture_stats(device_id: String) -> Result<CaptureStats, String
     let registry = CAMERA_REGISTRY.read().await;
 
     if let Some(camera) = registry.get(&device_id) {
-        let camera_guard = camera.lock().await;
-        let is_active = camera_guard.is_available();
-        let device_id_opt = camera_guard.get_device_id();
+        let camera_clone = camera.clone();
+        let device_id_clone = device_id.clone();
+        let stats = tokio::task::spawn_blocking(move || {
+            let camera_guard = camera_clone
+                .lock()
+                .map_err(|_| "Mutex poisoned".to_string())?;
+            let is_active = camera_guard.is_available();
+            let device_id_opt = camera_guard.get_device_id();
 
-        Ok(CaptureStats {
-            device_id: device_id.clone(),
-            is_active,
-            device_info: device_id_opt.map(|s| s.to_string()),
+            Ok::<CaptureStats, String>(CaptureStats {
+                device_id: device_id_clone,
+                is_active,
+                device_info: device_id_opt.map(|s| s.to_string()),
+            })
         })
+        .await
+        .map_err(|e| format!("Task join error: {}", e))??;
+        Ok(stats)
     } else {
         Ok(CaptureStats {
             device_id: device_id.clone(),
@@ -386,11 +429,11 @@ pub async fn save_frame_compressed(
 
 // Helper functions
 
-/// Get existing camera or create new one with async-friendly locking
+/// Get existing camera or create new one
 pub async fn get_or_create_camera(
     device_id: String,
     format: CameraFormat,
-) -> Result<Arc<AsyncMutex<PlatformCamera>>, String> {
+) -> Result<Arc<SyncMutex<PlatformCamera>>, String> {
     // First, try to get existing camera with read lock
     {
         let registry = CAMERA_REGISTRY.read().await;
@@ -415,7 +458,7 @@ pub async fn get_or_create_camera(
 
     match PlatformCamera::new(params) {
         Ok(camera) => {
-            let camera_arc = Arc::new(AsyncMutex::new(camera));
+            let camera_arc = Arc::new(SyncMutex::new(camera));
             registry.insert(device_id.clone(), camera_arc.clone());
             Ok(camera_arc)
         }
@@ -431,7 +474,7 @@ pub async fn reconnect_camera(
     device_id: String,
     format: CameraFormat,
     max_retries: u32,
-) -> Result<Arc<AsyncMutex<PlatformCamera>>, String> {
+) -> Result<Arc<SyncMutex<PlatformCamera>>, String> {
     log::info!(
         "Attempting to reconnect camera: {} (max retries: {})",
         device_id,
@@ -442,9 +485,15 @@ pub async fn reconnect_camera(
     {
         let mut registry = CAMERA_REGISTRY.write().await;
         if let Some(old_camera) = registry.remove(&device_id) {
-            let mut camera_guard = old_camera.lock().await;
-            let _ = camera_guard.stop_stream();
-            log::debug!("Removed old camera instance from registry");
+            let old_camera_clone = old_camera.clone();
+            tokio::task::spawn_blocking(move || {
+                if let Ok(mut camera_guard) = old_camera_clone.lock() {
+                    let _ = camera_guard.stop_stream();
+                    log::debug!("Removed old camera instance from registry");
+                }
+            })
+            .await
+            .ok();
         }
     }
 
@@ -495,8 +544,11 @@ pub async fn capture_with_reconnect(
     };
 
     // Try normal capture first
-    {
-        let mut camera_guard = camera.lock().await;
+    let camera_clone = camera.clone();
+    let capture_result = tokio::task::spawn_blocking(move || {
+        let mut camera_guard = camera_clone
+            .lock()
+            .map_err(|_| "Mutex poisoned".to_string())?;
 
         // Ensure stream is started
         if let Err(e) = camera_guard.start_stream() {
@@ -520,42 +572,51 @@ pub async fn capture_with_reconnect(
                 }
             }
             // Small delay between warmup frames
-            tokio::time::sleep(tokio::time::Duration::from_millis(30)).await;
+            std::thread::sleep(std::time::Duration::from_millis(30));
         }
 
         // Now capture the real frame
-        match camera_guard.capture_frame() {
-            Ok(frame) => return Ok(frame),
-            Err(e) => {
-                log::warn!("Initial capture failed: {}, attempting reconnect", e);
-            }
-        }
+        camera_guard
+            .capture_frame()
+            .map_err(|e| format!("Initial capture failed: {}, attempting reconnect", e))
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?;
+
+    if let Ok(frame) = capture_result {
+        return Ok(frame);
     }
 
     // Initial capture failed, try reconnecting
     let camera = reconnect_camera(device_id.clone(), format, max_reconnect_attempts).await?;
 
     // Try capture after reconnect with warmup
-    let mut camera_guard = camera.lock().await;
+    tokio::task::spawn_blocking(move || {
+        let mut camera_guard = camera
+            .lock()
+            .map_err(|_| "Mutex poisoned".to_string())?;
 
-    if let Err(e) = camera_guard.start_stream() {
-        log::warn!("Failed to start stream after reconnect: {}", e);
-    }
+        if let Err(e) = camera_guard.start_stream() {
+            log::warn!("Failed to start stream after reconnect: {}", e);
+        }
 
-    // Warmup after reconnect too
-    for _ in 0..10 {
-        let _ = camera_guard.capture_frame();
-        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
-    }
+        // Warmup after reconnect too
+        for _ in 0..10 {
+            let _ = camera_guard.capture_frame();
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
 
-    camera_guard
-        .capture_frame()
-        .map_err(|e| format!("Capture failed after reconnection: {}", e))
+        camera_guard
+            .capture_frame()
+            .map_err(|e| format!("Capture failed after reconnection: {}", e))
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
 }
 
 /// Zero-copy frame capture with memory pool
 pub struct FramePool {
-    pool: Arc<AsyncMutex<Vec<Vec<u8>>>>,
+    pool: Arc<SyncMutex<Vec<Vec<u8>>>>,
     max_frames: usize,
     frame_size: usize,
 }
@@ -568,24 +629,37 @@ impl FramePool {
         }
 
         Self {
-            pool: Arc::new(AsyncMutex::new(pool)),
+            pool: Arc::new(SyncMutex::new(pool)),
             max_frames,
             frame_size,
         }
     }
 
     pub async fn get_buffer(&self) -> Vec<u8> {
-        let mut pool = self.pool.lock().await;
-        pool.pop()
-            .unwrap_or_else(|| Vec::with_capacity(self.frame_size))
+        let pool = self.pool.clone();
+        let frame_size = self.frame_size;
+        tokio::task::spawn_blocking(move || {
+            let mut pool_guard = pool.lock().unwrap();
+            pool_guard
+                .pop()
+                .unwrap_or_else(|| Vec::with_capacity(frame_size))
+        })
+        .await
+        .unwrap()
     }
 
     pub async fn return_buffer(&self, mut buffer: Vec<u8>) {
-        buffer.clear();
-        let mut pool = self.pool.lock().await;
-        if pool.len() < self.max_frames {
-            pool.push(buffer);
-        }
+        let pool = self.pool.clone();
+        let max_frames = self.max_frames;
+        tokio::task::spawn_blocking(move || {
+            buffer.clear();
+            let mut pool_guard = pool.lock().unwrap();
+            if pool_guard.len() < max_frames {
+                pool_guard.push(buffer);
+            }
+        })
+        .await
+        .ok();
     }
 }
 

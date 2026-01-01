@@ -146,6 +146,11 @@ impl QualityValidator {
         }
     }
 
+    /// Get the current validation configuration
+    pub fn config(&self) -> &ValidationConfig {
+        &self.config
+    }
+
     /// Validate frame quality comprehensively
     pub fn validate_frame(&self, frame: &CameraFrame) -> QualityReport {
         // Analyze blur
@@ -163,7 +168,7 @@ impl QualityValidator {
             blur_metrics.quality_score,
             exposure_metrics.quality_score,
             composition_score,
-            technical_details.noise_estimate, // Technical score (inverted noise)
+            1.0 - technical_details.noise_estimate, // Technical score (inverted noise)
         );
 
         let grade = quality_score.get_grade();
