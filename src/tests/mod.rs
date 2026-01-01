@@ -27,6 +27,11 @@ impl MockCameraSystem {
         Self::default()
     }
 
+    /// Add mock devices for testing
+    ///
+    /// # Panics
+    ///
+    /// Panics if the internal mutex is poisoned.
     pub async fn add_mock_devices(&self, platform: Platform) {
         let mut devices = self.devices.lock().unwrap();
         devices.clear();
@@ -50,14 +55,29 @@ impl MockCameraSystem {
         devices.extend(test_devices);
     }
 
+    /// Get all devices
+    ///
+    /// # Panics
+    ///
+    /// Panics if the internal mutex is poisoned.
     pub async fn get_devices(&self) -> Vec<CameraDeviceInfo> {
         self.devices.lock().unwrap().clone()
     }
 
+    /// Set capture mode
+    ///
+    /// # Panics
+    ///
+    /// Panics if the internal mutex is poisoned.
     pub fn set_capture_mode(&self, mode: MockCaptureMode) {
         *self.capture_mode.lock().unwrap() = mode;
     }
 
+    /// Set error mode
+    ///
+    /// # Panics
+    ///
+    /// Panics if the internal mutex is poisoned.
     pub fn set_error_mode(&self, error: Option<CameraError>) {
         *self.error_mode.lock().unwrap() = error;
     }
@@ -136,12 +156,20 @@ lazy_static::lazy_static! {
 }
 
 /// Set mock camera mode for testing
+///
+/// # Panics
+///
+/// Panics if the internal mutex is poisoned.
 pub fn set_mock_camera_mode(device_id: &str, mode: MockCaptureMode) {
     let mut modes = MOCK_CAMERA_MODES.lock().unwrap();
     modes.insert(device_id.to_string(), mode);
 }
 
 /// Get mock camera mode for testing
+///
+/// # Panics
+///
+/// Panics if the internal mutex is poisoned.
 pub fn get_mock_camera_mode(device_id: &str) -> MockCaptureMode {
     let modes = MOCK_CAMERA_MODES.lock().unwrap();
     modes

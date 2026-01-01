@@ -55,6 +55,17 @@ pub fn merge_frames(
         }
     }
 
+    // Validate all frames have valid data
+    let expected_data_size = (width * height * 3) as usize;
+    for frame in frames.iter() {
+        if frame.data.len() != expected_data_size {
+            return Err(FocusStackError::DataCorruption {
+                frame_size: frame.data.len(),
+                expected_size: expected_data_size,
+            });
+        }
+    }
+
     // Compute sharpness maps for all frames
     log::debug!("Computing sharpness maps");
     let sharpness_maps: Vec<SharpnessMap> = frames.iter().map(compute_sharpness_map).collect();
@@ -161,6 +172,17 @@ fn merge_with_pyramid_blending(
 fn compute_sharpness_map(frame: &CameraFrame) -> SharpnessMap {
     let width = frame.width as usize;
     let height = frame.height as usize;
+    let expected_size = width * height * 3;
+
+    // Validate frame data integrity
+    if frame.data.len() < expected_size {
+        // Return zero sharpness for corrupted frames
+        return SharpnessMap {
+            width: width as u32,
+            height: height as u32,
+            scores: vec![0.0; width * height],
+        };
+    }
 
     let mut scores = vec![0.0; width * height];
 
@@ -175,14 +197,26 @@ fn compute_sharpness_map(frame: &CameraFrame) -> SharpnessMap {
 
             // Compute Laplacian using 4-connected neighbors
             let mut laplacian = 0.0;
+            let mut neighbor_count = 0;
             for (dy, dx) in &[(-1, 0), (1, 0), (0, -1), (0, 1)] {
-                let ny = (y as i32 + dy) as usize;
-                let nx = (x as i32 + dx) as usize;
-                let neighbor_idx = (ny * width + nx) * 3;
-                let neighbor = luminance(&frame.data[neighbor_idx..neighbor_idx + 3]);
-                laplacian += neighbor;
+                let ny = y as i32 + dy;
+                let nx = x as i32 + dx;
+                if ny >= 0 && ny < height as i32 && nx >= 0 && nx < width as i32 {
+                    let ny = ny as usize;
+                    let nx = nx as usize;
+                    let neighbor_idx = (ny * width + nx) * 3;
+                    if neighbor_idx + 2 < frame.data.len() {
+                        let neighbor = luminance(&frame.data[neighbor_idx..neighbor_idx + 3]);
+                        laplacian += neighbor;
+                        neighbor_count += 1;
+                    }
+                }
             }
-            laplacian = (4.0 * center - laplacian).abs();
+            if neighbor_count > 0 {
+                laplacian = (neighbor_count as f32 * center - laplacian).abs();
+            } else {
+                laplacian = 0.0;
+            }
 
             // Normalize to 0-1 range (assuming max gradient of 255)
             scores[idx] = (laplacian / 255.0).min(1.0);

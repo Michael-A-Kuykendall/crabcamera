@@ -3,12 +3,11 @@
 //! These provide fuzz-like testing without requiring nightly Rust or cargo-fuzz.
 //! Run with: cargo test --test fuzz_tests --features "recording,audio"
 
-use proptest::prelude::*;
-
 #[cfg(feature = "audio")]
 mod audio_fuzz {
     use super::*;
     use crabcamera::audio::{AudioFrame, OpusEncoder};
+    use proptest::prelude::*;
 
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(1000))]
@@ -28,7 +27,7 @@ mod audio_fuzz {
         /// Fuzz encoding with random sample data
         #[test]
         fn fuzz_opus_encode_samples(
-            samples in prop::collection::vec(-2.0f32..2.0f32, 0..10000),
+            samples in proptest::collection::vec(-2.0f32..2.0f32, 0..10000),
             timestamp in 0.0f64..100000.0,
         ) {
             // Create valid encoder
@@ -53,7 +52,7 @@ mod audio_fuzz {
         #[test]
         fn fuzz_opus_mismatched_sample_rate(
             frame_sample_rate in 0u32..100000,
-            samples in prop::collection::vec(-1.0f32..1.0f32, 0..5000),
+            samples in proptest::collection::vec(-1.0f32..1.0f32, 0..5000),
         ) {
             let mut encoder = match OpusEncoder::new(48000, 2, 128000) {
                 Ok(e) => e,
@@ -75,7 +74,7 @@ mod audio_fuzz {
         #[test]
         fn fuzz_opus_mismatched_channels(
             frame_channels in 0u16..10,
-            samples in prop::collection::vec(-1.0f32..1.0f32, 0..5000),
+            samples in proptest::collection::vec(-1.0f32..1.0f32, 0..5000),
         ) {
             let mut encoder = match OpusEncoder::new(48000, 2, 128000) {
                 Ok(e) => e,
@@ -99,6 +98,7 @@ mod audio_fuzz {
 mod recording_fuzz {
     use super::*;
     use crabcamera::recording::{H264Encoder, RecordingConfig};
+    use proptest::prelude::*;
 
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(500))]
@@ -134,7 +134,7 @@ mod recording_fuzz {
             // Use dimensions that are multiples of 16 (H264 requirement)
             width_mult in 1u32..30,
             height_mult in 1u32..30,
-            rgb_values in prop::collection::vec(0u8..255, 100..50000),
+            rgb_values in proptest::collection::vec(0u8..255, 100..50000),
         ) {
             let width = width_mult * 16;
             let height = height_mult * 16;
@@ -166,6 +166,7 @@ mod muxer_fuzz {
     use super::*;
     use std::fs::File;
     use tempfile::tempdir;
+    use proptest::prelude::*;
 
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(100))]
@@ -174,7 +175,7 @@ mod muxer_fuzz {
         #[test]
         fn fuzz_muxer_write_video(
             pts in 0.0f64..100000.0,
-            data in prop::collection::vec(0u8..255, 0..10000),
+            data in proptest::collection::vec(0u8..255, 0..10000),
             is_keyframe in proptest::bool::ANY,
         ) {
             use muxide::api::{Muxer, MuxerConfig};

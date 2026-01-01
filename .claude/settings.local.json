@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo install:*)",
+      "Bash(cargo tarpaulin:*)",
+      "Bash(cargo test:*)",
+      "Bash(find:*)",
+      "Bash(cargo check:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

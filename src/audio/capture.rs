@@ -13,11 +13,12 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{Stream, StreamConfig};
 
-use super::clock::PTSClock;
+use crate::timing::PTSClock;
 use super::device::find_audio_device;
 use crate::errors::CameraError;
 
@@ -184,6 +185,13 @@ impl AudioCapture {
         self.receiver.try_recv().ok()
     }
 
+    /// Read an audio frame with timeout
+    ///
+    /// Returns `None` if timeout.
+    pub fn recv_timeout(&self, timeout: Duration) -> Result<AudioFrame, crossbeam_channel::RecvTimeoutError> {
+        self.receiver.recv_timeout(timeout)
+    }
+
     /// Read all available audio frames
     ///
     /// Non-blocking, returns empty vec if no frames available.
@@ -219,7 +227,9 @@ impl AudioCapture {
 impl Drop for AudioCapture {
     fn drop(&mut self) {
         // Ensure stream is stopped before drop
-        let _ = self.stop();
+        if let Err(e) = self.stop() {
+            log::warn!("Error stopping audio capture in drop: {}", e);
+        }
         // Stream is dropped here, which joins any internal threads
         self.stream = None;
     }

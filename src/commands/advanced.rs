@@ -13,22 +13,28 @@ pub async fn set_camera_controls(
 
     let camera_arc =
         get_or_create_camera(device_id.clone(), crate::types::CameraFormat::standard()).await?;
-    let mut camera = camera_arc.lock().await;
 
-    // Apply controls to camera (platform-specific implementation)
-    match camera.apply_controls(&controls) {
-        Ok(_) => {
-            log::info!(
-                "Camera controls applied successfully for device: {}",
-                device_id
-            );
-            Ok(format!("Controls applied to camera {}", device_id))
+    let device_id_clone = device_id.clone();
+    tokio::task::spawn_blocking(move || {
+        let mut camera = camera_arc.lock().map_err(|_| "Mutex poisoned".to_string())?;
+
+        // Apply controls to camera (platform-specific implementation)
+        match camera.apply_controls(&controls) {
+            Ok(_) => {
+                log::info!(
+                    "Camera controls applied successfully for device: {}",
+                    device_id_clone
+                );
+                Ok(format!("Controls applied to camera {}", device_id_clone))
+            }
+            Err(e) => {
+                log::error!("Failed to apply camera controls: {}", e);
+                Err(format!("Failed to apply controls: {}", e))
+            }
         }
-        Err(e) => {
-            log::error!("Failed to apply camera controls: {}", e);
-            Err(format!("Failed to apply controls: {}", e))
-        }
-    }
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
 }
 
 /// Get current camera controls
@@ -38,18 +44,24 @@ pub async fn get_camera_controls(device_id: String) -> Result<CameraControls, St
 
     let camera_arc =
         get_or_create_camera(device_id.clone(), crate::types::CameraFormat::standard()).await?;
-    let camera = camera_arc.lock().await;
 
-    match camera.get_controls() {
-        Ok(controls) => {
-            log::debug!("Retrieved camera controls for device: {}", device_id);
-            Ok(controls)
+    let device_id_clone = device_id.clone();
+    tokio::task::spawn_blocking(move || {
+        let camera = camera_arc.lock().map_err(|_| "Mutex poisoned".to_string())?;
+
+        match camera.get_controls() {
+            Ok(controls) => {
+                log::debug!("Retrieved camera controls for device: {}", device_id_clone);
+                Ok(controls)
+            }
+            Err(e) => {
+                log::error!("Failed to get camera controls: {}", e);
+                Err(format!("Failed to get controls: {}", e))
+            }
         }
-        Err(e) => {
-            log::error!("Failed to get camera controls: {}", e);
-            Err(format!("Failed to get controls: {}", e))
-        }
-    }
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
 }
 
 /// Capture burst sequence with advanced controls
@@ -70,11 +82,19 @@ pub async fn capture_burst_sequence(
 
     let camera_arc =
         get_or_create_camera(device_id.clone(), crate::types::CameraFormat::hd()).await?;
-    let mut camera = camera_arc.lock().await;
 
     // Start stream
-    if let Err(e) = camera.start_stream() {
-        log::warn!("Failed to start camera stream: {}", e);
+    {
+        let camera_arc = camera_arc.clone();
+        tokio::task::spawn_blocking(move || {
+            if let Ok(mut camera) = camera_arc.lock() {
+                if let Err(e) = camera.start_stream() {
+                    log::warn!("Failed to start camera stream: {}", e);
+                }
+            }
+        })
+        .await
+        .map_err(|e| format!("Task join error: {}", e))?;
     }
 
     let mut frames = Vec::with_capacity(config.count as usize);
@@ -83,56 +103,67 @@ pub async fn capture_burst_sequence(
     for i in 0..config.count {
         log::debug!("Capturing burst frame {} of {}", i + 1, config.count);
 
-        // Apply exposure bracketing if configured
-        if let Some(ref bracketing) = config.bracketing {
-            if let Some(stop) = bracketing.stops.get(i as usize % bracketing.stops.len()) {
-                let exposure_time = bracketing.base_exposure * 2.0_f32.powf(*stop);
+        let camera_arc = camera_arc.clone();
+        let config_clone = config.clone();
+        
+        let frame = tokio::task::spawn_blocking(move || {
+            let mut camera = camera_arc.lock().map_err(|_| "Mutex poisoned".to_string())?;
+
+            // Apply exposure bracketing if configured
+            if let Some(ref bracketing) = config_clone.bracketing {
+                if let Some(stop) = bracketing.stops.get(i as usize % bracketing.stops.len()) {
+                    let exposure_time = bracketing.base_exposure * 2.0_f32.powf(*stop);
+                    let controls = CameraControls {
+                        auto_exposure: Some(false),
+                        exposure_time: Some(exposure_time),
+                        ..CameraControls::default()
+                    };
+
+                    if let Err(e) = camera.apply_controls(&controls) {
+                        log::warn!("Failed to apply exposure bracketing: {}", e);
+                    }
+                }
+            }
+
+            // Apply focus stacking if configured
+            if config_clone.focus_stacking {
+                let focus_distance = (i as f32) / (config_clone.count as f32 - 1.0); // 0.0 to 1.0
                 let controls = CameraControls {
-                    auto_exposure: Some(false),
-                    exposure_time: Some(exposure_time),
+                    auto_focus: Some(false),
+                    focus_distance: Some(focus_distance),
                     ..CameraControls::default()
                 };
 
                 if let Err(e) = camera.apply_controls(&controls) {
-                    log::warn!("Failed to apply exposure bracketing: {}", e);
+                    log::warn!("Failed to apply focus stacking: {}", e);
+                }
+
+                // Wait for focus adjustment (blocking sleep is okay here as we are in spawn_blocking)
+                std::thread::sleep(std::time::Duration::from_millis(200));
+            }
+
+            // Capture frame with performance monitoring
+            let capture_start = Instant::now();
+            match camera.capture_frame() {
+                Ok(mut frame) => {
+                    let capture_time = capture_start.elapsed();
+
+                    // Add performance metadata
+                    frame.metadata.capture_settings = camera.get_controls().ok();
+
+                    log::debug!("Burst frame {} captured in {:?}", i + 1, capture_time);
+                    Ok(frame)
+                }
+                Err(e) => {
+                    log::error!("Failed to capture burst frame {}: {}", i + 1, e);
+                    Err(format!("Failed to capture burst frame {}: {}", i + 1, e))
                 }
             }
-        }
+        })
+        .await
+        .map_err(|e| format!("Task join error: {}", e))??;
 
-        // Apply focus stacking if configured
-        if config.focus_stacking {
-            let focus_distance = (i as f32) / (config.count as f32 - 1.0); // 0.0 to 1.0
-            let controls = CameraControls {
-                auto_focus: Some(false),
-                focus_distance: Some(focus_distance),
-                ..CameraControls::default()
-            };
-
-            if let Err(e) = camera.apply_controls(&controls) {
-                log::warn!("Failed to apply focus stacking: {}", e);
-            }
-
-            // Wait for focus adjustment
-            tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
-        }
-
-        // Capture frame with performance monitoring
-        let capture_start = Instant::now();
-        match camera.capture_frame() {
-            Ok(mut frame) => {
-                let capture_time = capture_start.elapsed();
-
-                // Add performance metadata
-                frame.metadata.capture_settings = camera.get_controls().ok();
-
-                frames.push(frame);
-                log::debug!("Burst frame {} captured in {:?}", i + 1, capture_time);
-            }
-            Err(e) => {
-                log::error!("Failed to capture burst frame {}: {}", i + 1, e);
-                return Err(format!("Failed to capture burst frame {}: {}", i + 1, e));
-            }
-        }
+        frames.push(frame);
 
         // Wait between captures (except for the last one)
         if i < config.count - 1 {
@@ -260,23 +291,29 @@ pub async fn get_camera_performance(
 ) -> Result<crate::types::CameraPerformanceMetrics, String> {
     let camera_arc =
         get_or_create_camera(device_id.clone(), crate::types::CameraFormat::standard()).await?;
-    let camera = camera_arc.lock().await;
 
-    match camera.get_performance_metrics() {
-        Ok(metrics) => {
-            log::debug!(
-                "Performance metrics for {}: {:.2}ms latency, {:.2} fps",
-                device_id,
-                metrics.capture_latency_ms,
-                metrics.fps_actual
-            );
-            Ok(metrics)
+    let device_id_clone = device_id.clone();
+    tokio::task::spawn_blocking(move || {
+        let camera = camera_arc.lock().map_err(|_| "Mutex poisoned".to_string())?;
+
+        match camera.get_performance_metrics() {
+            Ok(metrics) => {
+                log::debug!(
+                    "Performance metrics for {}: {:.2}ms latency, {:.2} fps",
+                    device_id_clone,
+                    metrics.capture_latency_ms,
+                    metrics.fps_actual
+                );
+                Ok(metrics)
+            }
+            Err(e) => {
+                log::error!("Failed to get performance metrics: {}", e);
+                Err(format!("Failed to get performance metrics: {}", e))
+            }
         }
-        Err(e) => {
-            log::error!("Failed to get performance metrics: {}", e);
-            Err(format!("Failed to get performance metrics: {}", e))
-        }
-    }
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
 }
 
 /// Test camera capabilities and return supported features
@@ -288,25 +325,31 @@ pub async fn test_camera_capabilities(
 
     let camera_arc =
         get_or_create_camera(device_id.clone(), crate::types::CameraFormat::standard()).await?;
-    let camera = camera_arc.lock().await;
 
-    match camera.test_capabilities() {
-        Ok(capabilities) => {
-            log::info!(
-                "Camera {} capabilities: manual_focus={}, manual_exposure={}, max_res={}x{}",
-                device_id,
-                capabilities.supports_manual_focus,
-                capabilities.supports_manual_exposure,
-                capabilities.max_resolution.0,
-                capabilities.max_resolution.1
-            );
-            Ok(capabilities)
+    let device_id_clone = device_id.clone();
+    tokio::task::spawn_blocking(move || {
+        let camera = camera_arc.lock().map_err(|_| "Mutex poisoned".to_string())?;
+
+        match camera.test_capabilities() {
+            Ok(capabilities) => {
+                log::info!(
+                    "Camera {} capabilities: manual_focus={}, manual_exposure={}, max_res={}x{}",
+                    device_id_clone,
+                    capabilities.supports_manual_focus,
+                    capabilities.supports_manual_exposure,
+                    capabilities.max_resolution.0,
+                    capabilities.max_resolution.1
+                );
+                Ok(capabilities)
+            }
+            Err(e) => {
+                log::error!("Failed to test camera capabilities: {}", e);
+                Err(format!("Failed to test capabilities: {}", e))
+            }
         }
-        Err(e) => {
-            log::error!("Failed to test camera capabilities: {}", e);
-            Err(format!("Failed to test capabilities: {}", e))
-        }
-    }
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
 }
 
 // Helper functions
