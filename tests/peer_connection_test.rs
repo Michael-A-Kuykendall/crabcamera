@@ -14,12 +14,13 @@
 use crabcamera::commands::webrtc::{
     create_peer_connection, create_webrtc_offer, create_webrtc_answer,
     set_remote_description, add_ice_candidate, get_local_ice_candidates,
-    get_peer_connection_status, close_peer_connection
+    get_peer_connection_status, close_peer_connection, add_video_transceivers
 };
 use crabcamera::webrtc::peer::{
     PeerConnection, RTCConfiguration, IceServer, IceTransportPolicy, BundlePolicy,
     SessionDescription, SdpType, IceCandidate, ConnectionState
 };
+use crabcamera::webrtc::streaming;
 
 #[tokio::test]
 async fn test_peer_connection_basic_lifecycle() {
@@ -80,6 +81,7 @@ async fn test_peer_connection_with_custom_config() {
     let _ = close_peer_connection(peer_id).await;
 }
 
+#[tokio::test]
 async fn test_sdp_offer_creation() {
     let peer_id = "test_peer_offer".to_string();
 
@@ -90,12 +92,14 @@ async fn test_sdp_offer_creation() {
     // Create SDP offer
     let offer = create_webrtc_offer(peer_id.clone()).await;
     assert!(offer.is_ok(), "Failed to create SDP offer");
-    
+
     let offer = offer.unwrap();
     assert!(matches!(offer.sdp_type, SdpType::Offer));
     assert!(!offer.sdp.is_empty(), "SDP content should not be empty");
     assert!(offer.sdp.contains("v=0"), "SDP should contain version line");
-    assert!(offer.sdp.contains("m=video"), "SDP should contain media line");
+
+    // Note: We don't check for "m=video" because WebRTC doesn't include media lines
+    // until actual media tracks are added to the peer connection
 
     // Verify connection state (remains New until remote description set)
     let status = get_peer_connection_status(peer_id.clone()).await;
@@ -108,6 +112,7 @@ async fn test_sdp_offer_creation() {
     let _ = close_peer_connection(peer_id).await;
 }
 
+#[tokio::test]
 async fn test_sdp_answer_creation() {
     let peer_id = "test_peer_answer".to_string();
 
@@ -115,34 +120,60 @@ async fn test_sdp_answer_creation() {
     let result = create_peer_connection(peer_id.clone(), None).await;
     assert!(result.is_ok());
 
-    // Set remote offer first
-    let remote_offer = SessionDescription {
-        sdp_type: SdpType::Offer,
-        sdp: "v=0\r\no=- 123456789 2 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\nm=video 9 UDP/TLS/RTP/SAVPF 96\r\n".to_string(),
-    };
+    // Add video transceiver to our peer
+    let layers = vec![streaming::SimulcastLayer {
+        rid: "high".to_string(),
+        width: 1920,
+        height: 1080,
+        bitrate: 2000000,
+        fps: 30,
+    }];
+    let result = add_video_transceivers(peer_id.clone(), layers).await;
+    assert!(result.is_ok(), "Failed to add video transceivers to local peer");
 
-    let result = set_remote_description(peer_id.clone(), remote_offer).await;
+    // Create a valid remote offer first (create offer from another peer)
+    let remote_peer_id = "test_remote_peer".to_string();
+    let result = create_peer_connection(remote_peer_id.clone(), None).await;
+    assert!(result.is_ok());
+
+    // Add video transceiver to remote peer
+    let layers = vec![streaming::SimulcastLayer {
+        rid: "high".to_string(),
+        width: 1920,
+        height: 1080,
+        bitrate: 2000000,
+        fps: 30,
+    }];
+    let result = add_video_transceivers(remote_peer_id.clone(), layers).await;
+    assert!(result.is_ok(), "Failed to add video transceivers to remote peer");
+
+    let remote_offer = create_webrtc_offer(remote_peer_id.clone()).await;
+    assert!(remote_offer.is_ok(), "Failed to create remote offer");
+
+    // Set the remote offer on our peer
+    let result = set_remote_description(peer_id.clone(), remote_offer.unwrap()).await;
     assert!(result.is_ok(), "Failed to set remote description");
 
-    // Create SDP answer
+    // Now create SDP answer
     let answer = create_webrtc_answer(peer_id.clone()).await;
     assert!(answer.is_ok(), "Failed to create SDP answer");
-    
+
     let answer = answer.unwrap();
     assert!(matches!(answer.sdp_type, SdpType::Answer));
     assert!(!answer.sdp.is_empty(), "Answer SDP should not be empty");
     assert!(answer.sdp.contains("v=0"), "Answer SDP should contain version");
 
-    // Verify connection state (should be Connecting or Connected after answer)
+    // Verify connection state (remains New until ICE negotiation completes)
     let status = get_peer_connection_status(peer_id.clone()).await;
     assert!(status.is_ok());
     let status = status.unwrap();
-    assert!(matches!(status.state, ConnectionState::Connecting | ConnectionState::Connected));
+    assert!(matches!(status.state, ConnectionState::New) || matches!(status.state, ConnectionState::Connecting));
     assert!(status.has_local_description);
     assert!(status.has_remote_description);
 
     // Cleanup
     let _ = close_peer_connection(peer_id).await;
+    let _ = close_peer_connection(remote_peer_id).await;
 }
 
 #[tokio::test]
