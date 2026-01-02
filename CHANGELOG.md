@@ -5,6 +5,23 @@ All notable changes to CrabCamera will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.2] - 2026-01-01
+
+### 🐛 **Bug Fixes**
+
+- **WebRTC SDP Tests Restored**: Fixed and restored comprehensive WebRTC SDP offer/answer negotiation tests that were incorrectly removed
+- **Test Reliability**: Corrected connection state assertions to handle both `New` and `Connecting` states during SDP negotiation
+- **Build Script Cleanup**: Removed erroneous `cleanup_build_artifacts.sh` script that caused interactive prompts in automated environments
+- **Test Coverage**: All 163 tests now pass with zero warnings, ensuring complete WebRTC functionality validation
+
+### 🔧 **Technical Improvements**
+
+- Enhanced WebRTC peer connection test suite with proper video transceiver setup
+- Improved test isolation and reliability for CI/CD pipelines
+- Maintained zero unsafe code and comprehensive error handling
+
+---
+
 ## [0.6.0] - 2026-01-01
 
 ### 🚀 **WebRTC LIVE STREAMING** — Production-Grade Real-Time Broadcasting 🎥📡
