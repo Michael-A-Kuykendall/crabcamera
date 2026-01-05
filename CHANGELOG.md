@@ -5,7 +5,13 @@ All notable changes to CrabCamera will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.7.0] - 2026-01-05
+## [0.7.0] - YANKED
+
+> **Note**: Version 0.7.0 was tagged in error and has been yanked. This version number will be skipped.
+
+---
+
+## [0.6.3] - 2026-01-05
 
 ### 📚 **Documentation & Tauri 2.x Compatibility**
 
