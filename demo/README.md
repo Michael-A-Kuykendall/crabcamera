@@ -112,19 +112,19 @@ The demo uses a mock CrabCamera API that simulates:
 ### Real Implementation
 In actual CrabCamera integration:
 ```javascript
-import { invoke } from '@tauri-apps/api/tauri';
+import { invoke } from '@tauri-apps/api/core';
 
 // Initialize system
-await invoke('initialize_camera_system');
+await invoke('plugin:crabcamera|initialize_camera_system');
 
 // Optimize for plants
-await invoke('optimize_for_plants', { deviceId: '0' });
+await invoke('plugin:crabcamera|optimize_for_plants', { deviceId: '0' });
 
 // Capture HDR sequence
-const frames = await invoke('capture_hdr_sequence', { deviceId: '0' });
+const frames = await invoke('plugin:crabcamera|capture_hdr_sequence', { deviceId: '0' });
 
 // Apply manual controls
-await invoke('set_camera_controls', {
+await invoke('plugin:crabcamera|set_camera_controls', {
     deviceId: '0',
     controls: {
         auto_focus: false,

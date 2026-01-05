@@ -272,20 +272,42 @@ mod error_tests {
     fn test_all_error_variant_messages() {
         // Test that all error variants have appropriate message patterns
         let test_cases = vec![
-            (CameraError::InitializationError("test".to_string()), "Camera initialization error"),
-            (CameraError::PermissionDenied("test".to_string()), "Permission denied error"),
-            (CameraError::CaptureError("test".to_string()), "Capture error"),
-            (CameraError::ControlError("test".to_string()), "Camera control error"),
+            (
+                CameraError::InitializationError("test".to_string()),
+                "Camera initialization error",
+            ),
+            (
+                CameraError::PermissionDenied("test".to_string()),
+                "Permission denied error",
+            ),
+            (
+                CameraError::CaptureError("test".to_string()),
+                "Capture error",
+            ),
+            (
+                CameraError::ControlError("test".to_string()),
+                "Camera control error",
+            ),
             (CameraError::StreamError("test".to_string()), "Stream error"),
-            (CameraError::UnsupportedOperation("test".to_string()), "Unsupported operation"),
+            (
+                CameraError::UnsupportedOperation("test".to_string()),
+                "Unsupported operation",
+            ),
         ];
 
         for (error, expected_prefix) in test_cases {
             let display = error.to_string();
-            assert!(display.contains(expected_prefix), 
-                    "Error '{}' should contain prefix '{}'", display, expected_prefix);
-            assert!(display.contains("test"), 
-                    "Error '{}' should contain message 'test'", display);
+            assert!(
+                display.contains(expected_prefix),
+                "Error '{}' should contain prefix '{}'",
+                display,
+                expected_prefix
+            );
+            assert!(
+                display.contains("test"),
+                "Error '{}' should contain message 'test'",
+                display
+            );
         }
     }
 
@@ -293,15 +315,24 @@ mod error_tests {
     #[test]
     fn test_recording_error_variants() {
         let recording_errors = vec![
-            (CameraError::EncodingError("codec issue".to_string()), "Encoding error"),
-            (CameraError::MuxingError("container issue".to_string()), "Muxing error"), 
-            (CameraError::IoError("file write issue".to_string()), "IO error"),
+            (
+                CameraError::EncodingError("codec issue".to_string()),
+                "Encoding error",
+            ),
+            (
+                CameraError::MuxingError("container issue".to_string()),
+                "Muxing error",
+            ),
+            (
+                CameraError::IoError("file write issue".to_string()),
+                "IO error",
+            ),
         ];
 
         for (error, expected_prefix) in recording_errors {
             let display = error.to_string();
             assert!(display.contains(expected_prefix));
-            
+
             // Verify the error can be converted to trait object
             let _boxed: Box<dyn Error> = Box::new(error);
         }
@@ -312,10 +343,10 @@ mod error_tests {
     fn test_audio_error_variant() {
         let audio_error = CameraError::AudioError("microphone issue".to_string());
         let display = audio_error.to_string();
-        
+
         assert!(display.contains("Audio error"));
         assert!(display.contains("microphone issue"));
-        
+
         // Verify the error can be converted to trait object
         let _boxed: Box<dyn Error> = Box::new(audio_error);
     }
@@ -324,7 +355,9 @@ mod error_tests {
     fn test_error_chaining_patterns() {
         // Test error propagation patterns common in camera operations
         fn init_camera() -> Result<(), CameraError> {
-            Err(CameraError::InitializationError("Hardware not found".to_string()))
+            Err(CameraError::InitializationError(
+                "Hardware not found".to_string(),
+            ))
         }
 
         fn capture_frame() -> Result<Vec<u8>, CameraError> {
@@ -346,17 +379,16 @@ mod error_tests {
         }
     }
 
-    #[test] 
+    #[test]
     fn test_error_map_patterns() {
         // Test error mapping patterns
         fn operation_with_mapping() -> Result<String, CameraError> {
-            Err(CameraError::CaptureError("Original error".to_string()))
-                .map_err(|e| match e {
-                    CameraError::CaptureError(msg) => {
-                        CameraError::StreamError(format!("Mapped from capture: {}", msg))
-                    }
-                    other => other,
-                })
+            Err(CameraError::CaptureError("Original error".to_string())).map_err(|e| match e {
+                CameraError::CaptureError(msg) => {
+                    CameraError::StreamError(format!("Mapped from capture: {}", msg))
+                }
+                other => other,
+            })
         }
 
         match operation_with_mapping() {
@@ -439,9 +471,11 @@ mod error_tests {
             });
 
             assert!(json_ready.is_object());
-            assert!(json_ready["message"].as_str().unwrap().contains("test") || 
-                    json_ready["message"].as_str().unwrap().contains("denied") ||
-                    json_ready["message"].as_str().unwrap().contains("failed"));
+            assert!(
+                json_ready["message"].as_str().unwrap().contains("test")
+                    || json_ready["message"].as_str().unwrap().contains("denied")
+                    || json_ready["message"].as_str().unwrap().contains("failed")
+            );
         }
     }
 
@@ -458,14 +492,18 @@ mod error_tests {
                 }
                 Err(CameraError::PermissionDenied(_)) => {
                     // Cannot recover from permission issues
-                    Err(CameraError::PermissionDenied("Access denied and no fallback".to_string()))
+                    Err(CameraError::PermissionDenied(
+                        "Access denied and no fallback".to_string(),
+                    ))
                 }
                 Err(other) => Err(other),
             }
         }
 
         fn attempt_primary_camera() -> Result<Vec<u8>, CameraError> {
-            Err(CameraError::InitializationError("Primary camera failed".to_string()))
+            Err(CameraError::InitializationError(
+                "Primary camera failed".to_string(),
+            ))
         }
 
         fn attempt_secondary_camera() -> Result<Vec<u8>, CameraError> {
@@ -489,14 +527,14 @@ mod error_tests {
                 CameraError::ControlError(msg) => format!("Control: {}", msg),
                 CameraError::StreamError(msg) => format!("Stream: {}", msg),
                 CameraError::UnsupportedOperation(msg) => format!("Unsupported: {}", msg),
-                
+
                 #[cfg(feature = "recording")]
                 CameraError::EncodingError(msg) => format!("Encoding: {}", msg),
                 #[cfg(feature = "recording")]
                 CameraError::MuxingError(msg) => format!("Muxing: {}", msg),
                 #[cfg(feature = "recording")]
                 CameraError::IoError(msg) => format!("IO: {}", msg),
-                
+
                 #[cfg(feature = "audio")]
                 CameraError::AudioError(msg) => format!("Audio: {}", msg),
             }
@@ -514,46 +552,71 @@ mod error_tests {
 
         let error = CameraError::InitializationError("Memory test".to_string());
         let size = mem::size_of_val(&error);
-        
+
         // Error size should be reasonable (string + discriminant)
         // This is more of a regression test than a hard requirement
-        assert!(size < 1000, "Error size should be reasonable, got {} bytes", size);
-        
+        assert!(
+            size < 1000,
+            "Error size should be reasonable, got {} bytes",
+            size
+        );
+
         // Test with very long message
         let long_error = CameraError::CaptureError("x".repeat(10000));
         let long_size = mem::size_of_val(&long_error);
-        
+
         // String on heap means size_of stays the same (just pointer + len + cap)
         // So we check that it's similar size, not larger
-        assert!(long_size == size || long_size > size, "Long error size should be similar or slightly larger");
-        assert!(long_size < 50000, "Long error should not be excessively large, got {} bytes", long_size);
+        assert!(
+            long_size == size || long_size > size,
+            "Long error size should be similar or slightly larger"
+        );
+        assert!(
+            long_size < 50000,
+            "Long error should not be excessively large, got {} bytes",
+            long_size
+        );
     }
 
     #[test]
     fn test_error_diagnostic_information() {
         // Test that errors provide useful diagnostic information
         let errors = vec![
-            CameraError::InitializationError("Failed to connect to camera device /dev/video0".to_string()),
-            CameraError::PermissionDenied("Camera access denied. Check privacy settings.".to_string()),
+            CameraError::InitializationError(
+                "Failed to connect to camera device /dev/video0".to_string(),
+            ),
+            CameraError::PermissionDenied(
+                "Camera access denied. Check privacy settings.".to_string(),
+            ),
             CameraError::CaptureError("Frame capture timed out after 5000ms".to_string()),
             CameraError::ControlError("Failed to set ISO to 1600: not supported".to_string()),
             CameraError::StreamError("Video stream interrupted: cable disconnected".to_string()),
-            CameraError::UnsupportedOperation("HDR burst mode not available on this device".to_string()),
+            CameraError::UnsupportedOperation(
+                "HDR burst mode not available on this device".to_string(),
+            ),
         ];
 
         for error in errors {
             let debug_output = format!("{:?}", error);
             let display_output = format!("{}", error);
-            
+
             // Debug output should contain error information (either variant name or message)
-            assert!(debug_output.len() > 0 && !display_output.is_empty(), 
-                   "Debug output should have content: {}", debug_output);
-            
+            assert!(
+                debug_output.len() > 0 && !display_output.is_empty(),
+                "Debug output should have content: {}",
+                debug_output
+            );
+
             // Display output should be user-friendly
-            assert!(!display_output.is_empty(), 
-                   "Display output should not be empty");
-            assert!(display_output.len() > 10, 
-                   "Display output should be descriptive: {}", display_output);
+            assert!(
+                !display_output.is_empty(),
+                "Display output should not be empty"
+            );
+            assert!(
+                display_output.len() > 10,
+                "Display output should be descriptive: {}",
+                display_output
+            );
         }
     }
 }

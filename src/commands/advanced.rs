@@ -16,7 +16,9 @@ pub async fn set_camera_controls(
 
     let device_id_clone = device_id.clone();
     tokio::task::spawn_blocking(move || {
-        let mut camera = camera_arc.lock().map_err(|_| "Mutex poisoned".to_string())?;
+        let mut camera = camera_arc
+            .lock()
+            .map_err(|_| "Mutex poisoned".to_string())?;
 
         // Apply controls to camera (platform-specific implementation)
         match camera.apply_controls(&controls) {
@@ -47,7 +49,9 @@ pub async fn get_camera_controls(device_id: String) -> Result<CameraControls, St
 
     let device_id_clone = device_id.clone();
     tokio::task::spawn_blocking(move || {
-        let camera = camera_arc.lock().map_err(|_| "Mutex poisoned".to_string())?;
+        let camera = camera_arc
+            .lock()
+            .map_err(|_| "Mutex poisoned".to_string())?;
 
         match camera.get_controls() {
             Ok(controls) => {
@@ -105,9 +109,11 @@ pub async fn capture_burst_sequence(
 
         let camera_arc = camera_arc.clone();
         let config_clone = config.clone();
-        
+
         let frame = tokio::task::spawn_blocking(move || {
-            let mut camera = camera_arc.lock().map_err(|_| "Mutex poisoned".to_string())?;
+            let mut camera = camera_arc
+                .lock()
+                .map_err(|_| "Mutex poisoned".to_string())?;
 
             // Apply exposure bracketing if configured
             if let Some(ref bracketing) = config_clone.bracketing {
@@ -294,7 +300,9 @@ pub async fn get_camera_performance(
 
     let device_id_clone = device_id.clone();
     tokio::task::spawn_blocking(move || {
-        let camera = camera_arc.lock().map_err(|_| "Mutex poisoned".to_string())?;
+        let camera = camera_arc
+            .lock()
+            .map_err(|_| "Mutex poisoned".to_string())?;
 
         match camera.get_performance_metrics() {
             Ok(metrics) => {
@@ -328,7 +336,9 @@ pub async fn test_camera_capabilities(
 
     let device_id_clone = device_id.clone();
     tokio::task::spawn_blocking(move || {
-        let camera = camera_arc.lock().map_err(|_| "Mutex poisoned".to_string())?;
+        let camera = camera_arc
+            .lock()
+            .map_err(|_| "Mutex poisoned".to_string())?;
 
         match camera.test_capabilities() {
             Ok(capabilities) => {

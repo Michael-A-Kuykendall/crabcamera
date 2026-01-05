@@ -28,4 +28,6 @@ pub mod streaming;
 #[cfg(feature = "webrtc")]
 pub use peer::{IceCandidate, PeerConnection, RTCConfiguration, SessionDescription};
 #[cfg(feature = "webrtc")]
-pub use streaming::{StreamConfig, WebRTCStreamer, SimulcastConfig, SimulcastLayer, StreamMode, CameraStatus};
+pub use streaming::{
+    CameraStatus, SimulcastConfig, SimulcastLayer, StreamConfig, StreamMode, WebRTCStreamer,
+};

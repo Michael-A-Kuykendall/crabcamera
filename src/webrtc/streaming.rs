@@ -1,17 +1,17 @@
+use crate::types::CameraFrame;
 use openh264::encoder::Encoder;
-use openh264::formats::YUVBuffer;
 #[cfg(feature = "recording")]
 use openh264::encoder::FrameType;
+use openh264::formats::YUVBuffer;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, RwLock};
 use tokio::sync::broadcast;
-use crate::types::CameraFrame;
 
 // Opus encoder imports
 #[cfg(feature = "audio")]
 use libopus_sys::{
-    opus_encode_float, opus_encoder_create, opus_encoder_ctl, opus_encoder_destroy,
-    OpusEncoder, OPUS_APPLICATION_VOIP, OPUS_OK, OPUS_SET_BITRATE_REQUEST,
+    opus_encode_float, opus_encoder_create, opus_encoder_ctl, opus_encoder_destroy, OpusEncoder,
+    OPUS_APPLICATION_VOIP, OPUS_OK, OPUS_SET_BITRATE_REQUEST,
 };
 
 /// Convert RGB24 to YUV420 planar format
@@ -57,11 +57,11 @@ fn rgb_to_yuv420(rgb: &[u8], width: u32, height: u32) -> Vec<u8> {
 /// WebRTC streaming configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StreamConfig {
-    pub bitrate: u32,      // Target bitrate in bps
-    pub max_fps: u32,      // Maximum frames per second
-    pub width: u32,        // Stream width
-    pub height: u32,       // Stream height
-    pub codec: VideoCodec, // Video codec
+    pub bitrate: u32,                       // Target bitrate in bps
+    pub max_fps: u32,                       // Maximum frames per second
+    pub width: u32,                         // Stream width
+    pub height: u32,                        // Stream height
+    pub codec: VideoCodec,                  // Video codec
     pub simulcast: Option<SimulcastConfig>, // Optional simulcast configuration
 }
 
@@ -117,11 +117,11 @@ impl Default for SimulcastConfig {
 /// Individual simulcast layer configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SimulcastLayer {
-    pub rid: String,     // RTP Stream ID (f, h, q, etc.)
-    pub width: u32,      // Layer width
-    pub height: u32,     // Layer height
-    pub bitrate: u32,    // Layer bitrate in bps
-    pub fps: u32,        // Layer frame rate
+    pub rid: String,  // RTP Stream ID (f, h, q, etc.)
+    pub width: u32,   // Layer width
+    pub height: u32,  // Layer height
+    pub bitrate: u32, // Layer bitrate in bps
+    pub fps: u32,     // Layer frame rate
 }
 
 /// Simulcast encoder for a specific layer
@@ -145,8 +145,8 @@ pub enum VideoCodec {
 /// Streaming mode for WebRTC
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum StreamMode {
-    RealCamera,     // Use physical camera
-    SyntheticTest,  // Generate synthetic frames for testing
+    RealCamera,    // Use physical camera
+    SyntheticTest, // Generate synthetic frames for testing
 }
 
 /// WebRTC streaming manager
@@ -204,13 +204,13 @@ pub struct H264WebRTCEncoder {
 #[cfg(feature = "recording")]
 impl H264WebRTCEncoder {
     /// Create a new H.264 encoder for WebRTC
-    /// 
+    ///
     /// Note: The openh264 crate used (v0.9.0) doesn't expose bitrate/fps configuration
     /// in its public API. For production use, consider switching to a more configurable
     /// encoder or use encoder.set_option() if available in newer versions.
     pub fn new(width: u32, height: u32) -> Result<Self, String> {
-        let encoder = Encoder::new()
-            .map_err(|e| format!("Failed to create H.264 encoder: {}", e))?;
+        let encoder =
+            Encoder::new().map_err(|e| format!("Failed to create H.264 encoder: {}", e))?;
 
         Ok(Self {
             encoder,
@@ -232,13 +232,19 @@ impl H264WebRTCEncoder {
 
         let yuv_buffer = YUVBuffer::from_vec(yuv_data, self.width as usize, self.height as usize);
 
-        let bitstream = self.encoder.encode(&yuv_buffer)
+        let bitstream = self
+            .encoder
+            .encode(&yuv_buffer)
             .map_err(|e| format!("H.264 encoding failed: {}", e))?;
 
         self.frame_count += 1;
 
         let is_keyframe = matches!(bitstream.frame_type(), FrameType::IDR | FrameType::I);
-        let frame_type = if is_keyframe { WebRTCFrameType::Keyframe } else { WebRTCFrameType::Delta };
+        let frame_type = if is_keyframe {
+            WebRTCFrameType::Keyframe
+        } else {
+            WebRTCFrameType::Delta
+        };
 
         Ok(EncodedFrame {
             data: bitstream.to_vec(),
@@ -270,7 +276,12 @@ impl OpusWebRTCEncoder {
     pub fn new(sample_rate: i32, channels: i32, bitrate: i32) -> Result<Self, String> {
         let mut error: i32 = 0;
         let encoder = unsafe {
-            opus_encoder_create(sample_rate, channels, OPUS_APPLICATION_VOIP as i32, &mut error)
+            opus_encoder_create(
+                sample_rate,
+                channels,
+                OPUS_APPLICATION_VOIP as i32,
+                &mut error,
+            )
         };
 
         if error != OPUS_OK as i32 {
@@ -294,12 +305,22 @@ impl OpusWebRTCEncoder {
     /// Encode PCM audio to Opus packet
     pub fn encode(&mut self, pcm: &[f32]) -> Result<WebRTCAudioPacket, String> {
         if pcm.len() != self.frame_size {
-            return Err(format!("Invalid PCM size: expected {}, got {}", self.frame_size, pcm.len()));
+            return Err(format!(
+                "Invalid PCM size: expected {}, got {}",
+                self.frame_size,
+                pcm.len()
+            ));
         }
 
         let mut output = vec![0u8; 4000]; // Max Opus packet size
         let len = unsafe {
-            opus_encode_float(self.encoder, pcm.as_ptr(), (self.frame_size / self.channels as usize) as i32, output.as_mut_ptr(), output.len() as i32)
+            opus_encode_float(
+                self.encoder,
+                pcm.as_ptr(),
+                (self.frame_size / self.channels as usize) as i32,
+                output.as_mut_ptr(),
+                output.len() as i32,
+            )
         };
 
         if len < 0 {
@@ -360,14 +381,19 @@ impl H264RTPPacketizer {
     }
 
     /// Packetize an Annex B H.264 access unit into RTP payloads
-    pub fn packetize(&mut self, access_unit: &[u8], timestamp: u64) -> Result<Vec<RtpPayload>, String> {
+    pub fn packetize(
+        &mut self,
+        access_unit: &[u8],
+        timestamp: u64,
+    ) -> Result<Vec<RtpPayload>, String> {
         let nal_units = Self::parse_annex_b_nal_units(access_unit)?;
         let mut payloads = Vec::new();
 
         for (idx, nal_unit) in nal_units.iter().enumerate() {
             let is_last_nal = idx + 1 == nal_units.len();
 
-            if nal_unit.len() <= self.mtu - 12 { // 12 bytes RTP header
+            if nal_unit.len() <= self.mtu - 12 {
+                // 12 bytes RTP header
                 // Single NAL unit packet
                 let mut payload = vec![0u8; 1]; // FU header will be NAL header
                 payload[0] = nal_unit[0]; // Copy NAL header
@@ -396,9 +422,10 @@ impl H264RTPPacketizer {
 
         while start < data.len() {
             // Find next start code
-            let start_code_len = if start + 3 < data.len() && &data[start..start + 4] == &[0, 0, 0, 1] {
+            let start_code_len = if start + 3 < data.len() && data[start..start + 4] == [0, 0, 0, 1]
+            {
                 4
-            } else if start + 2 < data.len() && &data[start..start + 3] == &[0, 0, 1] {
+            } else if start + 2 < data.len() && data[start..start + 3] == [0, 0, 1] {
                 3
             } else {
                 break;
@@ -407,10 +434,10 @@ impl H264RTPPacketizer {
             // Find end of NAL unit (next start code or end of data)
             let mut end = start + start_code_len;
             while end < data.len() {
-                if end + 2 < data.len() && &data[end..end + 3] == &[0, 0, 1] {
+                if end + 2 < data.len() && data[end..end + 3] == [0, 0, 1] {
                     break;
                 }
-                if end + 3 < data.len() && &data[end..end + 4] == &[0, 0, 0, 1] {
+                if end + 3 < data.len() && data[end..end + 4] == [0, 0, 0, 1] {
                     break;
                 }
                 end += 1;
@@ -507,6 +534,12 @@ impl OpusRTPPacketizer {
         self.timestamp = self.timestamp.wrapping_add(samples as u64);
 
         Ok(payload)
+    }
+}
+
+impl Default for OpusRTPPacketizer {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -671,7 +704,11 @@ impl WebRTCStreamer {
         let mut count = self.failure_count.write().unwrap();
         *count += 1;
         if *count > self.max_failures {
-            log::error!("Too many failures ({}), stopping stream {}", *count, self.stream_id);
+            log::error!(
+                "Too many failures ({}), stopping stream {}",
+                *count,
+                self.stream_id
+            );
             let mut streaming = self.is_streaming.write().unwrap();
             *streaming = false;
         } else {
@@ -686,7 +723,10 @@ impl WebRTCStreamer {
     }
 
     /// Packetize H.264 frame into RTP payloads
-    pub async fn packetize_h264_frame(&self, frame: &EncodedFrame) -> Result<Vec<RtpPayload>, String> {
+    pub async fn packetize_h264_frame(
+        &self,
+        frame: &EncodedFrame,
+    ) -> Result<Vec<RtpPayload>, String> {
         let mut packetizer = self.h264_packetizer.write().unwrap();
         if let Some(ref mut p) = *packetizer {
             p.packetize(&frame.data, frame.timestamp)
@@ -696,7 +736,10 @@ impl WebRTCStreamer {
     }
 
     /// Packetize Opus packet into RTP payload
-    pub async fn packetize_opus_packet(&self, packet: &WebRTCAudioPacket) -> Result<RtpPayload, String> {
+    pub async fn packetize_opus_packet(
+        &self,
+        packet: &WebRTCAudioPacket,
+    ) -> Result<RtpPayload, String> {
         let mut packetizer = self.opus_packetizer.write().unwrap();
         if let Some(ref mut p) = *packetizer {
             // Calculate samples based on packet size and sample rate
@@ -796,7 +839,8 @@ impl WebRTCStreamer {
                                 Err(e) => {
                                     log::warn!("Camera capture failed: {:?}", e);
                                     let mut status = self.camera_status.write().unwrap();
-                                    *status = CameraStatus::Failed(format!("Capture failed: {}", e));
+                                    *status =
+                                        CameraStatus::Failed(format!("Capture failed: {}", e));
                                     None
                                 }
                             }
@@ -822,11 +866,11 @@ impl WebRTCStreamer {
                 WebRTCFrameType::Delta
             };
 
-// Encode the captured frame
-                let encoded_frame = match self.encode_camera_frame(&camera_frame, &frame_type).await {
-                    Ok(encoded) => encoded,
-                    Err(e) => {
-                        log::error!("Failed to encode frame: {:?}", e);
+            // Encode the captured frame
+            let encoded_frame = match self.encode_camera_frame(&camera_frame, &frame_type).await {
+                Ok(encoded) => encoded,
+                Err(e) => {
+                    log::error!("Failed to encode frame: {:?}", e);
                     self.handle_failure().await;
                     continue;
                 }
@@ -844,7 +888,7 @@ impl WebRTCStreamer {
                     let rtp_sender_guard = self.rtp_sender.read().unwrap();
                     rtp_sender_guard.clone()
                 };
-                
+
                 if let Some(rtp_sender) = rtp_sender_opt {
                     let rtp_packets = match self.packetize_h264_frame(&encoded_frame).await {
                         Ok(packets) => packets,
@@ -914,16 +958,16 @@ impl WebRTCStreamer {
         let config = self.config.read().unwrap();
         let width = config.width;
         let height = config.height;
-        
+
         // Generate a simple pattern: alternating black/white frames
         let pattern = (frame_counter / 30) % 2; // Change every 30 frames
         let pixel_value = if pattern == 0 { 0u8 } else { 255u8 };
-        
+
         let mut data = vec![pixel_value; (width * height * 3) as usize];
-        
+
         // Add some variation based on frame counter
-        for i in 0..data.len() {
-            data[i] = data[i].saturating_add((frame_counter as u8).wrapping_mul(5));
+        for item in &mut data {
+            *item = item.saturating_add((frame_counter as u8).wrapping_mul(5));
         }
 
         let size_bytes = data.len();

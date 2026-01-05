@@ -520,8 +520,8 @@ mod commands_capture_tests {
 
         let result = capture_with_quality_retry(
             Some("quality_success".to_string()),
-            Some(5),     // max attempts
-            Some(0.5),   // low threshold - should succeed quickly
+            Some(5),   // max attempts
+            Some(0.5), // low threshold - should succeed quickly
             None,
         )
         .await;
@@ -529,7 +529,10 @@ mod commands_capture_tests {
         assert!(result.is_ok(), "Quality retry should succeed");
         let frame = result.unwrap();
         assert_eq!(frame.device_id, "quality_success");
-        assert!(frame.width > 0 && frame.height > 0, "Frame should have valid dimensions");
+        assert!(
+            frame.width > 0 && frame.height > 0,
+            "Frame should have valid dimensions"
+        );
     }
 
     #[tokio::test]
@@ -538,13 +541,16 @@ mod commands_capture_tests {
 
         let result = capture_with_quality_retry(
             Some("quality_high_threshold".to_string()),
-            Some(3),     // max attempts
-            Some(0.99),  // very high threshold - unlikely to be met
+            Some(3),    // max attempts
+            Some(0.99), // very high threshold - unlikely to be met
             None,
         )
         .await;
 
-        assert!(result.is_ok(), "Should return best frame even if threshold not met");
+        assert!(
+            result.is_ok(),
+            "Should return best frame even if threshold not met"
+        );
         let frame = result.unwrap();
         assert_eq!(frame.device_id, "quality_high_threshold");
     }
@@ -564,7 +570,14 @@ mod commands_capture_tests {
         assert!(result.is_err(), "Should fail when camera always fails");
         let error = result.unwrap_err();
         println!("Actual error: {}", error);
-        assert!(error.contains("Failed to capture") || error.contains("quality") || error.contains("attempt") || error.contains("Capture error"), "Error should be descriptive: {}", error);
+        assert!(
+            error.contains("Failed to capture")
+                || error.contains("quality")
+                || error.contains("attempt")
+                || error.contains("Capture error"),
+            "Error should be descriptive: {}",
+            error
+        );
     }
 
     #[tokio::test]
@@ -574,13 +587,16 @@ mod commands_capture_tests {
         // Test parameter clamping
         let result = capture_with_quality_retry(
             Some("quality_params".to_string()),
-            Some(100),   // Should be capped at 50
-            Some(1.5),   // Should be clamped to 1.0
+            Some(100), // Should be capped at 50
+            Some(1.5), // Should be clamped to 1.0
             None,
         )
         .await;
 
-        assert!(result.is_ok(), "Should handle parameter clamping gracefully");
+        assert!(
+            result.is_ok(),
+            "Should handle parameter clamping gracefully"
+        );
     }
 
     #[tokio::test]
@@ -606,15 +622,10 @@ mod commands_capture_tests {
         set_mock_camera_mode("reconnect_recovery", MockCaptureMode::Failure);
 
         let format = CameraFormat::new(640, 480, 30.0);
-        
+
         // Start capture (will fail initially)
         let capture_handle = tokio::spawn(async move {
-            capture_with_reconnect(
-                "reconnect_recovery".to_string(),
-                format,
-                3,
-            )
-            .await
+            capture_with_reconnect("reconnect_recovery".to_string(), format, 3).await
         });
 
         // Switch to success mode after a brief delay to simulate recovery
@@ -639,7 +650,7 @@ mod commands_capture_tests {
 
         assert!(result.is_ok(), "Reconnect should succeed");
         let camera = result.unwrap();
-        
+
         // Verify we can use the reconnected camera
         assert!(camera.lock().is_ok(), "Camera mutex should be accessible");
     }
@@ -649,7 +660,7 @@ mod commands_capture_tests {
         set_mock_camera_mode("reconnect_test", MockCaptureMode::Failure);
 
         let format = CameraFormat::new(640, 480, 30.0);
-        
+
         // Reconnect should succeed (creates camera object)
         let result = reconnect_camera(
             "reconnect_test".to_string(),
@@ -658,11 +669,17 @@ mod commands_capture_tests {
         )
         .await;
 
-        assert!(result.is_ok(), "Reconnect should succeed (camera creation succeeds in mock)");
-        
+        assert!(
+            result.is_ok(),
+            "Reconnect should succeed (camera creation succeeds in mock)"
+        );
+
         // But captures should fail with this camera
         let capture_result = capture_single_photo(Some("reconnect_test".to_string()), None).await;
-        assert!(capture_result.is_err(), "Captures should fail with failure mode");
+        assert!(
+            capture_result.is_err(),
+            "Captures should fail with failure mode"
+        );
     }
 
     #[tokio::test]
@@ -672,17 +689,24 @@ mod commands_capture_tests {
         let start = Instant::now();
         let result = timeout(
             Duration::from_secs(5), // Generous timeout
-            capture_single_photo(Some("timeout_test".to_string()), None)
-        ).await;
+            capture_single_photo(Some("timeout_test".to_string()), None),
+        )
+        .await;
 
         let duration = start.elapsed();
-        
+
         assert!(result.is_ok(), "Capture should complete within timeout");
         let capture_result = result.unwrap();
-        assert!(capture_result.is_ok(), "Capture should succeed with slow mode");
-        
+        assert!(
+            capture_result.is_ok(),
+            "Capture should succeed with slow mode"
+        );
+
         // Should take some time due to SlowCapture mode
-        assert!(duration >= Duration::from_millis(100), "Should take time in slow mode");
+        assert!(
+            duration >= Duration::from_millis(100),
+            "Should take time in slow mode"
+        );
     }
 
     #[tokio::test]
@@ -691,7 +715,7 @@ mod commands_capture_tests {
         let device_base = "massive_concurrent";
         let num_cameras = 20;
         let captures_per_camera = 5;
-        
+
         // Set up multiple cameras
         for i in 0..num_cameras {
             let device_id = format!("{}_cam_{}", device_base, i);
@@ -699,7 +723,7 @@ mod commands_capture_tests {
         }
 
         let mut handles = Vec::new();
-        
+
         // Launch massive concurrent captures
         for cam_id in 0..num_cameras {
             for cap_id in 0..captures_per_camera {
@@ -711,18 +735,24 @@ mod commands_capture_tests {
                 handles.push(handle);
             }
         }
-        
+
         // Collect all results
         let mut success_count = 0;
         for handle in handles {
             let (cam_id, cap_id, device_id, result) = handle.await.unwrap();
-            
-            assert!(result.is_ok(), "Capture {}-{} should succeed for device {}", cam_id, cap_id, device_id);
+
+            assert!(
+                result.is_ok(),
+                "Capture {}-{} should succeed for device {}",
+                cam_id,
+                cap_id,
+                device_id
+            );
             if result.is_ok() {
                 success_count += 1;
             }
         }
-        
+
         let expected_total = num_cameras * captures_per_camera;
         assert_eq!(success_count, expected_total, "All captures should succeed");
     }
@@ -730,63 +760,70 @@ mod commands_capture_tests {
     #[tokio::test]
     async fn test_frame_pool_stress() {
         let pool = Arc::new(FramePool::new(5, 2048)); // Small pool, larger frames
-        
+
         let mut handles = Vec::new();
-        
+
         // Stress test the pool with many concurrent operations
         for i in 0..50 {
             let pool_clone = pool.clone(); // Clone the Arc for move into async block
             let handle = tokio::spawn(async move {
                 // Get buffer
                 let buffer = pool_clone.get_buffer().await;
-                assert!(buffer.capacity() >= 2048, "Buffer should have correct capacity");
-                
+                assert!(
+                    buffer.capacity() >= 2048,
+                    "Buffer should have correct capacity"
+                );
+
                 // Simulate some work
                 tokio::time::sleep(Duration::from_millis(1)).await;
-                
+
                 // Return buffer
                 pool_clone.return_buffer(buffer).await;
                 i // Return for verification
             });
             handles.push(handle);
         }
-        
+
         // All operations should complete
         for handle in handles {
             let operation_id = handle.await.unwrap();
-            assert!(operation_id < 50, "Operation {} should complete", operation_id);
+            assert!(
+                operation_id < 50,
+                "Operation {} should complete",
+                operation_id
+            );
         }
     }
 
     #[tokio::test]
     async fn test_camera_hot_unplug_simulation() {
         let device_id = "hotplug_test".to_string();
-        
+
         // Start with camera available
         set_mock_camera_mode(&device_id, MockCaptureMode::Success);
-        
+
         // Start preview
         let preview_result = start_camera_preview(device_id.clone(), None).await;
         assert!(preview_result.is_ok(), "Preview should start");
-        
+
         // Capture should work
         let capture_result = capture_single_photo(Some(device_id.clone()), None).await;
         assert!(capture_result.is_ok(), "Initial capture should work");
-        
+
         // Simulate hot unplug by switching to failure mode
         set_mock_camera_mode(&device_id, MockCaptureMode::Failure);
-        
+
         // Captures should start failing
         let capture_result = capture_single_photo(Some(device_id.clone()), None).await;
         assert!(capture_result.is_err(), "Capture should fail after unplug");
-        
+
         // Simulate hot plug by switching back to success
         set_mock_camera_mode(&device_id, MockCaptureMode::Success);
-        
+
         // Should be able to capture again
         let capture_result = capture_single_photo(Some(device_id.clone()), None).await;
         assert!(capture_result.is_ok(), "Capture should work after replug");
-        
+
         // Cleanup
         let _ = release_camera(device_id).await;
     }
@@ -795,21 +832,22 @@ mod commands_capture_tests {
     async fn test_format_negotiation_edge_cases() {
         let device_id = "format_negotiation".to_string();
         set_mock_camera_mode(&device_id, MockCaptureMode::Success);
-        
+
         // Test various format configurations
         let edge_case_formats = vec![
-            CameraFormat::new(1, 1, 1.0),           // Minimum dimensions
-            CameraFormat::new(7680, 4320, 120.0),   // 8K 120fps
-            CameraFormat::new(640, 480, 0.1),       // Very low FPS
-            CameraFormat::new(1920, 1080, 240.0),   // Very high FPS
+            CameraFormat::new(1, 1, 1.0),         // Minimum dimensions
+            CameraFormat::new(7680, 4320, 120.0), // 8K 120fps
+            CameraFormat::new(640, 480, 0.1),     // Very low FPS
+            CameraFormat::new(1920, 1080, 240.0), // Very high FPS
         ];
-        
+
         for (i, format) in edge_case_formats.into_iter().enumerate() {
             let test_device_id = format!("{}_fmt_{}", device_id, i);
             set_mock_camera_mode(&test_device_id, MockCaptureMode::Success);
-            
-            let result = capture_single_photo(Some(test_device_id.clone()), Some(format.clone())).await;
-            
+
+            let result =
+                capture_single_photo(Some(test_device_id.clone()), Some(format.clone())).await;
+
             // Should handle edge case formats gracefully
             match result {
                 Ok(frame) => {
@@ -825,38 +863,57 @@ mod commands_capture_tests {
     #[tokio::test]
     async fn test_resource_cleanup_verification() {
         let base_device_id = "cleanup_verification";
-        
+
         // Create and release many cameras to test cleanup
         for iteration in 0..20 {
             let device_id = format!("{}_iter_{}", base_device_id, iteration);
             set_mock_camera_mode(&device_id, MockCaptureMode::Success);
-            
+
             // Start preview
             let preview_result = start_camera_preview(device_id.clone(), None).await;
-            assert!(preview_result.is_ok(), "Preview should start for iteration {}", iteration);
-            
+            assert!(
+                preview_result.is_ok(),
+                "Preview should start for iteration {}",
+                iteration
+            );
+
             // Get stats to verify active
             let stats_result = get_capture_stats(device_id.clone()).await;
             assert!(stats_result.is_ok(), "Stats should be available");
             let stats = stats_result.unwrap();
-            assert!(stats.is_active, "Camera should be active for iteration {}", iteration);
-            
+            assert!(
+                stats.is_active,
+                "Camera should be active for iteration {}",
+                iteration
+            );
+
             // Release immediately
             let release_result = release_camera(device_id.clone()).await;
-            assert!(release_result.is_ok(), "Release should succeed for iteration {}", iteration);
-            
+            assert!(
+                release_result.is_ok(),
+                "Release should succeed for iteration {}",
+                iteration
+            );
+
             // Verify cleanup
             let stats_result = get_capture_stats(device_id).await;
-            assert!(stats_result.is_ok(), "Stats should still be available after release");
+            assert!(
+                stats_result.is_ok(),
+                "Stats should still be available after release"
+            );
             let stats = stats_result.unwrap();
-            assert!(!stats.is_active, "Camera should be inactive after release for iteration {}", iteration);
+            assert!(
+                !stats.is_active,
+                "Camera should be inactive after release for iteration {}",
+                iteration
+            );
         }
     }
 
     #[tokio::test]
     async fn test_save_frame_format_detection() {
         let frame = create_test_frame();
-        
+
         // Test different file extensions
         let test_cases = vec![
             ("test.png", "PNG"),
@@ -865,19 +922,27 @@ mod commands_capture_tests {
             ("test.JPG", "JPEG"),
             ("test.JPEG", "JPEG"),
             ("test.unknown", "PNG"), // Should default to PNG
-            ("test", "PNG"),           // No extension should default to PNG
+            ("test", "PNG"),         // No extension should default to PNG
         ];
-        
+
         for (filename, expected_format) in test_cases {
             let temp_file = std::env::temp_dir().join(filename);
             let file_path = temp_file.to_string_lossy().to_string();
-            
+
             let result = save_frame_to_disk(frame.clone(), file_path.clone()).await;
-            assert!(result.is_ok(), "Save should succeed for format: {}", expected_format);
-            
+            assert!(
+                result.is_ok(),
+                "Save should succeed for format: {}",
+                expected_format
+            );
+
             // Verify file was created
-            assert!(temp_file.exists(), "File should exist for format: {}", expected_format);
-            
+            assert!(
+                temp_file.exists(),
+                "File should exist for format: {}",
+                expected_format
+            );
+
             // Cleanup
             let _ = tokio::fs::remove_file(temp_file).await;
         }
@@ -886,28 +951,31 @@ mod commands_capture_tests {
     #[tokio::test]
     async fn test_capture_sequence_interruption() {
         set_mock_camera_mode("sequence_interrupt", MockCaptureMode::Success);
-        
+
         // Start a long sequence
         let sequence_handle = tokio::spawn(async {
             capture_photo_sequence(
                 "sequence_interrupt".to_string(),
-                10,   // 10 photos
-                100,  // 100ms interval = ~1 second total
+                10,  // 10 photos
+                100, // 100ms interval = ~1 second total
                 None,
             )
             .await
         });
-        
+
         // Let it run for a bit
         tokio::time::sleep(Duration::from_millis(50)).await;
-        
+
         // Switch to failure mode to simulate interruption
         set_mock_camera_mode("sequence_interrupt", MockCaptureMode::Failure);
-        
+
         let result = sequence_handle.await.unwrap();
-        
+
         // Should fail when camera starts failing
-        assert!(result.is_err(), "Sequence should be interrupted by camera failure");
+        assert!(
+            result.is_err(),
+            "Sequence should be interrupted by camera failure"
+        );
     }
 
     #[tokio::test]
@@ -918,31 +986,31 @@ mod commands_capture_tests {
             "isolation_cam_2".to_string(),
             "isolation_cam_3".to_string(),
         ];
-        
+
         // Set different behaviors for each camera
         set_mock_camera_mode(&camera_ids[0], MockCaptureMode::Success);
         set_mock_camera_mode(&camera_ids[1], MockCaptureMode::SlowCapture);
         set_mock_camera_mode(&camera_ids[2], MockCaptureMode::Failure);
-        
+
         // Start operations on all cameras
         let camera_ids_clone1 = camera_ids.clone();
         let handle1 = tokio::spawn(async move {
             capture_single_photo(Some(camera_ids_clone1[0].clone()), None).await
         });
-        
+
         let camera_ids_clone2 = camera_ids.clone();
         let handle2 = tokio::spawn(async move {
             capture_single_photo(Some(camera_ids_clone2[1].clone()), None).await
         });
-        
+
         let camera_ids_clone3 = camera_ids.clone();
         let handle3 = tokio::spawn(async move {
             capture_single_photo(Some(camera_ids_clone3[2].clone()), None).await
         });
-        
+
         // Collect results
         let (result1, result2, result3) = tokio::join!(handle1, handle2, handle3);
-        
+
         // Results should match expected behaviors
         assert!(result1.unwrap().is_ok(), "Camera 1 should succeed");
         assert!(result2.unwrap().is_ok(), "Camera 2 should succeed (slow)");
@@ -952,25 +1020,34 @@ mod commands_capture_tests {
     #[tokio::test]
     async fn test_error_message_consistency() {
         // Test that error messages are consistent and helpful
-        
+
         // Test failing camera
         set_mock_camera_mode("error_msg_test", MockCaptureMode::Failure);
         let result = capture_single_photo(Some("error_msg_test".to_string()), None).await;
         assert!(result.is_err(), "Should fail for failing camera");
         let error = result.unwrap_err();
         assert!(!error.is_empty(), "Error message should not be empty");
-        assert!(error.contains("Failed to capture frame"), "Error should be descriptive");
-        
+        assert!(
+            error.contains("Failed to capture frame"),
+            "Error should be descriptive"
+        );
+
         // Test invalid sequence parameters
         let result = capture_photo_sequence("any".to_string(), 0, 100, None).await;
         assert!(result.is_err(), "Should fail for invalid count");
         let error = result.unwrap_err();
-        assert!(error.contains("Invalid photo count"), "Error should mention invalid count");
-        
+        assert!(
+            error.contains("Invalid photo count"),
+            "Error should mention invalid count"
+        );
+
         let result = capture_photo_sequence("any".to_string(), 25, 100, None).await;
         assert!(result.is_err(), "Should fail for too many photos");
         let error = result.unwrap_err();
-        assert!(error.contains("Invalid photo count"), "Error should mention invalid count");
+        assert!(
+            error.contains("Invalid photo count"),
+            "Error should mention invalid count"
+        );
     }
 
     #[tokio::test]
@@ -978,35 +1055,35 @@ mod commands_capture_tests {
         // Test mixing different types of operations
         let device_id = "mixed_ops".to_string();
         set_mock_camera_mode(&device_id, MockCaptureMode::Success);
-        
+
         // 1. Single capture
         let result = capture_single_photo(Some(device_id.clone()), None).await;
         assert!(result.is_ok(), "Single capture should work");
-        
+
         // 2. Start preview
         let result = start_camera_preview(device_id.clone(), None).await;
         assert!(result.is_ok(), "Preview should start");
-        
+
         // 3. Sequence capture while preview is running
         let result = capture_photo_sequence(device_id.clone(), 3, 10, None).await;
         assert!(result.is_ok(), "Sequence should work with preview running");
-        
+
         // 4. Get stats
         let result = get_capture_stats(device_id.clone()).await;
         assert!(result.is_ok(), "Stats should be available");
-        
+
         // 5. Another single capture
         let result = capture_single_photo(Some(device_id.clone()), None).await;
         assert!(result.is_ok(), "Another single capture should work");
-        
+
         // 6. Stop preview
         let result = stop_camera_preview(device_id.clone()).await;
         assert!(result.is_ok(), "Should stop preview");
-        
+
         // 7. Final capture
         let result = capture_single_photo(Some(device_id.clone()), None).await;
         assert!(result.is_ok(), "Final capture should work");
-        
+
         // 8. Release
         let result = release_camera(device_id).await;
         assert!(result.is_ok(), "Should release camera");

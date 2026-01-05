@@ -59,7 +59,9 @@ fn reconstruct_nals_from_payloads(payloads: &[RtpPayload]) -> Result<Vec<Vec<u8>
             }
 
             if end {
-                let nal = current_fu.take().ok_or("FU-A end without start".to_string())?;
+                let nal = current_fu
+                    .take()
+                    .ok_or("FU-A end without start".to_string())?;
                 nals.push(nal);
             }
         } else {
@@ -81,12 +83,14 @@ fn reconstruct_nals_from_payloads(payloads: &[RtpPayload]) -> Result<Vec<Vec<u8>
 fn nal_unit_strategy() -> impl Strategy<Value = Vec<u8>> {
     // Restrict to "single NAL" types (1..=23) to keep generation valid.
     // Use NRI=3 (0x60) and F=0.
-    (1u8..=23u8, proptest::collection::vec(any::<u8>(), 0..5000)).prop_map(|(nal_type, mut rest)| {
-        let mut nal = Vec::with_capacity(rest.len() + 1);
-        nal.push(0x60 | nal_type);
-        nal.append(&mut rest);
-        nal
-    })
+    (1u8..=23u8, proptest::collection::vec(any::<u8>(), 0..5000)).prop_map(
+        |(nal_type, mut rest)| {
+            let mut nal = Vec::with_capacity(rest.len() + 1);
+            nal.push(0x60 | nal_type);
+            nal.append(&mut rest);
+            nal
+        },
+    )
 }
 
 proptest! {

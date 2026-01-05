@@ -11,12 +11,10 @@
 #![cfg(feature = "webrtc")]
 
 use crabcamera::commands::webrtc::{
-    create_peer_connection, create_data_channel, send_data_channel_message,
-    get_peer_connection_status, close_peer_connection
+    close_peer_connection, create_data_channel, create_peer_connection, get_peer_connection_status,
+    send_data_channel_message,
 };
-use crabcamera::webrtc::peer::{
-    PeerConnection, RTCConfiguration, ConnectionState
-};
+use crabcamera::webrtc::peer::{ConnectionState, PeerConnection, RTCConfiguration};
 
 #[tokio::test]
 async fn test_data_channel_basic_lifecycle() {
@@ -30,11 +28,17 @@ async fn test_data_channel_basic_lifecycle() {
     // Create data channel
     let channel_id = create_data_channel(peer_id.clone(), channel_label.clone()).await;
     assert!(channel_id.is_ok(), "Failed to create data channel");
-    
+
     let channel_id = channel_id.unwrap();
     assert!(!channel_id.is_empty(), "Channel ID should not be empty");
-    assert!(channel_id.contains(&peer_id), "Channel ID should contain peer ID");
-    assert!(channel_id.contains(&channel_label), "Channel ID should contain channel label");
+    assert!(
+        channel_id.contains(&peer_id),
+        "Channel ID should contain peer ID"
+    );
+    assert!(
+        channel_id.contains(&channel_label),
+        "Channel ID should contain channel label"
+    );
 
     // Verify data channel shows up in stats
     let status = get_peer_connection_status(peer_id.clone()).await;
@@ -71,7 +75,11 @@ async fn test_multiple_data_channels() {
 
     // Verify each channel has unique ID
     let unique_ids: std::collections::HashSet<_> = channel_ids.iter().collect();
-    assert_eq!(unique_ids.len(), channel_ids.len(), "All channel IDs should be unique");
+    assert_eq!(
+        unique_ids.len(),
+        channel_ids.len(),
+        "All channel IDs should be unique"
+    );
 
     // Cleanup
     let _ = close_peer_connection(peer_id).await;
@@ -93,25 +101,26 @@ async fn test_data_channel_message_sending() {
     // Test different types of message data
     let test_messages = vec![
         b"Hello WebRTC!".to_vec(),
-        b"".to_vec(), // Empty message
-        vec![0u8; 1024], // Binary data
+        b"".to_vec(),                                               // Empty message
+        vec![0u8; 1024],                                            // Binary data
         b"Unicode test: \xF0\x9F\x98\x80\xF0\x9F\x9A\x80".to_vec(), // Unicode
-        vec![255u8; 65535], // Large message
+        vec![255u8; 65535],                                         // Large message
     ];
 
     for (i, message) in test_messages.into_iter().enumerate() {
-        let result = send_data_channel_message(
-            peer_id.clone(),
-            channel_label.clone(),
-            message.clone()
-        ).await;
-        
+        let result =
+            send_data_channel_message(peer_id.clone(), channel_label.clone(), message.clone())
+                .await;
+
         // Note: Current mock implementation doesn't have open channels
         // In real implementation, we'd need to properly open channels first
         // For now, we're testing the API structure
         if result.is_err() {
             // Expected in mock implementation due to channel state
-            assert!(result.as_ref().unwrap_err().contains("not open") || result.as_ref().unwrap_err().contains("not found"));
+            assert!(
+                result.as_ref().unwrap_err().contains("not open")
+                    || result.as_ref().unwrap_err().contains("not found")
+            );
         } else {
             // If implementation supports it
             assert!(result.is_ok(), "Failed to send message {}", i);
@@ -132,11 +141,8 @@ async fn test_data_channel_error_conditions() {
     assert!(result.is_err(), "Should fail for non-existent peer");
 
     // Test sending message to non-existent peer
-    let result = send_data_channel_message(
-        nonexistent_peer,
-        "test".to_string(),
-        b"test".to_vec()
-    ).await;
+    let result =
+        send_data_channel_message(nonexistent_peer, "test".to_string(), b"test".to_vec()).await;
     assert!(result.is_err(), "Should fail for non-existent peer");
 
     // Create valid peer for further tests
@@ -147,8 +153,9 @@ async fn test_data_channel_error_conditions() {
     let result = send_data_channel_message(
         valid_peer.clone(),
         "nonexistent_channel".to_string(),
-        b"test".to_vec()
-    ).await;
+        b"test".to_vec(),
+    )
+    .await;
     assert!(result.is_err(), "Should fail for non-existent channel");
 
     // Cleanup
@@ -164,7 +171,10 @@ async fn test_data_channel_direct_api() {
 
     // Test creating data channel
     let channel_result = peer.create_data_channel("test_channel".to_string()).await;
-    assert!(channel_result.is_ok(), "Should create data channel successfully");
+    assert!(
+        channel_result.is_ok(),
+        "Should create data channel successfully"
+    );
 
     let channel_id = channel_result.unwrap();
     assert!(!channel_id.is_empty());
@@ -194,7 +204,10 @@ async fn test_data_channel_direct_api() {
     // Test closing peer closes all channels
     let result = peer.close().await;
     assert!(result.is_ok());
-    assert!(matches!(peer.get_connection_state().await, ConnectionState::Closed));
+    assert!(matches!(
+        peer.get_connection_state().await,
+        ConnectionState::Closed
+    ));
 }
 
 #[tokio::test]
@@ -251,7 +264,11 @@ async fn test_data_channel_with_special_characters() {
             // Implementation may reject empty labels
             // Either success or failure is acceptable
         } else {
-            assert!(result.is_ok(), "Should handle special characters in label: '{}'", label);
+            assert!(
+                result.is_ok(),
+                "Should handle special characters in label: '{}'",
+                label
+            );
         }
     }
 
@@ -282,13 +299,10 @@ async fn test_data_channel_large_message_handling() {
 
     for size in message_sizes {
         let large_message = vec![0xABu8; size];
-        
-        let result = send_data_channel_message(
-            peer_id.clone(),
-            channel_label.clone(),
-            large_message
-        ).await;
-        
+
+        let result =
+            send_data_channel_message(peer_id.clone(), channel_label.clone(), large_message).await;
+
         // Current mock implementation will likely fail due to channel state
         // But API should handle large messages gracefully
         if result.is_err() {
@@ -312,7 +326,7 @@ async fn test_data_channel_concurrent_operations() {
 
     // Create multiple data channels concurrently
     let mut handles = Vec::new();
-    
+
     for i in 0..10 {
         let peer_id_clone = peer_id.clone();
         let handle = tokio::spawn(async move {
@@ -332,7 +346,10 @@ async fn test_data_channel_concurrent_operations() {
         }
     }
 
-    assert!(successful_creations > 0, "At least some channels should be created");
+    assert!(
+        successful_creations > 0,
+        "At least some channels should be created"
+    );
 
     // Verify final state
     let status = get_peer_connection_status(peer_id.clone()).await;
@@ -366,12 +383,9 @@ async fn test_data_channel_message_ordering() {
     ];
 
     for (i, message) in messages.into_iter().enumerate() {
-        let result = send_data_channel_message(
-            peer_id.clone(),
-            channel_label.clone(),
-            message
-        ).await;
-        
+        let result =
+            send_data_channel_message(peer_id.clone(), channel_label.clone(), message).await;
+
         // Expected to fail in mock due to channel state
         if result.is_err() {
             assert!(result.unwrap_err().contains("not open"));
@@ -400,19 +414,16 @@ async fn test_data_channel_binary_data() {
     // Test various binary data patterns
     let binary_data_tests = vec![
         vec![0x00, 0x01, 0x02, 0x03, 0xFF, 0xFE, 0xFD], // Mixed bytes
-        vec![0x00; 1000], // All zeros
-        vec![0xFF; 1000], // All ones
+        vec![0x00; 1000],                               // All zeros
+        vec![0xFF; 1000],                               // All ones
         (0..256).map(|i| i as u8).collect::<Vec<u8>>(), // Sequential pattern
-        vec![], // Empty data
+        vec![],                                         // Empty data
     ];
 
     for (i, data) in binary_data_tests.into_iter().enumerate() {
-        let result = send_data_channel_message(
-            peer_id.clone(),
-            channel_label.clone(),
-            data.clone()
-        ).await;
-        
+        let result =
+            send_data_channel_message(peer_id.clone(), channel_label.clone(), data.clone()).await;
+
         // Expected to fail in mock due to channel state
         if result.is_err() {
             assert!(result.unwrap_err().contains("not open"));
@@ -449,7 +460,10 @@ async fn test_data_channel_state_management() {
     assert!(result.is_ok());
 
     // Verify connection is closed
-    assert!(matches!(peer.get_connection_state().await, ConnectionState::Closed));
+    assert!(matches!(
+        peer.get_connection_state().await,
+        ConnectionState::Closed
+    ));
 
     // Attempting to send data after close should fail
     let result = peer.send_data("test_channel", b"test".to_vec()).await;
@@ -470,13 +484,13 @@ async fn test_data_channel_performance_load() {
 
     for i in 0..num_channels {
         let start = std::time::Instant::now();
-        
+
         let channel_label = format!("perf_channel_{}", i);
         let result = create_data_channel(peer_id.clone(), channel_label).await;
-        
+
         let duration = start.elapsed();
         channel_creation_times.push(duration);
-        
+
         assert!(result.is_ok(), "Failed to create channel {} under load", i);
     }
 
@@ -487,9 +501,10 @@ async fn test_data_channel_performance_load() {
     assert_eq!(status.data_channels_count, num_channels);
 
     // Check performance metrics
-    let avg_time = channel_creation_times.iter().sum::<std::time::Duration>() / channel_creation_times.len() as u32;
+    let avg_time = channel_creation_times.iter().sum::<std::time::Duration>()
+        / channel_creation_times.len() as u32;
     println!("Average channel creation time: {:?}", avg_time);
-    
+
     // Should be reasonably fast (less than 10ms per channel in mock implementation)
     assert!(avg_time.as_millis() < 10, "Channel creation should be fast");
 

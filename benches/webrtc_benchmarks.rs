@@ -55,9 +55,9 @@ fn bench_rtp_packetization(c: &mut Criterion) {
 
     // Test different payload sizes
     let payload_sizes = [
-        (1024, "1KB"),     // Small packet
-        (8192, "8KB"),     // Medium packet
-        (32768, "32KB"),   // Large packet (typical max)
+        (1024, "1KB"),   // Small packet
+        (8192, "8KB"),   // Medium packet
+        (32768, "32KB"), // Large packet (typical max)
     ];
 
     for (size, name) in payload_sizes {
@@ -86,8 +86,8 @@ fn bench_opus_rtp_packetization(c: &mut Criterion) {
 
     // Test different payload sizes
     let payload_sizes = [
-        (960, "20ms-48kHz"),   // 20ms at 48kHz mono
-        (1920, "40ms-48kHz"),  // 40ms at 48kHz mono
+        (960, "20ms-48kHz"),  // 20ms at 48kHz mono
+        (1920, "40ms-48kHz"), // 40ms at 48kHz mono
     ];
 
     for (size, name) in payload_sizes {

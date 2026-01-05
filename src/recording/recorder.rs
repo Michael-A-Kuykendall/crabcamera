@@ -568,7 +568,10 @@ mod tests {
             let gray = (i * 8) as u8;
             let rgb = vec![gray; 640 * 480 * 3];
 
-            assert!(recorder.write_rgb_frame(&rgb, 640, 480).is_ok(), "Frame write should succeed");
+            assert!(
+                recorder.write_rgb_frame(&rgb, 640, 480).is_ok(),
+                "Frame write should succeed"
+            );
         }
 
         let stats = recorder.finish().expect("Finish should succeed");

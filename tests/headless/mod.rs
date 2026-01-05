@@ -2,7 +2,7 @@
 
 #[cfg(feature = "headless")]
 mod headless_tests {
-    use crabcamera::headless::{list_devices, list_formats, CaptureConfig, AudioMode};
+    use crabcamera::headless::{list_devices, list_formats, AudioMode, CaptureConfig};
     use crabcamera::types::CameraFormat;
 
     #[test]

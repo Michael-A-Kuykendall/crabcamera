@@ -5,6 +5,22 @@ All notable changes to CrabCamera will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-01-05
+
+### 📚 **Documentation & Tauri 2.x Compatibility**
+
+- **Tauri 2.x Documentation Fixed**: Corrected crate documentation (`src/lib.rs`) to show proper Tauri 2.x integration with Cargo.toml dependencies instead of outdated `tauri.conf.json` configuration
+- **Developer Experience**: Updated library documentation to reflect modern Tauri 2.x plugin registration patterns
+- **Consistency**: All documentation now properly aligned with Tauri 2.x architecture and best practices
+
+### 🔧 **Technical Improvements**
+
+- **Code Quality**: Resolved all clippy warnings and maintained zero unsafe code
+- **CI/CD Ready**: All 163 tests passing with clean builds and zero warnings
+- **Documentation Accuracy**: Eliminated confusion for developers integrating with Tauri 2.x applications
+
+---
+
 ## [0.6.2] - 2026-01-01
 
 ### 🐛 **Bug Fixes**

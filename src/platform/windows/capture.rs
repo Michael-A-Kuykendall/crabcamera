@@ -85,9 +85,13 @@ pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
 /// backend works best with AbsoluteHighestResolution mode. Format negotiation happens
 /// at the frame capture level via MJPEG decoding.
 pub fn initialize_camera(device_id: &str, format: CameraFormat) -> Result<Camera, CameraError> {
-    log::debug!("Requested format: {}x{} @ {}fps (note: nokhwa will use highest resolution)", 
-        format.width, format.height, format.fps);
-    
+    log::debug!(
+        "Requested format: {}x{} @ {}fps (note: nokhwa will use highest resolution)",
+        format.width,
+        format.height,
+        format.fps
+    );
+
     let device_index = device_id
         .parse::<u32>()
         .map_err(|_| CameraError::InitializationError("Invalid device ID".to_string()))?;
@@ -152,12 +156,7 @@ pub fn capture_frame(camera: &mut Camera, device_id: &str) -> Result<CameraFrame
         raw_bytes.to_vec()
     };
 
-    let camera_frame = CameraFrame::new(
-        rgb_data,
-        width,
-        height,
-        device_id.to_string(),
-    );
+    let camera_frame = CameraFrame::new(rgb_data, width, height, device_id.to_string());
 
     Ok(camera_frame.with_format("RGB8".to_string()))
 }

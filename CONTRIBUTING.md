@@ -1,10 +1,10 @@
-# Contributing to CrabCamera
+# Ì¥ù Contributing to RustChain Community Edition
 
-Thank you for your interest in CrabCamera! ü¶Ä
+**Welcome to RustChain!** Ì∂Ä
 
 ## Open Source, Not Open Contribution
 
-CrabCamera is **open source** but **not open contribution**.
+RustChain is **open source** but **not open contribution**.
 
 - The code is freely available under the MIT license
 - You can fork, modify, use, and learn from it without restriction
@@ -15,7 +15,7 @@ This model keeps the project coherent, maintains clear ownership, and ensures co
 
 ## How to Contribute
 
-If you believe you can contribute meaningfully to CrabCamera:
+If you believe you can contribute meaningfully to RustChain:
 
 1. **Email the maintainer first**: [michaelallenkuykendall@gmail.com](mailto:michaelallenkuykendall@gmail.com)
 2. Describe your background and proposed contribution
@@ -43,32 +43,32 @@ If you believe you can contribute meaningfully to CrabCamera:
 
 Bug reports via GitHub Issues are welcome! Please include:
 - Platform (Windows/macOS/Linux) and version
-- Rust version and crabcamera version
+- Rust version and rustchain version
 - Minimal reproduction case
 - Expected vs actual behavior
-- Camera hardware details if relevant
+- System configuration details
 
 ## Code Style (for reference)
 
 If a contribution is discussed and approved:
 - Rust 2021 edition with `cargo fmt` and `cargo clippy`
-- Comprehensive error handling using `Result<T, CrabCameraError>`
+- Comprehensive error handling using `Result<T, RustChainError>`
 - All public APIs must have documentation with examples
-- Platform-specific code properly abstracted in `/src/platform/`
+- Enterprise-grade code with safety and performance focus
 
-## CrabCamera Philosophy
+## RustChain Philosophy
 
 Any accepted work must align with:
-- **Cross-platform compatibility**: Windows, macOS, and Linux
-- **Production ready**: Memory-safe, well-tested, comprehensive error handling
-- **Invisible infrastructure**: Simple APIs that just work
-- **Native performance**: Direct hardware access without web API limitations
-- **Free forever**: No features that could lead to paid tiers
+- **Memory Safety First**: Zero unsafe code in critical paths
+- **Performance by Design**: Sub-second execution for complex workflows
+- **Enterprise Security**: Cryptographic audit trails and compliance
+- **Production Ready**: Comprehensive error handling and testing
+- **Free Forever**: No features that could lead to paid tiers
 
 ## Why This Model?
 
-Building reliable cross-platform camera infrastructure requires tight architectural control. This ensures:
-- Consistent API design across Windows, macOS, and Linux
+Building reliable enterprise AI orchestration requires tight architectural control. This ensures:
+- Consistent API design across all AI providers and tools
 - No ownership disputes or governance overhead
 - Quality control without committee delays
 - Clear direction for the project's future
@@ -82,5 +82,4 @@ If email collaboration leads to merged work, attribution will be given appropria
 
 ---
 
-**Maintainer**: Michael A. Kuykendall  
-**Contact**: [michaelallenkuykendall@gmail.com](mailto:michaelallenkuykendall@gmail.com)
+**Maintainer**: Michael A. Kuykendall

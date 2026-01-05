@@ -1,11 +1,13 @@
 // CrabCamera Headless Capture Example
 // Demonstrates headless camera capture using the new headless API
 
-use crabcamera::headless::{HeadlessSession, list_devices, list_formats, CaptureConfig, BufferPolicy, AudioMode};
-use crabcamera::types::CameraFormat;
 use crabcamera::audio::list_audio_devices;
-use std::time::Duration;
+use crabcamera::headless::{
+    list_devices, list_formats, AudioMode, BufferPolicy, CaptureConfig, HeadlessSession,
+};
+use crabcamera::types::CameraFormat;
 use std::fs;
+use std::time::Duration;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
@@ -55,12 +57,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     for (i, format) in formats.iter().enumerate() {
-        println!("  {}. {}x{}@{} {}", i + 1, format.width, format.height, format.fps, format.format_type);
+        println!(
+            "  {}. {}x{}@{} {}",
+            i + 1,
+            format.width,
+            format.height,
+            format.fps,
+            format.format_type
+        );
     }
 
     // Use the first format
     let format = &formats[0];
-    println!("\n🎥 Using format: {}x{}@{} {}", format.width, format.height, format.fps, format.format_type);
+    println!(
+        "\n🎥 Using format: {}x{}@{} {}",
+        format.width, format.height, format.fps, format.format_type
+    );
 
     // Step 3: Create capture config
     let config = CaptureConfig {
@@ -96,10 +108,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         match session.get_frame(Duration::from_millis(1000)) {
             Ok(Some(frame)) => {
                 frame_count += 1;
-                println!("  Frame {}: {}x{} {} seq:{} size:{} bytes",
-                    frame_count, frame.width, frame.height, frame.format,
-                    frame.sequence, frame.data.len());
-                
+                println!(
+                    "  Frame {}: {}x{} {} seq:{} size:{} bytes",
+                    frame_count,
+                    frame.width,
+                    frame.height,
+                    frame.format,
+                    frame.sequence,
+                    frame.data.len()
+                );
+
                 if !frame_saved {
                     fs::write("captured_frame.raw", &frame.data)?;
                     println!("    💾 Saved frame to captured_frame.raw");
@@ -119,9 +137,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         match session.get_audio_packet(Duration::from_millis(100)) {
             Ok(Some(packet)) => {
                 audio_count += 1;
-                println!("  Audio {}: {} samples seq:{} size:{} bytes channels:{}",
-                    audio_count, packet.data.len() / 4, packet.sequence, packet.data.len(), packet.channels);
-                
+                println!(
+                    "  Audio {}: {} samples seq:{} size:{} bytes channels:{}",
+                    audio_count,
+                    packet.data.len() / 4,
+                    packet.sequence,
+                    packet.data.len(),
+                    packet.channels
+                );
+
                 // Append audio data to file
                 use std::fs::OpenOptions;
                 use std::io::Write;
@@ -142,14 +166,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let dropped = session.dropped_frames()?;
-    println!("\n📊 Captured {} frames, {} audio packets, {} dropped", frame_count, audio_count, dropped);
+    println!(
+        "\n📊 Captured {} frames, {} audio packets, {} dropped",
+        frame_count, audio_count, dropped
+    );
 
     // Step 7: Stop capture
     println!("⏹️  Stopping capture...");
     match session.stop(Duration::from_millis(10000)) {
         Ok(()) => {}
         Err(e) => {
-            eprintln!("Warning: Stop timed out, but session may still be stopping: {:?}", e);
+            eprintln!(
+                "Warning: Stop timed out, but session may still be stopping: {:?}",
+                e
+            );
         }
     }
 

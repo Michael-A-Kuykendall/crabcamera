@@ -2,10 +2,10 @@ use crate::platform::PlatformCamera;
 use crate::quality::QualityValidator;
 use crate::types::{CameraFormat, CameraFrame, CameraInitParams};
 use std::collections::HashMap;
+use std::fs::File;
 use std::sync::{Arc, Mutex as SyncMutex};
 use tauri::command;
 use tokio::sync::RwLock;
-use std::fs::File;
 
 // Global camera registry with async-friendly locking for the map, but sync locking for the camera
 lazy_static::lazy_static! {
@@ -91,7 +91,9 @@ pub async fn capture_photo_sequence(
             let mut camera_guard = camera_clone
                 .lock()
                 .map_err(|_| "Mutex poisoned".to_string())?;
-            camera_guard.capture_frame().map_err(|e| format!("Failed to capture frame: {}", e))
+            camera_guard
+                .capture_frame()
+                .map_err(|e| format!("Failed to capture frame: {}", e))
         })
         .await
         .map_err(|e| format!("Task join error: {}", e))??;
@@ -595,9 +597,7 @@ pub async fn capture_with_reconnect(
 
     // Try capture after reconnect with warmup
     tokio::task::spawn_blocking(move || {
-        let mut camera_guard = camera
-            .lock()
-            .map_err(|_| "Mutex poisoned".to_string())?;
+        let mut camera_guard = camera.lock().map_err(|_| "Mutex poisoned".to_string())?;
 
         if let Err(e) = camera_guard.start_stream() {
             log::warn!("Failed to start stream after reconnect: {}", e);

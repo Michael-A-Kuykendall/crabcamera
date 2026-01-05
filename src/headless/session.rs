@@ -1,14 +1,14 @@
+#[cfg(feature = "audio")]
+use crate::audio::{AudioCapture, AudioFrame};
 use crate::headless::controls::{validate_control_value, ControlId, ControlValue};
 use crate::headless::errors::HeadlessError;
-use crate::headless::types::{AudioMode, BufferPolicy, CaptureConfig, Frame, AudioPacket};
+use crate::headless::types::{AudioMode, AudioPacket, BufferPolicy, CaptureConfig, Frame};
 use crate::platform::PlatformCamera;
 use crate::timing::PTSClock;
 use crate::types::{CameraControls, CameraFrame, CameraInitParams};
 use std::collections::VecDeque;
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
-#[cfg(feature = "audio")]
-use crate::audio::{AudioCapture, AudioFrame};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SessionState {
@@ -151,16 +151,18 @@ impl HeadlessSession {
         };
 
         #[cfg(feature = "audio")]
-        let (pts_clock, audio_enabled, audio_queue) = if matches!(config.audio_mode, AudioMode::Enabled) {
-            let pts_clock = PTSClock::new();
-            let audio_queue = Some(Queue::new(10)); // Small buffer for audio
-            (pts_clock, true, audio_queue)
-        } else {
-            (PTSClock::new(), false, None::<Queue<AudioPacket>>)
-        };
+        let (pts_clock, audio_enabled, audio_queue) =
+            if matches!(config.audio_mode, AudioMode::Enabled) {
+                let pts_clock = PTSClock::new();
+                let audio_queue = Some(Queue::new(10)); // Small buffer for audio
+                (pts_clock, true, audio_queue)
+            } else {
+                (PTSClock::new(), false, None::<Queue<AudioPacket>>)
+            };
 
         #[cfg(not(feature = "audio"))]
-        let (pts_clock, audio_enabled, audio_queue) = (PTSClock::new(), false, None::<Queue<AudioPacket>>);
+        let (pts_clock, audio_enabled, audio_queue) =
+            (PTSClock::new(), false, None::<Queue<AudioPacket>>);
 
         Ok(SessionHandle {
             inner: Arc::new(Inner {
@@ -244,7 +246,12 @@ impl SessionHandle {
             .stop_flag
             .store(true, std::sync::atomic::Ordering::Relaxed);
 
-        let join_handle = self.inner.capture_thread.lock().expect("lock poisoned").take();
+        let join_handle = self
+            .inner
+            .capture_thread
+            .lock()
+            .expect("lock poisoned")
+            .take();
         drop(state);
 
         if let Some(handle) = join_handle {
@@ -267,7 +274,12 @@ impl SessionHandle {
 
         #[cfg(feature = "audio")]
         {
-            let audio_join_handle = self.inner.audio_thread.lock().expect("lock poisoned").take();
+            let audio_join_handle = self
+                .inner
+                .audio_thread
+                .lock()
+                .expect("lock poisoned")
+                .take();
             if let Some(handle) = audio_join_handle {
                 let start = Instant::now();
                 let mut handle = Some(handle);
@@ -328,13 +340,18 @@ impl SessionHandle {
         match state {
             SessionState::Closed => return Err(HeadlessError::closed()),
             SessionState::Stopped => return Err(HeadlessError::stopped()),
-            SessionState::Open => return Err(HeadlessError::invalid_argument("session not started")),
+            SessionState::Open => {
+                return Err(HeadlessError::invalid_argument("session not started"))
+            }
             SessionState::Started => {}
         }
         self.inner.queue.pop_timeout(timeout)
     }
 
-    pub fn get_audio_packet(&self, timeout: Duration) -> Result<Option<AudioPacket>, HeadlessError> {
+    pub fn get_audio_packet(
+        &self,
+        timeout: Duration,
+    ) -> Result<Option<AudioPacket>, HeadlessError> {
         #[cfg(not(feature = "audio"))]
         return Err(HeadlessError::unsupported("audio not compiled in"));
 
@@ -347,7 +364,9 @@ impl SessionHandle {
             match state {
                 SessionState::Closed => return Err(HeadlessError::closed()),
                 SessionState::Stopped => return Err(HeadlessError::stopped()),
-                SessionState::Open => return Err(HeadlessError::invalid_argument("session not started")),
+                SessionState::Open => {
+                    return Err(HeadlessError::invalid_argument("session not started"))
+                }
                 SessionState::Started => {}
             }
             if let Some(audio_queue) = &self.inner.audio_queue {
@@ -385,7 +404,15 @@ impl SessionHandle {
         cam_guard.get_controls().map_err(HeadlessError::backend)
     }
 
-    pub fn list_controls(&self) -> Result<Vec<(crate::headless::controls::ControlInfo, Option<crate::headless::controls::ControlValue>)>, HeadlessError> {
+    pub fn list_controls(
+        &self,
+    ) -> Result<
+        Vec<(
+            crate::headless::controls::ControlInfo,
+            Option<crate::headless::controls::ControlValue>,
+        )>,
+        HeadlessError,
+    > {
         use crate::headless::controls::{all_controls, ControlId, ControlValue};
         self.ensure_not_closed()?;
         let current = self.get_controls()?;
@@ -397,7 +424,10 @@ impl SessionHandle {
                 ControlId::AutoExposure => current.auto_exposure.map(ControlValue::Bool),
                 ControlId::ExposureTime => current.exposure_time.map(ControlValue::F32),
                 ControlId::IsoSensitivity => current.iso_sensitivity.map(ControlValue::U32),
-                ControlId::WhiteBalance => current.white_balance.clone().map(ControlValue::WhiteBalance),
+                ControlId::WhiteBalance => current
+                    .white_balance
+                    .clone()
+                    .map(ControlValue::WhiteBalance),
                 ControlId::Aperture => current.aperture.map(ControlValue::F32),
                 ControlId::Zoom => current.zoom.map(ControlValue::F32),
                 ControlId::Brightness => current.brightness.map(ControlValue::F32),
@@ -405,14 +435,19 @@ impl SessionHandle {
                 ControlId::Saturation => current.saturation.map(ControlValue::F32),
                 ControlId::Sharpness => current.sharpness.map(ControlValue::F32),
                 ControlId::NoiseReduction => current.noise_reduction.map(ControlValue::Bool),
-                ControlId::ImageStabilization => current.image_stabilization.map(ControlValue::Bool),
+                ControlId::ImageStabilization => {
+                    current.image_stabilization.map(ControlValue::Bool)
+                }
             };
             result.push((info, value));
         }
         Ok(result)
     }
 
-    pub fn get_control(&self, control_id: crate::headless::controls::ControlId) -> Result<Option<crate::headless::controls::ControlValue>, HeadlessError> {
+    pub fn get_control(
+        &self,
+        control_id: crate::headless::controls::ControlId,
+    ) -> Result<Option<crate::headless::controls::ControlValue>, HeadlessError> {
         use crate::headless::controls::{ControlId, ControlValue};
         self.ensure_not_closed()?;
         let current = self.get_controls()?;
@@ -461,10 +496,7 @@ fn capture_loop(inner: Arc<Inner>) {
     let _ = camera.start_stream();
 
     loop {
-        if inner
-            .stop_flag
-            .load(std::sync::atomic::Ordering::Relaxed)
-        {
+        if inner.stop_flag.load(std::sync::atomic::Ordering::Relaxed) {
             break;
         }
 
@@ -490,12 +522,13 @@ fn capture_loop(inner: Arc<Inner>) {
 #[cfg(feature = "audio")]
 fn audio_capture_loop(inner: Arc<Inner>) {
     let pts_clock = PTSClock::new();
-    let mut audio_capture = match AudioCapture::new(inner.config.audio_device_id.clone(), 48000, 2, pts_clock) {
-        Ok(cap) => cap,
-        Err(_) => return, // Audio failed
-    };
+    let mut audio_capture =
+        match AudioCapture::new(inner.config.audio_device_id.clone(), 48000, 2, pts_clock) {
+            Ok(cap) => cap,
+            Err(_) => return, // Audio failed
+        };
 
-    if let Err(_) = audio_capture.start() {
+    if audio_capture.start().is_err() {
         // Audio failed, but don't stop video
         return;
     }
@@ -567,7 +600,11 @@ fn normalize_audio_packet(inner: &Inner, frame: AudioFrame) -> AudioPacket {
     let timestamp_us = (frame.timestamp * 1_000_000.0) as u64;
 
     // Convert f32 samples to bytes
-    let data = frame.samples.iter().map(|&s| s.to_le_bytes()).flatten().collect();
+    let data = frame
+        .samples
+        .iter()
+        .flat_map(|&s| s.to_le_bytes())
+        .collect();
 
     AudioPacket {
         sequence,
@@ -586,7 +623,9 @@ fn apply_control_to_struct(controls: &mut CameraControls, id: ControlId, value: 
         (ControlId::AutoExposure, ControlValue::Bool(v)) => controls.auto_exposure = Some(v),
         (ControlId::ExposureTime, ControlValue::F32(v)) => controls.exposure_time = Some(v),
         (ControlId::IsoSensitivity, ControlValue::U32(v)) => controls.iso_sensitivity = Some(v),
-        (ControlId::WhiteBalance, ControlValue::WhiteBalance(v)) => controls.white_balance = Some(v),
+        (ControlId::WhiteBalance, ControlValue::WhiteBalance(v)) => {
+            controls.white_balance = Some(v)
+        }
         (ControlId::Aperture, ControlValue::F32(v)) => controls.aperture = Some(v),
         (ControlId::Zoom, ControlValue::F32(v)) => controls.zoom = Some(v),
         (ControlId::Brightness, ControlValue::F32(v)) => controls.brightness = Some(v),

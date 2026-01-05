@@ -161,9 +161,9 @@ mod recording_fuzz {
 
 #[cfg(feature = "recording")]
 mod muxer_fuzz {
+    use proptest::prelude::*;
     use std::fs::File;
     use tempfile::tempdir;
-    use proptest::prelude::*;
 
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(100))]
@@ -190,7 +190,7 @@ mod muxer_fuzz {
 
             let builder = MuxerBuilder::new(file)
                 .video(VideoCodec::H264, 640, 480, 30.0);
-            
+
             let mut muxer = match builder.build() {
                 Ok(m) => m,
                 Err(_) => return Ok(()),

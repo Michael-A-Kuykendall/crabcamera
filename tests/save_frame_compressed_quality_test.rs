@@ -31,20 +31,12 @@ async fn save_frame_compressed_respects_quality() {
     .await
     .expect("save low quality");
 
-    save_frame_compressed(
-        frame,
-        high_path.to_string_lossy().to_string(),
-        Some(95),
-    )
-    .await
-    .expect("save high quality");
+    save_frame_compressed(frame, high_path.to_string_lossy().to_string(), Some(95))
+        .await
+        .expect("save high quality");
 
-    let low_size = std::fs::metadata(&low_path)
-        .expect("metadata low")
-        .len();
-    let high_size = std::fs::metadata(&high_path)
-        .expect("metadata high")
-        .len();
+    let low_size = std::fs::metadata(&low_path).expect("metadata low").len();
+    let high_size = std::fs::metadata(&high_path).expect("metadata high").len();
 
     assert!(low_size > 0, "low-quality output should not be empty");
     assert!(high_size > 0, "high-quality output should not be empty");

@@ -1,19 +1,19 @@
-use webrtc::peer_connection::RTCPeerConnection;
-use webrtc::api::APIBuilder;
-use webrtc::api::media_engine::MediaEngine;
-use webrtc::ice_transport::ice_candidate::RTCIceCandidate;
-use webrtc::peer_connection::sdp::sdp_type::RTCSdpType;
-use webrtc::peer_connection::sdp::session_description::RTCSessionDescription;
-use webrtc::data_channel::RTCDataChannel;
-use webrtc::data_channel::data_channel_init::RTCDataChannelInit;
-use webrtc::track::track_local::track_local_static_rtp::TrackLocalStaticRTP;
-use webrtc::rtp_transceiver::RTCRtpTransceiver;
-use webrtc::track::track_local::TrackLocalWriter;
-use webrtc::rtp::packet::Packet;
-use webrtc_util::Unmarshal;
 use std::io::Cursor;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use webrtc::api::media_engine::MediaEngine;
+use webrtc::api::APIBuilder;
+use webrtc::data_channel::data_channel_init::RTCDataChannelInit;
+use webrtc::data_channel::RTCDataChannel;
+use webrtc::ice_transport::ice_candidate::RTCIceCandidate;
+use webrtc::peer_connection::sdp::sdp_type::RTCSdpType;
+use webrtc::peer_connection::sdp::session_description::RTCSessionDescription;
+use webrtc::peer_connection::RTCPeerConnection;
+use webrtc::rtp::packet::Packet;
+use webrtc::rtp_transceiver::RTCRtpTransceiver;
+use webrtc::track::track_local::track_local_static_rtp::TrackLocalStaticRTP;
+use webrtc::track::track_local::TrackLocalWriter;
+use webrtc_util::Unmarshal;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -54,7 +54,6 @@ impl From<IceServer> for webrtc::ice_transport::ice_server::RTCIceServer {
             urls: server.urls,
             username: server.username.unwrap_or_default(),
             credential: server.credential.unwrap_or_default(),
-            ..Default::default()
         }
     }
 }
@@ -86,7 +85,9 @@ pub enum ConnectionState {
     Closed,
 }
 
-impl From<webrtc::peer_connection::peer_connection_state::RTCPeerConnectionState> for ConnectionState {
+impl From<webrtc::peer_connection::peer_connection_state::RTCPeerConnectionState>
+    for ConnectionState
+{
     fn from(state: webrtc::peer_connection::peer_connection_state::RTCPeerConnectionState) -> Self {
         match state {
             webrtc::peer_connection::peer_connection_state::RTCPeerConnectionState::New => ConnectionState::New,
@@ -198,29 +199,32 @@ impl PeerConnection {
     pub async fn new(id: String, config: RTCConfiguration) -> Result<Self, String> {
         // Create WebRTC API with H.264 codec support
         let mut media_engine = MediaEngine::default();
-        
+
         // Register H.264 codec
         use webrtc::rtp_transceiver::rtp_codec::RTCRtpCodecParameters;
         use webrtc::rtp_transceiver::rtp_codec::RTPCodecType;
-        
+
         let h264_codec = RTCRtpCodecParameters {
             capability: webrtc::rtp_transceiver::rtp_codec::RTCRtpCodecCapability {
                 mime_type: "video/H264".to_string(),
                 clock_rate: 90000,
                 channels: 0,
-                sdp_fmtp_line: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f".to_string(),
+                sdp_fmtp_line:
+                    "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f"
+                        .to_string(),
                 rtcp_feedback: vec![],
             },
             payload_type: 96,
             ..Default::default()
         };
-        
-        media_engine.register_codec(h264_codec, RTPCodecType::Video)
+
+        media_engine
+            .register_codec(h264_codec, RTPCodecType::Video)
             .map_err(|e| format!("Failed to register H.264 codec: {}", e))?;
-        
+
         let mut api_builder = APIBuilder::new();
         api_builder = api_builder.with_media_engine(media_engine);
-        
+
         let api = api_builder.build();
 
         // Create peer connection config
@@ -241,8 +245,9 @@ impl PeerConnection {
 
         // Create peer connection
         let peer_connection = Arc::new(
-            api.new_peer_connection(rtc_config).await
-                .map_err(|e| format!("Failed to create peer connection: {}", e))?
+            api.new_peer_connection(rtc_config)
+                .await
+                .map_err(|e| format!("Failed to create peer connection: {}", e))?,
         );
 
         let local_candidates = Arc::new(RwLock::new(Vec::new()));
@@ -263,9 +268,18 @@ impl PeerConnection {
         // Set up connection state change handler for SRTP logging
         let peer_id_state = id.clone();
         peer_connection.on_peer_connection_state_change(Box::new(move |state| {
-            log::info!("Peer {} connection state changed to: {:?}", peer_id_state, state);
-            if state == webrtc::peer_connection::peer_connection_state::RTCPeerConnectionState::Connected {
-                log::info!("SRTP key exchange successful for peer {} - secure transmission enabled", peer_id_state);
+            log::info!(
+                "Peer {} connection state changed to: {:?}",
+                peer_id_state,
+                state
+            );
+            if state
+                == webrtc::peer_connection::peer_connection_state::RTCPeerConnectionState::Connected
+            {
+                log::info!(
+                    "SRTP key exchange successful for peer {} - secure transmission enabled",
+                    peer_id_state
+                );
             }
             Box::pin(async {})
         }));
@@ -294,11 +308,16 @@ impl PeerConnection {
     pub async fn create_offer(&self) -> Result<SessionDescription, String> {
         log::info!("Creating SDP offer for peer {}", self.id);
 
-        let offer = self.peer_connection.create_offer(None).await
+        let offer = self
+            .peer_connection
+            .create_offer(None)
+            .await
             .map_err(|e| format!("Failed to create offer: {}", e))?;
 
         // Set as local description
-        self.peer_connection.set_local_description(offer.clone()).await
+        self.peer_connection
+            .set_local_description(offer.clone())
+            .await
             .map_err(|e| format!("Failed to set local description: {}", e))?;
 
         Ok(offer.into())
@@ -308,11 +327,16 @@ impl PeerConnection {
     pub async fn create_answer(&self) -> Result<SessionDescription, String> {
         log::info!("Creating SDP answer for peer {}", self.id);
 
-        let answer = self.peer_connection.create_answer(None).await
+        let answer = self
+            .peer_connection
+            .create_answer(None)
+            .await
             .map_err(|e| format!("Failed to create answer: {}", e))?;
 
         // Set as local description
-        self.peer_connection.set_local_description(answer.clone()).await
+        self.peer_connection
+            .set_local_description(answer.clone())
+            .await
             .map_err(|e| format!("Failed to set local description: {}", e))?;
 
         Ok(answer.into())
@@ -322,9 +346,12 @@ impl PeerConnection {
     pub async fn set_remote_description(&self, desc: SessionDescription) -> Result<(), String> {
         log::info!("Setting remote description for peer {}", self.id);
 
-        let rtc_desc: RTCSessionDescription = desc.try_into()
+        let rtc_desc: RTCSessionDescription = desc
+            .try_into()
             .map_err(|e| format!("SDP conversion failed: {}", e))?;
-        self.peer_connection.set_remote_description(rtc_desc).await
+        self.peer_connection
+            .set_remote_description(rtc_desc)
+            .await
             .map_err(|e| format!("Failed to set remote description: {}", e))
     }
 
@@ -343,7 +370,9 @@ impl PeerConnection {
             username_fragment: None,
         };
 
-        self.peer_connection.add_ice_candidate(rtc_candidate).await
+        self.peer_connection
+            .add_ice_candidate(rtc_candidate)
+            .await
             .map_err(|e| format!("Failed to add ICE candidate: {}", e))
     }
 
@@ -364,14 +393,22 @@ impl PeerConnection {
             negotiated: None,
         };
 
-        let data_channel = self.peer_connection.create_data_channel(&label, Some(config)).await
+        let data_channel = self
+            .peer_connection
+            .create_data_channel(&label, Some(config))
+            .await
             .map_err(|e| format!("Failed to create data channel: {}", e))?;
 
         // Set up message handler
         let label_clone = label.clone();
         let peer_id = self.id.clone();
         data_channel.on_message(Box::new(move |msg| {
-            log::info!("Received data channel message on {} for peer {}: {:?}", label_clone, peer_id, msg.data);
+            log::info!(
+                "Received data channel message on {} for peer {}: {:?}",
+                label_clone,
+                peer_id,
+                msg.data
+            );
             Box::pin(async {})
         }));
 
@@ -385,13 +422,17 @@ impl PeerConnection {
     pub async fn send_data(&self, channel_label: &str, data: Vec<u8>) -> Result<(), String> {
         let channels = self.data_channels.read().await;
         if let Some(channel) = channels.get(channel_label) {
-            if channel.ready_state() == webrtc::data_channel::data_channel_state::RTCDataChannelState::Open {
+            if channel.ready_state()
+                == webrtc::data_channel::data_channel_state::RTCDataChannelState::Open
+            {
                 log::debug!(
                     "Sending {} bytes through channel '{}'",
                     data.len(),
                     channel_label
                 );
-                channel.send(&bytes::Bytes::from(data)).await
+                channel
+                    .send(&bytes::Bytes::from(data))
+                    .await
                     .map(|_| ())
                     .map_err(|e| format!("Failed to send data: {}", e))
             } else {
@@ -403,22 +444,30 @@ impl PeerConnection {
     }
 
     /// Add simulcast video transceivers with associated tracks
-    pub async fn add_simulcast_video_transceivers(&self, layers: &[crate::webrtc::streaming::SimulcastLayer]) -> Result<(), String> {
+    pub async fn add_simulcast_video_transceivers(
+        &self,
+        layers: &[crate::webrtc::streaming::SimulcastLayer],
+    ) -> Result<(), String> {
         use webrtc::rtp_transceiver::rtp_codec::RTCRtpCodecCapability;
+        use webrtc::rtp_transceiver::rtp_codec::RTPCodecType;
         use webrtc::rtp_transceiver::rtp_transceiver_direction::RTCRtpTransceiverDirection;
         use webrtc::rtp_transceiver::RTCRtpTransceiverInit;
         use webrtc::track::track_local::track_local_static_rtp::TrackLocalStaticRTP;
-        use webrtc::rtp_transceiver::rtp_codec::RTPCodecType;
 
         for layer in layers {
-            log::info!("Adding simulcast transceiver and track for layer {}", layer.rid);
+            log::info!(
+                "Adding simulcast transceiver and track for layer {}",
+                layer.rid
+            );
 
             // Create H.264 codec capability
             let codec_capability = RTCRtpCodecCapability {
                 mime_type: "video/H264".to_string(),
                 clock_rate: 90000,
                 channels: 0,
-                sdp_fmtp_line: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f".to_string(),
+                sdp_fmtp_line:
+                    "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f"
+                        .to_string(),
                 rtcp_feedback: vec![],
             };
 
@@ -436,14 +485,17 @@ impl PeerConnection {
             };
 
             // Add transceiver
-            let transceiver = self.peer_connection.add_transceiver_from_kind(
-                RTPCodecType::Video,
-                Some(transceiver_init),
-            ).await.map_err(|e| format!("Failed to add transceiver: {}", e))?;
+            let transceiver = self
+                .peer_connection
+                .add_transceiver_from_kind(RTPCodecType::Video, Some(transceiver_init))
+                .await
+                .map_err(|e| format!("Failed to add transceiver: {}", e))?;
 
             // Get the sender from the transceiver and replace its track
             let sender = transceiver.sender().await;
-            sender.replace_track(Some(track.clone())).await
+            sender
+                .replace_track(Some(track.clone()))
+                .await
                 .map_err(|e| format!("Failed to replace track on sender: {}", e))?;
 
             // Store track and transceiver
@@ -456,7 +508,10 @@ impl PeerConnection {
                 transceivers.push(transceiver);
             }
 
-            log::debug!("Added transceiver and track for simulcast layer {}", layer.rid);
+            log::debug!(
+                "Added transceiver and track for simulcast layer {}",
+                layer.rid
+            );
         }
 
         Ok(())
@@ -470,8 +525,10 @@ impl PeerConnection {
             let mut cursor = Cursor::new(rtp_packet);
             let packet = Packet::unmarshal(&mut cursor)
                 .map_err(|e| format!("Failed to parse RTP packet: {}", e))?;
-            
-            track.write_rtp(&packet).await
+
+            track
+                .write_rtp(&packet)
+                .await
                 .map_err(|e| format!("Failed to send RTP packet to track {}: {}", rid, e))?;
             Ok(())
         } else {
@@ -489,7 +546,9 @@ impl PeerConnection {
     pub async fn close(&self) -> Result<(), String> {
         log::info!("Closing peer connection {}", self.id);
 
-        self.peer_connection.close().await
+        self.peer_connection
+            .close()
+            .await
             .map_err(|e| format!("Failed to close peer connection: {}", e))
     }
 
@@ -508,7 +567,6 @@ impl PeerConnection {
             has_remote_description: self.peer_connection.remote_description().await.is_some(),
         }
     }
-
 }
 
 /// Peer connection statistics
@@ -529,7 +587,9 @@ mod tests {
     #[tokio::test]
     async fn test_peer_connection_creation() {
         let config = RTCConfiguration::default();
-        let peer = PeerConnection::new("test_peer".to_string(), config).await.unwrap();
+        let peer = PeerConnection::new("test_peer".to_string(), config)
+            .await
+            .unwrap();
 
         assert_eq!(peer.id(), "test_peer");
         assert!(matches!(
@@ -541,7 +601,9 @@ mod tests {
     #[tokio::test]
     async fn test_sdp_offer_creation() {
         let config = RTCConfiguration::default();
-        let peer = PeerConnection::new("test_peer".to_string(), config).await.unwrap();
+        let peer = PeerConnection::new("test_peer".to_string(), config)
+            .await
+            .unwrap();
 
         let offer = peer.create_offer().await;
         assert!(offer.is_ok());
@@ -559,15 +621,17 @@ mod tests {
     #[tokio::test]
     async fn test_sdp_answer_creation() {
         let config = RTCConfiguration::default();
-        let peer = PeerConnection::new("test_peer".to_string(), config).await.unwrap();
+        let peer = PeerConnection::new("test_peer".to_string(), config)
+            .await
+            .unwrap();
 
         // Create and set offer to establish media
         let offer = peer.create_offer().await.unwrap();
-        
+
         // In real usage, this would be sent to remote peer and they'd send back an answer
         // For testing, we'll use create_answer which requires a remote offer first
         // Skip this test complexity - real answer flow needs two peers
-        
+
         // Just verify create_offer works and produces valid SDP
         assert!(matches!(offer.sdp_type, SdpType::Offer));
         assert!(!offer.sdp.is_empty());
@@ -577,7 +641,9 @@ mod tests {
     #[tokio::test]
     async fn test_ice_candidate_handling() {
         let config = RTCConfiguration::default();
-        let peer = PeerConnection::new("test_peer".to_string(), config).await.unwrap();
+        let peer = PeerConnection::new("test_peer".to_string(), config)
+            .await
+            .unwrap();
 
         // ICE candidates are gathered after creating offer/answer
         // Just test that adding a candidate doesn't panic when no SDP is set
@@ -599,7 +665,9 @@ mod tests {
     #[tokio::test]
     async fn test_data_channel_creation() {
         let config = RTCConfiguration::default();
-        let peer = PeerConnection::new("test_peer".to_string(), config).await.unwrap();
+        let peer = PeerConnection::new("test_peer".to_string(), config)
+            .await
+            .unwrap();
 
         let channel_id = peer.create_data_channel("test_channel".to_string()).await;
         assert!(channel_id.is_ok());
@@ -611,7 +679,9 @@ mod tests {
     #[tokio::test]
     async fn test_connection_close() {
         let config = RTCConfiguration::default();
-        let peer = PeerConnection::new("test_peer".to_string(), config).await.unwrap();
+        let peer = PeerConnection::new("test_peer".to_string(), config)
+            .await
+            .unwrap();
 
         let result = peer.close().await;
         assert!(result.is_ok());

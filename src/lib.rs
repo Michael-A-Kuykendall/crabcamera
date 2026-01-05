@@ -12,13 +12,11 @@
 //! - Multiple camera format support
 //!
 //! # Usage
-//! Add this to your `tauri.conf.json`:
-//! ```json
-//! {
-//!   "plugins": {
-//!     "crabcamera": {}
-//!   }
-//! }
+//! Add this to your `Cargo.toml`:
+//! ```toml
+//! [dependencies]
+//! crabcamera = { version = "0.7", features = ["recording", "audio", "webrtc"] }
+//! tauri = { version = "2.0", features = ["protocol-asset"] }
 //! ```
 //!
 //! Then in your Tauri app:
@@ -32,7 +30,8 @@
 //!         .expect("error while running tauri application");
 //! }
 //! ```
-pub mod commands;pub mod config;
+pub mod commands;
+pub mod config;
 pub mod errors;
 pub mod focus_stack;
 #[cfg(feature = "headless")]
@@ -60,10 +59,12 @@ pub mod testing;
 // Re-exports for convenience
 pub use errors::CameraError;
 pub use platform::{CameraSystem, PlatformCamera};
-pub use types::{CameraDeviceInfo, CameraFormat, CameraFrame, CameraInitParams, FrameMetadata, Platform};
+pub use types::{
+    CameraDeviceInfo, CameraFormat, CameraFrame, CameraInitParams, FrameMetadata, Platform,
+};
 
 #[cfg(feature = "headless")]
-pub use headless::{list_devices, list_formats, list_controls, HeadlessSession};
+pub use headless::{list_controls, list_devices, list_formats, HeadlessSession};
 
 use tauri::{
     plugin::{Builder, TauriPlugin},

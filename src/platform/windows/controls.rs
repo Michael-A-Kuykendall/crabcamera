@@ -9,9 +9,7 @@ use crate::errors::CameraError;
 use crate::types::{CameraCapabilities, CameraControls, WhiteBalance};
 use windows::core::Interface;
 use windows::Win32::Media::DirectShow::{IAMCameraControl, IAMVideoProcAmp};
-use windows::Win32::Media::MediaFoundation::{
-    IMFMediaSource,
-};
+use windows::Win32::Media::MediaFoundation::IMFMediaSource;
 use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_APARTMENTTHREADED};
 
 /// Control range information for normalization

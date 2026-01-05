@@ -121,7 +121,9 @@ pub async fn start_recording(
 
     // Start camera stream
     {
-        let mut cam = camera.lock().map_err(|_| "Camera mutex poisoned".to_string())?;
+        let mut cam = camera
+            .lock()
+            .map_err(|_| "Camera mutex poisoned".to_string())?;
         cam.start_stream()
             .map_err(|e| format!("Failed to start camera stream: {}", e))?;
     }
@@ -163,7 +165,9 @@ pub async fn record_frame(session_id: String) -> Result<u64, String> {
             .ok_or_else(|| format!("Recording session not found: {}", session_id))?
     };
 
-    let mut session = session_arc.lock().map_err(|_| "Mutex poisoned".to_string())?;
+    let mut session = session_arc
+        .lock()
+        .map_err(|_| "Mutex poisoned".to_string())?;
 
     if !session.is_running {
         return Err("Recording is not running".to_string());
@@ -171,7 +175,10 @@ pub async fn record_frame(session_id: String) -> Result<u64, String> {
 
     // Capture frame from camera
     let frame = {
-        let mut camera = session.camera.lock().map_err(|_| "Mutex poisoned".to_string())?;
+        let mut camera = session
+            .camera
+            .lock()
+            .map_err(|_| "Mutex poisoned".to_string())?;
         camera
             .capture_frame()
             .map_err(|e| format!("Failed to capture frame: {}", e))?
@@ -203,11 +210,16 @@ pub async fn stop_recording(session_id: String) -> Result<RecordingStats, String
     };
 
     // Get exclusive access and stop
-    let mut session = session_arc.lock().map_err(|_| "Mutex poisoned".to_string())?;
+    let mut session = session_arc
+        .lock()
+        .map_err(|_| "Mutex poisoned".to_string())?;
 
     // Stop camera stream
     {
-        let mut camera = session.camera.lock().map_err(|_| "Camera mutex poisoned".to_string())?;
+        let mut camera = session
+            .camera
+            .lock()
+            .map_err(|_| "Camera mutex poisoned".to_string())?;
         let _ = camera.stop_stream();
     }
 
@@ -240,9 +252,14 @@ pub async fn get_recording_status(session_id: String) -> Result<RecordingStatus,
             .ok_or_else(|| format!("Recording session not found: {}", session_id))?
     };
 
-    let session = session_arc.lock().map_err(|_| "Mutex poisoned".to_string())?;
+    let session = session_arc
+        .lock()
+        .map_err(|_| "Mutex poisoned".to_string())?;
 
-    let recorder = session.recorder.as_ref().ok_or_else(|| "Recorder not available".to_string())?;
+    let recorder = session
+        .recorder
+        .as_ref()
+        .ok_or_else(|| "Recorder not available".to_string())?;
 
     // Build audio status if audio feature enabled
     #[cfg(feature = "audio")]
