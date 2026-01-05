@@ -25,7 +25,9 @@ pub async fn update_config(new_config: CrabCameraConfig) -> Result<(), String> {
     }
 
     // Save to file
-    new_config.save_to_file(CrabCameraConfig::default_path()).map_err(|e| e.to_string())?;
+    new_config
+        .save_to_file(CrabCameraConfig::default_path())
+        .map_err(|e| e.to_string())?;
 
     Ok(())
 }
@@ -43,7 +45,9 @@ pub async fn reset_config() -> Result<CrabCameraConfig, String> {
     }
 
     // Save defaults to file
-    default_config.save_to_file(CrabCameraConfig::default_path()).map_err(|e| e.to_string())?;
+    default_config
+        .save_to_file(CrabCameraConfig::default_path())
+        .map_err(|e| e.to_string())?;
 
     Ok(default_config)
 }
@@ -86,7 +90,9 @@ pub async fn update_camera_config(
 
     config.validate().map_err(|e| e.to_string())?;
 
-    config.save_to_file(CrabCameraConfig::default_path()).map_err(|e| e.to_string())?;
+    config
+        .save_to_file(CrabCameraConfig::default_path())
+        .map_err(|e| e.to_string())?;
 
     Ok(())
 }
@@ -101,7 +107,9 @@ pub async fn update_full_quality_config(
 
     config.validate().map_err(|e| e.to_string())?;
 
-    config.save_to_file(CrabCameraConfig::default_path()).map_err(|e| e.to_string())?;
+    config
+        .save_to_file(CrabCameraConfig::default_path())
+        .map_err(|e| e.to_string())?;
 
     Ok(())
 }
@@ -116,7 +124,9 @@ pub async fn update_storage_config(
 
     config.validate().map_err(|e| e.to_string())?;
 
-    config.save_to_file(CrabCameraConfig::default_path()).map_err(|e| e.to_string())?;
+    config
+        .save_to_file(CrabCameraConfig::default_path())
+        .map_err(|e| e.to_string())?;
 
     Ok(())
 }
@@ -131,7 +141,9 @@ pub async fn update_advanced_config(
 
     config.validate().map_err(|e| e.to_string())?;
 
-    config.save_to_file(CrabCameraConfig::default_path()).map_err(|e| e.to_string())?;
+    config
+        .save_to_file(CrabCameraConfig::default_path())
+        .map_err(|e| e.to_string())?;
 
     Ok(())
 }

@@ -37,15 +37,16 @@ fn create_test_frame_with_focus(width: u32, height: u32, focus_pattern: &str) ->
                 for x in 0..width {
                     let dist = ((x as f32 - cx).powi(2) + (y as f32 - cy).powi(2)).sqrt();
                     let sharpness = 1.0 - (dist / max_dist).min(1.0);
-                    
+
                     let base_color = if sharpness > 0.5 { 200 } else { 100 };
                     let noise = if sharpness > 0.7 { 50 } else { 10 };
-                    
+
                     let idx = ((y as u64 * width as u64 + x as u64) * 3) as usize;
                     if idx + 2 < size {
                         data[idx] = (base_color as u16 + (x % noise) as u16).min(255) as u8;
                         data[idx + 1] = (base_color as u16 + (y % noise) as u16).min(255) as u8;
-                        data[idx + 2] = (base_color as u16 + ((x + y) % noise) as u16).min(255) as u8;
+                        data[idx + 2] =
+                            (base_color as u16 + ((x + y) % noise) as u16).min(255) as u8;
                     }
                 }
             }
@@ -56,7 +57,7 @@ fn create_test_frame_with_focus(width: u32, height: u32, focus_pattern: &str) ->
                 let sharpness = 1.0 - (y as f32 / height as f32);
                 let base_color = (128.0 + 100.0 * sharpness) as u8;
                 let noise = if sharpness > 0.6 { 30 } else { 5 };
-                
+
                 for x in 0..width {
                     let idx = ((y as u64 * width as u64 + x as u64) * 3) as usize;
                     if idx + 2 < size {
@@ -73,7 +74,7 @@ fn create_test_frame_with_focus(width: u32, height: u32, focus_pattern: &str) ->
                 let sharpness = y as f32 / height as f32;
                 let base_color = (128.0 + 100.0 * sharpness) as u8;
                 let noise = if sharpness > 0.6 { 30 } else { 5 };
-                
+
                 for x in 0..width {
                     let idx = ((y as u64 * width as u64 + x as u64) * 3) as usize;
                     if idx + 2 < size {
@@ -90,7 +91,7 @@ fn create_test_frame_with_focus(width: u32, height: u32, focus_pattern: &str) ->
                 for x in 0..width {
                     let pattern = ((x / 4) + (y / 4)) % 2;
                     let color = if pattern == 0 { 200 } else { 50 };
-                    
+
                     let idx = ((y as u64 * width as u64 + x as u64) * 3) as usize;
                     if idx + 2 < size {
                         data[idx] = color;
@@ -117,7 +118,7 @@ fn create_test_frame_with_focus(width: u32, height: u32, focus_pattern: &str) ->
                     let shifted_y = (y + 2) % height; // 2-pixel shift
                     let pattern = ((shifted_x / 8) + (shifted_y / 8)) % 2;
                     let color = if pattern == 0 { 180 } else { 80 };
-                    
+
                     let idx = ((y as u64 * width as u64 + x as u64) * 3) as usize;
                     if idx + 2 < size {
                         data[idx] = color;
@@ -182,15 +183,20 @@ async fn test_focus_sequence_capture() {
     match result {
         Ok(frames) => {
             assert_eq!(frames.len(), 5);
-            
+
             // Verify frame validity
             for (i, frame) in frames.iter().enumerate() {
                 assert!(frame.is_valid());
                 assert!(frame.width > 0);
                 assert!(frame.height > 0);
                 assert!(!frame.data.is_empty());
-                println!("Focus frame {}: {}x{} ({} bytes)", 
-                    i + 1, frame.width, frame.height, frame.size_bytes);
+                println!(
+                    "Focus frame {}: {}x{} ({} bytes)",
+                    i + 1,
+                    frame.width,
+                    frame.height,
+                    frame.size_bytes
+                );
             }
 
             // Verify consistent dimensions
@@ -224,7 +230,8 @@ async fn test_focus_sequence_capture() {
     ];
 
     for invalid_config in invalid_configs {
-        let result = capture_focus_sequence(device_id.clone(), invalid_config, format.clone()).await;
+        let result =
+            capture_focus_sequence(device_id.clone(), invalid_config, format.clone()).await;
         assert!(result.is_err());
         if let Err(e) = result {
             assert!(matches!(e, FocusStackError::InvalidConfig(_)));
@@ -243,7 +250,7 @@ async fn test_focus_brackets_capture() {
     match result {
         Ok(frames) => {
             assert_eq!(frames.len(), 6); // 3 brackets * 2 shots each
-            
+
             for frame in frames {
                 assert!(frame.is_valid());
             }
@@ -258,14 +265,15 @@ async fn test_focus_brackets_capture() {
 
     // Test invalid bracket parameters
     let invalid_params = vec![
-        (1, 2), // Too few brackets
+        (1, 2),  // Too few brackets
         (11, 2), // Too many brackets
-        (3, 0), // No shots per bracket
+        (3, 0),  // No shots per bracket
         (3, 11), // Too many shots per bracket
     ];
 
     for (brackets, shots) in invalid_params {
-        let result = capture_focus_brackets(device_id.clone(), brackets, shots, format.clone()).await;
+        let result =
+            capture_focus_brackets(device_id.clone(), brackets, shots, format.clone()).await;
         assert!(result.is_err());
         if let Err(e) = result {
             assert!(matches!(e, FocusStackError::InvalidConfig(_)));
@@ -282,7 +290,7 @@ fn test_image_alignment() {
     // Create reference frame and shifted frame
     let reference = create_test_frame_with_focus(width, height, "uniform_sharp");
     let shifted = create_test_frame_with_focus(width, height, "shifted");
-    
+
     let frames = vec![reference.clone(), shifted.clone()];
 
     // Test alignment computation
@@ -301,8 +309,10 @@ fn test_image_alignment() {
 
     // Shifted frame should have detected translation
     let shifted_result = &results[1];
-    println!("Detected translation: ({:.2}, {:.2})", 
-        shifted_result.translation.0, shifted_result.translation.1);
+    println!(
+        "Detected translation: ({:.2}, {:.2})",
+        shifted_result.translation.0, shifted_result.translation.1
+    );
     println!("Alignment error: {:.3}", shifted_result.error);
 
     // Should detect some shift (may not be exact due to simple algorithm)
@@ -369,8 +379,10 @@ fn test_focus_merge_algorithms() {
     assert_eq!(simple_merged.height, height);
     assert!(simple_merged.is_valid());
 
-    println!("Simple merge result: {}x{} ({} bytes)", 
-        simple_merged.width, simple_merged.height, simple_merged.size_bytes);
+    println!(
+        "Simple merge result: {}x{} ({} bytes)",
+        simple_merged.width, simple_merged.height, simple_merged.size_bytes
+    );
 
     // Test merge with pyramid blending
     let pyramid_result = merge_frames(&frames, 0.3, 3);
@@ -381,8 +393,10 @@ fn test_focus_merge_algorithms() {
     assert_eq!(pyramid_merged.height, height);
     assert!(pyramid_merged.is_valid());
 
-    println!("Pyramid merge result: {}x{} ({} bytes)", 
-        pyramid_merged.width, pyramid_merged.height, pyramid_merged.size_bytes);
+    println!(
+        "Pyramid merge result: {}x{} ({} bytes)",
+        pyramid_merged.width, pyramid_merged.height, pyramid_merged.size_bytes
+    );
 
     // Pyramid and simple merges should produce valid but potentially different results
     assert_ne!(simple_merged.data, pyramid_merged.data); // Likely different
@@ -437,7 +451,7 @@ fn test_focus_algorithm_correctness() {
     // Create frames where we know which should be sharpest in each region
     let top_frame = create_test_frame_with_focus(width, height, "sharp_top");
     let bottom_frame = create_test_frame_with_focus(width, height, "sharp_bottom");
-    
+
     let frames = vec![top_frame.clone(), bottom_frame.clone()];
 
     // Merge should select appropriate regions
@@ -465,12 +479,7 @@ fn test_focus_algorithm_correctness() {
 /// Performance benchmark for focus stacking operations
 #[test]
 fn test_focus_stack_performance() {
-    let sizes = [
-        (320, 240),
-        (640, 480), 
-        (1280, 720),
-        (1920, 1080),
-    ];
+    let sizes = [(320, 240), (640, 480), (1280, 720), (1920, 1080)];
 
     for (width, height) in sizes.iter() {
         println!("Performance test for {}x{} frames:", width, height);
@@ -486,7 +495,7 @@ fn test_focus_stack_performance() {
         let start = Instant::now();
         let alignment_result = align_frames(&frames);
         let alignment_time = start.elapsed();
-        
+
         assert!(alignment_result.is_ok());
         println!("  Alignment: {:?}", alignment_time);
 
@@ -494,7 +503,7 @@ fn test_focus_stack_performance() {
         let start = Instant::now();
         let simple_result = merge_frames(&frames, 0.3, 0);
         let simple_time = start.elapsed();
-        
+
         assert!(simple_result.is_ok());
         println!("  Simple merge: {:?}", simple_time);
 
@@ -502,7 +511,7 @@ fn test_focus_stack_performance() {
         let start = Instant::now();
         let pyramid_result = merge_frames(&frames, 0.3, 4);
         let pyramid_time = start.elapsed();
-        
+
         assert!(pyramid_result.is_ok());
         println!("  Pyramid merge: {:?}", pyramid_time);
 
@@ -511,7 +520,10 @@ fn test_focus_stack_performance() {
         assert!(simple_time.as_secs() < 5);
         assert!(pyramid_time.as_secs() < 10); // Pyramid is more complex
 
-        println!("  Total megapixels processed: {:.2}", (*width * *height) as f32 / 1_000_000.0);
+        println!(
+            "  Total megapixels processed: {:.2}",
+            (*width * *height) as f32 / 1_000_000.0
+        );
     }
 }
 
@@ -521,31 +533,31 @@ fn test_focus_stack_edge_cases() {
     // Test tiny frames
     let tiny_frame = create_test_frame_with_focus(2, 2, "uniform_sharp");
     let tiny_frames = vec![tiny_frame.clone(), tiny_frame.clone()];
-    
+
     let align_result = align_frames(&tiny_frames);
     assert!(align_result.is_ok());
-    
+
     let merge_result = merge_frames(&tiny_frames, 0.5, 2);
     assert!(merge_result.is_ok());
 
     // Test single pixel frames (extreme edge case)
     let pixel_frame = create_test_frame_with_focus(1, 1, "uniform_sharp");
     let pixel_frames = vec![pixel_frame.clone(), pixel_frame.clone()];
-    
+
     let pixel_merge = merge_frames(&pixel_frames, 0.5, 1);
     assert!(pixel_merge.is_ok());
 
     // Test very wide frames
     let wide_frame = create_test_frame_with_focus(1000, 10, "uniform_sharp");
     let wide_frames = vec![wide_frame.clone(), wide_frame.clone()];
-    
+
     let wide_result = merge_frames(&wide_frames, 0.5, 3);
     assert!(wide_result.is_ok());
 
-    // Test very tall frames  
+    // Test very tall frames
     let tall_frame = create_test_frame_with_focus(10, 1000, "uniform_sharp");
     let tall_frames = vec![tall_frame.clone(), tall_frame.clone()];
-    
+
     let tall_result = merge_frames(&tall_frames, 0.5, 3);
     assert!(tall_result.is_ok());
 
@@ -561,7 +573,7 @@ fn test_extreme_sharpness_patterns() {
     // Create frames with very different sharpness characteristics
     let all_sharp = create_test_frame_with_focus(width, height, "uniform_sharp");
     let all_blur = create_test_frame_with_focus(width, height, "uniform_blur");
-    
+
     // Test with very high threshold
     let high_threshold_result = merge_frames(&vec![all_sharp.clone(), all_blur.clone()], 0.9, 0);
     assert!(high_threshold_result.is_ok());
@@ -592,12 +604,12 @@ fn test_pyramid_blend_levels() {
     for levels in 1..=6 {
         let result = merge_frames(&frames, 0.3, levels);
         assert!(result.is_ok());
-        
+
         let merged = result.unwrap();
         assert_eq!(merged.width, width);
         assert_eq!(merged.height, height);
         assert!(merged.is_valid());
-        
+
         println!("Pyramid blend with {} levels: OK", levels);
     }
 
@@ -610,14 +622,17 @@ fn test_pyramid_blend_levels() {
 #[test]
 fn test_focus_stack_errors() {
     // Test error display
-    let error = FocusStackError::InsufficientImages { required: 5, provided: 2 };
+    let error = FocusStackError::InsufficientImages {
+        required: 5,
+        provided: 2,
+    };
     assert!(error.to_string().contains("Insufficient images"));
     assert!(error.to_string().contains("need 5"));
     assert!(error.to_string().contains("got 2"));
 
-    let error = FocusStackError::DimensionMismatch { 
-        expected: (1920, 1080), 
-        got: (1280, 720) 
+    let error = FocusStackError::DimensionMismatch {
+        expected: (1920, 1080),
+        got: (1280, 720),
     };
     assert!(error.to_string().contains("dimension mismatch"));
     assert!(error.to_string().contains("1920x1080"));
@@ -654,13 +669,13 @@ fn test_concurrent_focus_operations() {
 
     // Spawn multiple threads performing focus operations
     let mut handles = vec![];
-    
+
     for i in 0..4 {
         let frames_clone = frames.clone();
         let handle = thread::spawn(move || {
             let threshold = 0.3 + (i as f32 * 0.1);
             let blend_levels = (i % 4) + 1;
-            
+
             let result = merge_frames(&frames_clone, threshold, blend_levels);
             (i, result.is_ok())
         });
@@ -682,14 +697,16 @@ fn test_focus_stack_memory_efficiency() {
     let height = 200;
 
     // Create multiple frames
-    let frames = (0..5).map(|i| {
-        let pattern = match i % 3 {
-            0 => "sharp_center",
-            1 => "sharp_top", 
-            _ => "sharp_bottom",
-        };
-        create_test_frame_with_focus(width, height, pattern)
-    }).collect::<Vec<_>>();
+    let frames = (0..5)
+        .map(|i| {
+            let pattern = match i % 3 {
+                0 => "sharp_center",
+                1 => "sharp_top",
+                _ => "sharp_bottom",
+            };
+            create_test_frame_with_focus(width, height, pattern)
+        })
+        .collect::<Vec<_>>();
 
     let total_input_size = frames.iter().map(|f| f.data.len()).sum::<usize>();
     println!("Total input size: {} MB", total_input_size / (1024 * 1024));
@@ -698,20 +715,23 @@ fn test_focus_stack_memory_efficiency() {
     for iteration in 0..3 {
         let result = merge_frames(&frames, 0.3, 3);
         assert!(result.is_ok());
-        
+
         let merged = result.unwrap();
         assert!(merged.is_valid());
-        
-        println!("Memory test iteration {}: {} bytes output", 
-            iteration + 1, merged.size_bytes);
-        
+
+        println!(
+            "Memory test iteration {}: {} bytes output",
+            iteration + 1,
+            merged.size_bytes
+        );
+
         // Output should be reasonable compared to input
         assert!(merged.size_bytes <= total_input_size);
     }
 }
 
 /// Test robustness with malformed data
-#[test] 
+#[test]
 fn test_focus_stack_robustness() {
     // Create frame with inconsistent data length
     let mut bad_frame = create_test_frame_with_focus(10, 10, "uniform_sharp");

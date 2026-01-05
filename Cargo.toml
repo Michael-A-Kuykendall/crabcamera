@@ -1,12 +1,14 @@
 [package]
 name = "crabcamera"
-version = "0.6.2"
+version = "0.7.0"
 edition = "2021"
 description = "Advanced cross-platform camera integration for Tauri applications"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/Michael-A-Kuykendall/crabcamera"
 keywords = ["tauri", "camera", "cross-platform", "desktop", "rust"]
 categories = ["multimedia", "gui"]
+
+[workspace]
 
 [lib]
 name = "crabcamera"

@@ -11,8 +11,7 @@
 #![cfg(feature = "webrtc")]
 
 use crabcamera::commands::webrtc::{
-    start_webrtc_stream, stop_webrtc_stream, get_webrtc_stream_status, 
-    update_webrtc_config
+    get_webrtc_stream_status, start_webrtc_stream, stop_webrtc_stream, update_webrtc_config,
 };
 use crabcamera::webrtc::streaming::{StreamConfig, StreamMode, VideoCodec, WebRTCStreamer};
 
@@ -170,7 +169,7 @@ async fn test_stream_double_start_prevention() {
     )
     .await;
     // Current implementation allows this, but we verify it handles gracefully
-    
+
     // Cleanup
     let _ = stop_webrtc_stream(stream_id).await;
 }
@@ -190,8 +189,11 @@ async fn test_webrtc_streamer_direct_creation() {
     let streamer = WebRTCStreamer::new(stream_id.clone(), config.clone());
 
     // Test initial state
-    assert!(!streamer.is_streaming().await, "Should not be streaming initially");
-    
+    assert!(
+        !streamer.is_streaming().await,
+        "Should not be streaming initially"
+    );
+
     let current_config = streamer.get_config().await;
     assert_eq!(current_config.bitrate, config.bitrate);
     assert_eq!(current_config.max_fps, config.max_fps);
@@ -212,7 +214,7 @@ async fn test_frame_subscription_and_delivery() {
     };
 
     let streamer = WebRTCStreamer::new(stream_id, config);
-    
+
     // Subscribe to frames before starting stream
     let mut receiver1 = streamer.subscribe_frames();
     let mut receiver2 = streamer.subscribe_frames();
@@ -301,8 +303,8 @@ async fn test_stream_quality_adaptation() {
     // Simulate network congestion - reduce quality
     let low_quality_config = StreamConfig {
         bitrate: 500_000, // Reduce bitrate
-        max_fps: 15,       // Reduce FPS
-        width: 640,        // Reduce resolution
+        max_fps: 15,      // Reduce FPS
+        width: 640,       // Reduce resolution
         height: 360,
         codec: VideoCodec::H264,
         simulcast: None,
@@ -339,24 +341,29 @@ async fn test_stream_quality_adaptation() {
 #[tokio::test]
 async fn test_codec_switching() {
     let stream_id = "codec_test".to_string();
-    
+
     // Test each codec
-    let codecs = vec![VideoCodec::H264, VideoCodec::VP8, VideoCodec::VP9, VideoCodec::AV1];
-    
+    let codecs = vec![
+        VideoCodec::H264,
+        VideoCodec::VP8,
+        VideoCodec::VP9,
+        VideoCodec::AV1,
+    ];
+
     for codec in codecs {
         let config = StreamConfig {
             codec: codec.clone(),
             ..Default::default()
         };
-        
+
         let streamer = WebRTCStreamer::new(format!("{}_{:?}", stream_id, codec), config.clone());
-        
+
         let result = streamer.start_streaming("test_device".to_string()).await;
         assert!(result.is_ok(), "Should support codec {:?}", codec);
-        
+
         let stats = streamer.get_stats().await;
         assert!(matches!(stats.codec, _), "Codec should be set correctly");
-        
+
         let _ = streamer.stop_streaming().await;
     }
 }
@@ -393,7 +400,10 @@ async fn test_stream_interruption_recovery() {
         Some(StreamMode::SyntheticTest),
     )
     .await;
-    assert!(result.is_ok(), "Should be able to restart stream after interruption");
+    assert!(
+        result.is_ok(),
+        "Should be able to restart stream after interruption"
+    );
 
     // Verify stream is active again
     let status = get_webrtc_stream_status(stream_id.clone()).await;
@@ -413,21 +423,21 @@ async fn test_high_load_streaming() {
 #[tokio::test]
 async fn test_configuration_validation() {
     let stream_id = "validation_test".to_string();
-    
+
     // Test extreme configurations
     let extreme_configs = vec![
         StreamConfig {
             bitrate: 100_000_000, // Very high bitrate
-            max_fps: 240,          // Very high FPS
-            width: 7680,           // 8K width
-            height: 4320,          // 8K height
+            max_fps: 240,         // Very high FPS
+            width: 7680,          // 8K width
+            height: 4320,         // 8K height
             codec: VideoCodec::AV1,
             simulcast: None,
         },
         StreamConfig {
-            bitrate: 50_000,       // Very low bitrate
-            max_fps: 1,            // Very low FPS
-            width: 160,            // Very low resolution
+            bitrate: 50_000, // Very low bitrate
+            max_fps: 1,      // Very low FPS
+            width: 160,      // Very low resolution
             height: 120,
             codec: VideoCodec::H264,
             simulcast: None,
@@ -436,17 +446,17 @@ async fn test_configuration_validation() {
 
     for (i, config) in extreme_configs.into_iter().enumerate() {
         let test_stream_id = format!("{}_{}", stream_id, i);
-        
+
         let streamer = WebRTCStreamer::new(test_stream_id, config.clone());
-        
+
         // Should handle extreme configs gracefully
         let result = streamer.start_streaming("test_device".to_string()).await;
         assert!(result.is_ok(), "Should handle extreme config {}", i);
-        
+
         let stats = streamer.get_stats().await;
         assert_eq!(stats.target_bitrate, config.bitrate);
         assert_eq!(stats.resolution, (config.width, config.height));
-        
+
         let _ = streamer.stop_streaming().await;
     }
 }

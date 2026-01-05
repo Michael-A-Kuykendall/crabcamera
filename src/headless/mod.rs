@@ -7,7 +7,9 @@ pub mod types;
 pub use controls::{ControlId, ControlInfo, ControlKind, ControlValue};
 pub use errors::HeadlessError;
 pub use session::HeadlessSession;
-pub use types::{AudioMode, AudioPacket, BufferPolicy, CaptureConfig, DeviceInfo, FormatInfo, Frame};
+pub use types::{
+    AudioMode, AudioPacket, BufferPolicy, CaptureConfig, DeviceInfo, FormatInfo, Frame,
+};
 
 /// List all available camera devices.
 pub fn list_devices() -> Result<Vec<DeviceInfo>, HeadlessError> {

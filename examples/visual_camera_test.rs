@@ -5,9 +5,9 @@
 //!
 //! Run this to see actual camera output saved to disk.
 
-use crabcamera::commands::init::{initialize_camera_system, get_available_cameras};
+use crabcamera::commands::init::{get_available_cameras, initialize_camera_system};
 use crabcamera::platform::PlatformCamera;
-use crabcamera::types::{CameraInitParams, CameraFormat};
+use crabcamera::types::{CameraFormat, CameraInitParams};
 use std::fs;
 
 #[tokio::main]
@@ -91,7 +91,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Capture frame
         match camera.capture_frame() {
             Ok(frame) => {
-                println!("   ✅ Captured frame {}: {}x{} bytes", frame_num, frame.width, frame.height);
+                println!(
+                    "   ✅ Captured frame {}: {}x{} bytes",
+                    frame_num, frame.width, frame.height
+                );
 
                 // Convert RGB data to JPEG
                 let filename = format!("{}/camera_frame_{}.jpg", output_dir, frame_num);
@@ -114,7 +117,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("\n🎉 TEST COMPLETE!");
     println!("=================");
-    println!("📁 Check the '{}' directory for actual camera images!", output_dir);
+    println!(
+        "📁 Check the '{}' directory for actual camera images!",
+        output_dir
+    );
     println!("🖼️  If you see real camera footage in the JPEG files, your camera hardware works!");
     println!("✅ This proves the camera capture pipeline is functional.");
     println!("\n🔗 Next: Test WebRTC streaming with 'cargo run --example webrtc_real_camera_test --features webrtc'");
@@ -123,7 +129,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 // Helper function to save RGB data as JPEG
-fn save_rgb_as_jpeg(rgb_data: &[u8], width: u32, height: u32, filename: &str) -> Result<(), Box<dyn std::error::Error>> {
+fn save_rgb_as_jpeg(
+    rgb_data: &[u8],
+    width: u32,
+    height: u32,
+    filename: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
     // Create RGB image from raw bytes
     let img = image::RgbImage::from_raw(width, height, rgb_data.to_vec())
         .ok_or("Failed to create image from RGB data")?;

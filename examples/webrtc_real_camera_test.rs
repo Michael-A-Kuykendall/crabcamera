@@ -10,9 +10,9 @@
 //! 4. Paste the offer and click "Connect"
 //! 5. You should see your camera stream in the browser
 
+use crabcamera::commands::init::{get_available_cameras, initialize_camera_system};
 #[cfg(feature = "webrtc")]
-use crabcamera::webrtc::{StreamMode, WebRTCStreamer, StreamConfig};
-use crabcamera::commands::init::{initialize_camera_system, get_available_cameras};
+use crabcamera::webrtc::{StreamConfig, StreamMode, WebRTCStreamer};
 
 #[cfg(not(feature = "webrtc"))]
 fn main() {

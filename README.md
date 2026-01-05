@@ -59,7 +59,7 @@
 
 ```toml
 [dependencies]
-crabcamera = { version = "0.6", features = ["recording", "audio", "webrtc"] }
+crabcamera = { version = "0.7", features = ["recording", "audio", "webrtc"] }
 tauri = { version = "2.0", features = ["protocol-asset"] }
 ```
 
@@ -77,50 +77,42 @@ fn main() {
 }
 ```
 
-```json
-// tauri.conf.json
-{
-  "plugins": {
-    "crabcamera": {
-      "audio": true,
-      "webrtc": true
-    }
-  }
-}
-```
+**Note**: This plugin is designed for Tauri 2.x. The plugin is registered in your Rust code as shown above. No additional configuration in `tauri.conf.json` is required for basic usage.
 
 ### Frontend: Professional Photo Capture
 
 ```javascript
-import { invoke } from '@tauri-apps/api/tauri';
+import { invoke } from '@tauri-apps/api/core';
 
 // Initialize professional camera system
-await invoke('initialize_camera_system');
+await invoke('plugin:crabcamera|initialize_camera_system');
 
 // Get cameras with quality analysis
-const cameras = await invoke('get_available_cameras');
-const format = await invoke('get_recommended_format');
+const cameras = await invoke('plugin:crabcamera|get_available_cameras');
+const format = await invoke('plugin:crabcamera|get_recommended_format');
 
 // Capture with quality validation
-const photo = await invoke('capture_single_photo', {
+const photo = await invoke('plugin:crabcamera|capture_single_photo', {
   deviceId: cameras[0].id,
   format: format,
   quality: { min_score: 0.8 }  // Professional quality threshold
 });
 ```
 
+**Important**: All CrabCamera commands must be invoked with the `plugin:crabcamera|` prefix when using Tauri 2.x.
+
 ### Frontend: Synchronized A/V Recording
 
 ```javascript
-import { invoke } from '@tauri-apps/api/tauri';
+import { invoke } from '@tauri-apps/api/core';
 
 // Professional A/V setup
-await invoke('initialize_camera_system');
-const audioDevices = await invoke('list_audio_devices');
+await invoke('plugin:crabcamera|initialize_camera_system');
+const audioDevices = await invoke('plugin:crabcamera|list_audio_devices');
 const audioDevice = audioDevices.find(d => d.is_default);
 
 // Enterprise-grade recording with perfect sync
-await invoke('start_recording', {
+await invoke('plugin:crabcamera|start_recording', {
   outputPath: 'professional_recording.mp4',
   videoConfig: {
     deviceId: cameras[0].id,
@@ -138,20 +130,20 @@ await invoke('start_recording', {
 });
 
 // Automatic PTS-based synchronization
-await invoke('stop_recording');
+await invoke('plugin:crabcamera|stop_recording');
 console.log('🎬 Professional recording complete with perfect A/V sync');
 ```
 
 ### Frontend: WebRTC Live Streaming
 
 ```javascript
-import { invoke } from '@tauri-apps/api/tauri';
+import { invoke } from '@tauri-apps/api/core';
 
 // Initialize WebRTC streaming system
-await invoke('initialize_camera_system');
+await invoke('plugin:crabcamera|initialize_camera_system');
 
 // Start professional live stream
-await invoke('start_webrtc_stream', {
+await invoke('plugin:crabcamera|start_webrtc_stream', {
   deviceId: cameras[0].id,
   config: {
     codec: 'h264',
@@ -162,13 +154,13 @@ await invoke('start_webrtc_stream', {
 });
 
 // Get SDP offer for browser integration
-const offer = await invoke('get_webrtc_offer');
+const offer = await invoke('plugin:crabcamera|get_webrtc_offer');
 
 // In browser: Create RTCPeerConnection and setRemoteDescription(offer)
 // Then send answer back to complete handshake
 
 // Apply browser's SDP answer
-await invoke('apply_webrtc_answer', { sdpAnswer: browserAnswer });
+await invoke('plugin:crabcamera|apply_webrtc_answer', { sdpAnswer: browserAnswer });
 
 // Professional streaming active!
 console.log('📡 Live WebRTC streaming to browser');
@@ -577,13 +569,13 @@ See our amazing [sponsors](SPONSORS.md) who make 🦀 CrabCamera possible! 🙏
 ### Photo Booth Application
 ```javascript
 // Simple photo booth with camera selection
-const cameras = await invoke('get_available_cameras');
+const cameras = await invoke('plugin:crabcamera|get_available_cameras');
 const selectedCamera = cameras[0];
-const format = await invoke('get_recommended_format');
+const format = await invoke('plugin:crabcamera|get_recommended_format');
 
 // Take photo when user clicks
 document.getElementById('capture').onclick = async () => {
-    const photo = await invoke('capture_single_photo', {
+    const photo = await invoke('plugin:crabcamera|capture_single_photo', {
         deviceId: selectedCamera.id,
         format: format
     });
@@ -595,12 +587,12 @@ document.getElementById('capture').onclick = async () => {
 ### Professional Video Recorder
 ```javascript
 // Video + audio recording with sync
-const cameras = await invoke('get_available_cameras');
-const audioDevices = await invoke('list_audio_devices');
+const cameras = await invoke('plugin:crabcamera|get_available_cameras');
+const audioDevices = await invoke('plugin:crabcamera|list_audio_devices');
 const defaultAudio = audioDevices.find(d => d.is_default);
 
 // Start recording with A/V sync
-await invoke('start_recording', {
+await invoke('plugin:crabcamera|start_recording', {
     outputPath: 'recording.mp4',
     videoConfig: {
         deviceId: cameras[0].id,
@@ -619,7 +611,7 @@ await invoke('start_recording', {
 
 // No sync configuration needed - automatic!
 setTimeout(async () => {
-    await invoke('stop_recording');
+    await invoke('plugin:crabcamera|stop_recording');
     console.log('✅ Recording with perfect A/V sync saved');
 }, 30000); // 30 second recording
 ```
@@ -627,9 +619,9 @@ setTimeout(async () => {
 ### Multi-Camera Security System
 ```javascript
 // Monitor multiple cameras
-const cameras = await invoke('get_available_cameras');
+const cameras = await invoke('plugin:crabcamera|get_available_cameras');
 for (const camera of cameras) {
-    await invoke('start_camera_preview', { deviceId: camera.id });
+    await invoke('plugin:crabcamera|start_camera_preview', { deviceId: camera.id });
     // Set up streaming handlers for each camera
     setupCameraStream(camera);
 }
@@ -638,14 +630,14 @@ for (const camera of cameras) {
 ### Podcast Studio
 ```javascript
 // Record podcast with high-quality audio + optional video
-const audioDevices = await invoke('list_audio_devices');
+const audioDevices = await invoke('plugin:crabcamera|list_audio_devices');
 
 // Find a professional USB microphone
 const usbMic = audioDevices.find(d => 
     d.name.includes('USB') && d.channels === 2
 );
 
-await invoke('start_recording', {
+await invoke('plugin:crabcamera|start_recording', {
     outputPath: 'podcast_episode_42.mp4',
     audioConfig: {
         deviceId: usbMic.id,

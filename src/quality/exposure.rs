@@ -130,7 +130,9 @@ impl ExposureAnalyzer {
     /// Calculate 256-bin histogram
     fn calculate_histogram(&self, luminance: &[u8]) -> Vec<u32> {
         let mut histogram = vec![0u32; 256];
-        luminance.iter().for_each(|&pixel| histogram[pixel as usize] += 1);
+        luminance
+            .iter()
+            .for_each(|&pixel| histogram[pixel as usize] += 1);
         histogram
     }
 

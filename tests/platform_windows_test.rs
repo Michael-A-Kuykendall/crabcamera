@@ -9,20 +9,19 @@
 mod platform_windows_tests {
     use crabcamera::errors::CameraError;
     use crabcamera::platform::windows::{initialize_camera, list_cameras, WindowsCamera};
-    use crabcamera::types::{CameraFormat, CameraInitParams, WhiteBalance, CameraControls};
+    use crabcamera::types::{CameraControls, CameraFormat, CameraInitParams, WhiteBalance};
     use std::time::Duration;
 
     /// Helper function to create test camera initialization parameters
     fn create_test_params(device_id: &str) -> CameraInitParams {
-        CameraInitParams::new(device_id.to_string())
-            .with_format(CameraFormat::new(640, 480, 30.0))
+        CameraInitParams::new(device_id.to_string()).with_format(CameraFormat::new(640, 480, 30.0))
     }
 
     /// Helper function to check if we're running in a CI/container environment
     fn is_ci_environment() -> bool {
-        std::env::var("CI").is_ok() || 
-        std::env::var("GITHUB_ACTIONS").is_ok() ||
-        std::env::var("APPVEYOR").is_ok()
+        std::env::var("CI").is_ok()
+            || std::env::var("GITHUB_ACTIONS").is_ok()
+            || std::env::var("APPVEYOR").is_ok()
     }
 
     #[test]
@@ -40,7 +39,7 @@ mod platform_windows_tests {
                 for camera in &cameras {
                     assert!(!camera.id.is_empty(), "Camera ID should not be empty");
                     assert!(!camera.name.is_empty(), "Camera name should not be empty");
-                    
+
                     // Verify device ID is numeric (required for Windows implementation)
                     let parse_result: Result<u32, _> = camera.id.parse();
                     assert!(
@@ -77,8 +76,11 @@ mod platform_windows_tests {
                     // Verify frame rates are reasonable for Windows
                     for format in &camera.supports_formats {
                         assert!(format.fps > 0.0, "FPS should be positive");
-                        assert!(format.fps <= 120.0, "FPS should be reasonable for Windows cameras");
-                        
+                        assert!(
+                            format.fps <= 120.0,
+                            "FPS should be reasonable for Windows cameras"
+                        );
+
                         // Verify aspect ratios
                         let aspect_ratio = format.width as f64 / format.height as f64;
                         assert!(
@@ -221,16 +223,16 @@ mod platform_windows_tests {
     fn test_windows_camera_initialization_with_various_formats() {
         // Test different common Windows camera formats
         let test_formats = vec![
-            CameraFormat::new(1920, 1080, 30.0),  // Full HD
-            CameraFormat::new(1280, 720, 60.0),   // HD 60fps  
-            CameraFormat::new(640, 480, 30.0),    // VGA
-            CameraFormat::new(320, 240, 30.0),    // QVGA
+            CameraFormat::new(1920, 1080, 30.0), // Full HD
+            CameraFormat::new(1280, 720, 60.0),  // HD 60fps
+            CameraFormat::new(640, 480, 30.0),   // VGA
+            CameraFormat::new(320, 240, 30.0),   // QVGA
         ];
-        
+
         for format in test_formats {
             let params = CameraInitParams::new("0".to_string()).with_format(format.clone());
             let result = WindowsCamera::new(params.device_id, params.format);
-            
+
             match result {
                 Ok(camera) => {
                     // Verify camera was created successfully
@@ -245,27 +247,30 @@ mod platform_windows_tests {
         }
     }
 
-    #[test] 
+    #[test]
     fn test_windows_camera_stream_lifecycle() {
         let params = create_test_params("0");
-        
+
         match WindowsCamera::new(params.device_id, params.format) {
             Ok(mut camera) => {
                 // Test initial state
                 let initial_available = camera.is_available();
-                assert!(initial_available, "Windows camera should be available initially");
-                
+                assert!(
+                    initial_available,
+                    "Windows camera should be available initially"
+                );
+
                 // Test starting stream
                 let start_result = camera.start_stream();
                 match start_result {
                     Ok(()) => {
-                        // Stream started successfully 
+                        // Stream started successfully
                         assert!(camera.is_stream_open(), "Stream should be open");
-                        
+
                         // Test stopping stream
                         let stop_result = camera.stop_stream();
                         assert!(stop_result.is_ok(), "Stopping stream should succeed");
-                        
+
                         // Test stream state after stopping
                         assert!(!camera.is_stream_open(), "Stream should be closed");
                     }
@@ -285,13 +290,13 @@ mod platform_windows_tests {
     #[test]
     fn test_windows_camera_capture_frame_functionality() {
         let params = create_test_params("0");
-        
+
         match WindowsCamera::new(params.device_id, params.format) {
             Ok(mut camera) => {
                 // Start stream first
                 if camera.start_stream().is_ok() {
                     let capture_result = camera.capture_frame();
-                    
+
                     match capture_result {
                         Ok(frame) => {
                             // Validate captured frame
@@ -299,13 +304,10 @@ mod platform_windows_tests {
                             assert!(frame.height > 0, "Frame height should be positive");
                             assert!(!frame.data.is_empty(), "Frame data should not be empty");
                             assert_eq!(frame.device_id, "0");
-                            
+
                             // Should be converted to RGB8 on Windows
-                            assert!(
-                                frame.format == "RGB8",
-                                "Frame should be RGB8 format"
-                            );
-                            
+                            assert!(frame.format == "RGB8", "Frame should be RGB8 format");
+
                             // Verify frame data size is reasonable
                             let expected_min_size = (frame.width * frame.height * 3) as usize; // RGB8
                             assert!(
@@ -318,7 +320,7 @@ mod platform_windows_tests {
                         }
                         Err(e) => panic!("Unexpected error capturing frame: {:?}", e),
                     }
-                    
+
                     let _ = camera.stop_stream();
                 }
             }
@@ -332,7 +334,7 @@ mod platform_windows_tests {
     #[test]
     fn test_windows_media_foundation_controls() {
         let params = create_test_params("0");
-        
+
         match WindowsCamera::new(params.device_id, params.format) {
             Ok(mut camera) => {
                 // Test MediaFoundation controls interface
@@ -340,7 +342,7 @@ mod platform_windows_tests {
                     brightness: Some(0.5),
                     contrast: Some(0.7),
                     saturation: Some(0.6),
-                    exposure_time: Some(0.033),  // ~30fps
+                    exposure_time: Some(0.033), // ~30fps
                     focus_distance: Some(0.8),
                     white_balance: Some(WhiteBalance::Daylight),
                     iso_sensitivity: Some(400),
@@ -352,7 +354,7 @@ mod platform_windows_tests {
                     noise_reduction: Some(false),
                     sharpness: Some(0.5),
                 };
-                
+
                 // Test applying controls
                 let apply_result = camera.apply_controls(&test_controls);
                 match apply_result {
@@ -365,7 +367,7 @@ mod platform_windows_tests {
                         println!("MediaFoundation controls error (expected): {:?}", e);
                     }
                 }
-                
+
                 // Test getting current controls
                 let get_result = camera.get_controls();
                 match get_result {
@@ -389,27 +391,39 @@ mod platform_windows_tests {
     #[test]
     fn test_windows_camera_capabilities() {
         let params = create_test_params("0");
-        
+
         match WindowsCamera::new(params.device_id, params.format) {
             Ok(camera) => {
                 let capabilities_result = camera.test_capabilities();
-                
+
                 match capabilities_result {
                     Ok(capabilities) => {
                         // Validate capability fields
-                        assert!(capabilities.max_resolution.0 > 0, "Max width should be positive");
-                        assert!(capabilities.max_resolution.1 > 0, "Max height should be positive");
+                        assert!(
+                            capabilities.max_resolution.0 > 0,
+                            "Max width should be positive"
+                        );
+                        assert!(
+                            capabilities.max_resolution.1 > 0,
+                            "Max height should be positive"
+                        );
                         assert!(capabilities.max_fps > 0.0, "Max FPS should be positive");
-                        
+
                         // Windows should typically support burst mode
-                        assert!(capabilities.supports_burst_mode, "Windows should support burst mode");
-                        
-                        // Log Windows-specific capabilities  
+                        assert!(
+                            capabilities.supports_burst_mode,
+                            "Windows should support burst mode"
+                        );
+
+                        // Log Windows-specific capabilities
                         println!("Windows camera capabilities:");
                         println!("  Auto Focus: {}", capabilities.supports_auto_focus);
                         println!("  Manual Focus: {}", capabilities.supports_manual_focus);
                         println!("  Auto Exposure: {}", capabilities.supports_auto_exposure);
-                        println!("  Manual Exposure: {}", capabilities.supports_manual_exposure);
+                        println!(
+                            "  Manual Exposure: {}",
+                            capabilities.supports_manual_exposure
+                        );
                         println!("  White Balance: {}", capabilities.supports_white_balance);
                         println!("  Zoom: {}", capabilities.supports_zoom);
                         println!("  Flash: {}", capabilities.supports_flash);
@@ -431,22 +445,22 @@ mod platform_windows_tests {
     fn test_windows_camera_invalid_device_ids_extended() {
         let invalid_ids = vec![
             "invalid_string",
-            "-1", 
+            "-1",
             "999",
             "",
             "abc123",
             "0x1",
             "1.5",
-            " 0 ",  // Spaces
+            " 0 ",     // Spaces
             "9999999", // Very large number
         ];
-        
+
         for invalid_id in invalid_ids {
             let params = CameraInitParams::new(invalid_id.to_string())
                 .with_format(CameraFormat::new(640, 480, 30.0));
-            
+
             let result = WindowsCamera::new(params.device_id, params.format);
-            
+
             match result {
                 Err(CameraError::InitializationError(msg)) => {
                     assert!(
@@ -456,7 +470,7 @@ mod platform_windows_tests {
                     );
                 }
                 Err(e) => {
-                    // Other errors might be acceptable depending on MediaFoundation behavior  
+                    // Other errors might be acceptable depending on MediaFoundation behavior
                     println!("Got error for invalid device ID {}: {:?}", invalid_id, e);
                 }
                 Ok(_) => {
@@ -470,26 +484,26 @@ mod platform_windows_tests {
     fn test_windows_multiple_backend_support() {
         // Test that Windows implementation can handle multiple backends
         let result = list_cameras();
-        
+
         match result {
             Ok(cameras) => {
                 // Windows implementation should try MediaFoundation + Auto backends
                 // Verify no duplicate cameras from different backends
                 let mut seen_names = std::collections::HashSet::new();
                 let mut duplicates = Vec::new();
-                
+
                 for camera in &cameras {
                     if !seen_names.insert(camera.name.clone()) {
                         duplicates.push(&camera.name);
                     }
                 }
-                
+
                 assert!(
                     duplicates.is_empty(),
                     "Should not have duplicate cameras from different backends: {:?}",
                     duplicates
                 );
-                
+
                 // Log backend discovery results
                 if !cameras.is_empty() {
                     println!("Found {} Windows cameras without duplicates", cameras.len());
@@ -506,12 +520,12 @@ mod platform_windows_tests {
     fn test_windows_mjpeg_to_rgb_conversion() {
         // Test Windows-specific MJPEG to RGB8 conversion
         let params = create_test_params("0");
-        
+
         match WindowsCamera::new(params.device_id, params.format) {
             Ok(mut camera) => {
                 if camera.start_stream().is_ok() {
                     let capture_result = camera.capture_frame();
-                    
+
                     match capture_result {
                         Ok(frame) => {
                             // Windows should convert MJPEG to RGB8
@@ -519,20 +533,23 @@ mod platform_windows_tests {
                                 frame.format == "RGB8",
                                 "Windows should convert frames to RGB8"
                             );
-                            
+
                             // Data should not look like MJPEG (no FF D8 FF header)
                             if frame.data.len() >= 3 {
-                                let is_mjpeg = frame.data[0] == 0xFF && 
-                                              frame.data[1] == 0xD8 && 
-                                              frame.data[2] == 0xFF;
-                                assert!(!is_mjpeg, "Frame data should not be MJPEG after conversion");
+                                let is_mjpeg = frame.data[0] == 0xFF
+                                    && frame.data[1] == 0xD8
+                                    && frame.data[2] == 0xFF;
+                                assert!(
+                                    !is_mjpeg,
+                                    "Frame data should not be MJPEG after conversion"
+                                );
                             }
                         }
                         Err(_) => {
                             // Capture errors acceptable without hardware
                         }
                     }
-                    
+
                     let _ = camera.stop_stream();
                 }
             }
@@ -547,14 +564,14 @@ mod platform_windows_tests {
     fn test_windows_camera_thread_safety() {
         use std::sync::{Arc, Mutex};
         use std::thread;
-        
+
         let params = create_test_params("0");
-        
+
         match WindowsCamera::new(params.device_id, params.format) {
             Ok(camera) => {
                 let camera_arc = Arc::new(Mutex::new(camera));
                 let mut handles = vec![];
-                
+
                 // Test concurrent access to camera operations
                 for i in 0..3 {
                     let camera_clone = Arc::clone(&camera_arc);
@@ -573,7 +590,7 @@ mod platform_windows_tests {
                     });
                     handles.push(handle);
                 }
-                
+
                 // Wait for all threads to complete
                 for (i, handle) in handles.into_iter().enumerate() {
                     let result = handle.join().expect("Thread should not panic");
@@ -590,12 +607,12 @@ mod platform_windows_tests {
     #[test]
     fn test_windows_camera_drop_cleanup() {
         let params = create_test_params("0");
-        
+
         match WindowsCamera::new(params.device_id, params.format) {
             Ok(mut camera) => {
                 // Start stream to test cleanup
                 let _ = camera.start_stream();
-                
+
                 // Camera should be properly cleaned up when dropped
                 assert_eq!(camera.get_device_id(), "0");
                 assert!(camera.is_available());
@@ -611,22 +628,23 @@ mod platform_windows_tests {
     #[test]
     fn test_windows_error_message_quality() {
         // Test that error messages are informative for debugging
-        let invalid_params = CameraInitParams::new("invalid".to_string())
-            .with_format(CameraFormat::new(0, 0, 0.0));
-        
+        let invalid_params =
+            CameraInitParams::new("invalid".to_string()).with_format(CameraFormat::new(0, 0, 0.0));
+
         let result = WindowsCamera::new(invalid_params.device_id, invalid_params.format);
-        
+
         if let Err(CameraError::InitializationError(msg)) = result {
             assert!(!msg.is_empty(), "Error message should not be empty");
             assert!(msg.len() > 10, "Error message should be descriptive");
-            
+
             // Should mention the specific issue
             let msg_lower = msg.to_lowercase();
             assert!(
-                msg_lower.contains("invalid") || 
-                msg_lower.contains("failed") || 
-                msg_lower.contains("error"),
-                "Error message should be informative: {}", msg
+                msg_lower.contains("invalid")
+                    || msg_lower.contains("failed")
+                    || msg_lower.contains("error"),
+                "Error message should be informative: {}",
+                msg
             );
         }
     }
@@ -634,20 +652,20 @@ mod platform_windows_tests {
     #[test]
     fn test_windows_camera_state_consistency() {
         let params = create_test_params("0");
-        
+
         match WindowsCamera::new(params.device_id, params.format) {
             Ok(camera) => {
                 // Test consistent device ID
                 let device_id1 = camera.get_device_id();
                 let device_id2 = camera.get_device_id();
                 assert_eq!(device_id1, device_id2, "Device ID should be consistent");
-                
+
                 // Test availability consistency
                 let available1 = camera.is_available();
                 std::thread::sleep(Duration::from_millis(10));
                 let available2 = camera.is_available();
                 assert_eq!(available1, available2, "Availability should be consistent");
-                
+
                 // Test stream state consistency
                 let stream1 = camera.is_stream_open();
                 let stream2 = camera.is_stream_open();
@@ -664,7 +682,7 @@ mod platform_windows_tests {
     fn test_windows_specific_media_foundation_backend() {
         // Test Windows MediaFoundation specific behavior
         let result = list_cameras();
-        
+
         match result {
             Ok(cameras) => {
                 for camera in cameras {
@@ -675,18 +693,22 @@ mod platform_windows_tests {
                         "Windows camera ID should be numeric: {}",
                         camera.id
                     );
-                    
+
                     // Should have detailed descriptions from MediaFoundation
                     assert!(
                         camera.description.as_ref().map_or(false, |s| !s.is_empty()),
                         "MediaFoundation should provide camera descriptions"
                     );
-                    
+
                     // Should support typical Windows resolutions
-                    let has_hd = camera.supports_formats.iter().any(|f| {
-                        f.width >= 1280 && f.height >= 720
-                    });
-                    assert!(has_hd, "Windows cameras should typically support HD resolutions");
+                    let has_hd = camera
+                        .supports_formats
+                        .iter()
+                        .any(|f| f.width >= 1280 && f.height >= 720);
+                    assert!(
+                        has_hd,
+                        "Windows cameras should typically support HD resolutions"
+                    );
                 }
             }
             Err(CameraError::InitializationError(_)) => {
@@ -696,18 +718,18 @@ mod platform_windows_tests {
         }
     }
 
-    #[test] 
+    #[test]
     fn test_windows_control_range_normalization() {
         // Test Windows-specific control range normalization
         let params = create_test_params("0");
-        
+
         match WindowsCamera::new(params.device_id, params.format) {
             Ok(mut camera) => {
                 // Test normalized control values (0.0-1.0)
                 let normalized_controls = CameraControls {
-                    brightness: Some(0.0),    // Minimum
-                    contrast: Some(0.5),      // Middle
-                    saturation: Some(1.0),    // Maximum
+                    brightness: Some(0.0),      // Minimum
+                    contrast: Some(0.5),        // Middle
+                    saturation: Some(1.0),      // Maximum
                     focus_distance: Some(0.75), // 3/4
                     exposure_time: Some(0.033), // 1/30 second
                     white_balance: Some(WhiteBalance::Custom(5500)),
@@ -715,7 +737,7 @@ mod platform_windows_tests {
                     auto_exposure: Some(false),
                     ..Default::default()
                 };
-                
+
                 let result = camera.apply_controls(&normalized_controls);
                 match result {
                     Ok(unsupported) => {
@@ -727,15 +749,15 @@ mod platform_windows_tests {
                         println!("Control application failed (expected): {:?}", e);
                     }
                 }
-                
+
                 // Test extreme values don't crash
                 let extreme_controls = CameraControls {
-                    brightness: Some(-2.0),    // Beyond range
-                    contrast: Some(5.0),       // Beyond range
-                    saturation: Some(-1.0),    // Beyond range
+                    brightness: Some(-2.0), // Beyond range
+                    contrast: Some(5.0),    // Beyond range
+                    saturation: Some(-1.0), // Beyond range
                     ..Default::default()
                 };
-                
+
                 let extreme_result = camera.apply_controls(&extreme_controls);
                 // Should handle out-of-range values gracefully
                 match extreme_result {

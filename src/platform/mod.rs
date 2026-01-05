@@ -90,7 +90,9 @@ impl MockCamera {
         F: Fn(CameraFrame) + Send + 'static,
     {
         // Mock doesn't support callback
-        Err(CameraError::UnsupportedOperation("Frame callback not supported in mock".to_string()))
+        Err(CameraError::UnsupportedOperation(
+            "Frame callback not supported in mock".to_string(),
+        ))
     }
 
     pub fn is_available(&self) -> bool {

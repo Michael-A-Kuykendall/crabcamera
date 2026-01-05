@@ -15,7 +15,11 @@ lazy_static::lazy_static! {
     static ref STREAM_TO_PEER: RwLock<HashMap<String, String>> = RwLock::new(HashMap::new());
 }
 
-fn build_rtp_packet_bytes(payload_type: u8, ssrc: u32, rtp_packet: &crate::webrtc::streaming::RtpPayload) -> Vec<u8> {
+fn build_rtp_packet_bytes(
+    payload_type: u8,
+    ssrc: u32,
+    rtp_packet: &crate::webrtc::streaming::RtpPayload,
+) -> Vec<u8> {
     let mut rtp_bytes = Vec::with_capacity(12 + rtp_packet.data.len());
 
     // RTP header (12 bytes)
@@ -52,7 +56,8 @@ pub async fn start_webrtc_stream(
 ) -> Result<String, String> {
     log::info!(
         "Starting WebRTC stream {} for device {}",
-        stream_id, device_id
+        stream_id,
+        device_id
     );
 
     // Prevent duplicate stream IDs up-front to avoid spawning a stream task that can't be tracked.
@@ -188,14 +193,18 @@ pub async fn associate_stream_with_peer(
             bitrate: 2_000_000,
             fps: 30,
         };
-        peer.add_simulcast_video_transceivers(&[default_layer]).await
+        peer.add_simulcast_video_transceivers(&[default_layer])
+            .await
             .map_err(|e| format!("Failed to add video transceiver: {}", e))?;
     }
 
     // Get available track RIDs from peer (should have at least one now)
     let track_rids = peer.get_video_track_rids().await;
     if track_rids.is_empty() {
-        return Err(format!("No video tracks available on peer {} after setup", peer_id));
+        return Err(format!(
+            "No video tracks available on peer {} after setup",
+            peer_id
+        ));
     }
 
     // Use the first track RID (assuming single stream for now)
@@ -207,22 +216,37 @@ pub async fn associate_stream_with_peer(
     let stream_id_clone = stream_id.clone();
     let peer_id_clone = peer_id.clone();
     tokio::spawn(async move {
-        log::info!("Starting RTP forwarding from stream {} to peer {} track {}", stream_id_clone, peer_id_clone, track_rid_clone);
-        
+        log::info!(
+            "Starting RTP forwarding from stream {} to peer {} track {}",
+            stream_id_clone,
+            peer_id_clone,
+            track_rid_clone
+        );
+
         while let Some(rtp_packet) = rtp_receiver.recv().await {
             // Convert RtpPayload to raw RTP bytes for sending
             let rtp_bytes = build_rtp_packet_bytes(96, 12345u32, &rtp_packet);
 
-            if let Err(e) = peer_clone.send_rtp_to_track(&track_rid_clone, &rtp_bytes).await {
+            if let Err(e) = peer_clone
+                .send_rtp_to_track(&track_rid_clone, &rtp_bytes)
+                .await
+            {
                 log::error!("Failed to send RTP packet to peer {}: {}", peer_id_clone, e);
                 break;
             }
         }
-        
-        log::info!("RTP forwarding stopped for stream {} to peer {}", stream_id_clone, peer_id_clone);
+
+        log::info!(
+            "RTP forwarding stopped for stream {} to peer {}",
+            stream_id_clone,
+            peer_id_clone
+        );
     });
 
-    Ok(format!("Stream {} associated with peer {} (track {})", stream_id, peer_id, track_rid))
+    Ok(format!(
+        "Stream {} associated with peer {} (track {})",
+        stream_id, peer_id, track_rid
+    ))
 }
 
 #[cfg(test)]
@@ -245,7 +269,10 @@ mod rtp_tests {
         assert_eq!(bytes[0], 0x80);
         assert_eq!(bytes[1] & 0x7F, 96);
         assert_eq!(bytes[1] & 0x80, 0x80);
-        assert_eq!(u16::from_be_bytes([bytes[2], bytes[3]]), payload.sequence_number);
+        assert_eq!(
+            u16::from_be_bytes([bytes[2], bytes[3]]),
+            payload.sequence_number
+        );
 
         let ts32 = u32::from_be_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]);
         assert_eq!(ts32, (payload.timestamp & 0xFFFF_FFFF) as u32);
@@ -350,8 +377,15 @@ pub async fn get_local_ice_candidates(peer_id: String) -> Result<Vec<IceCandidat
 
 /// Add video transceivers for simulcast streaming
 #[command]
-pub async fn add_video_transceivers(peer_id: String, layers: Vec<crate::webrtc::streaming::SimulcastLayer>) -> Result<String, String> {
-    log::info!("Adding video transceivers for peer {} with {} layers", peer_id, layers.len());
+pub async fn add_video_transceivers(
+    peer_id: String,
+    layers: Vec<crate::webrtc::streaming::SimulcastLayer>,
+) -> Result<String, String> {
+    log::info!(
+        "Adding video transceivers for peer {} with {} layers",
+        peer_id,
+        layers.len()
+    );
 
     let peers = PEER_CONNECTIONS.read().await;
 
@@ -505,7 +539,10 @@ pub async fn set_webrtc_stream_bitrate(stream_id: String, bitrate: u32) -> Resul
     let streamers = STREAMERS.read().await;
     if let Some(streamer) = streamers.get(&stream_id) {
         streamer.set_bitrate(bitrate).await;
-        Ok(format!("Stream {} bitrate set to {} bps", stream_id, bitrate))
+        Ok(format!(
+            "Stream {} bitrate set to {} bps",
+            stream_id, bitrate
+        ))
     } else {
         Err(format!("WebRTC stream {} not found", stream_id))
     }

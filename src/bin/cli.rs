@@ -111,14 +111,15 @@ fn cmd_capture(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
             if json {
                 println!("{}", serde_json::to_string(&f)?);
             } else {
-                println!("Frame: {}x{} {} seq:{}", f.width, f.height, f.format, f.sequence);
+                println!(
+                    "Frame: {}x{} {} seq:{}",
+                    f.width, f.height, f.format, f.sequence
+                );
             }
+        } else if json {
+            println!("null");
         } else {
-            if json {
-                println!("null");
-            } else {
-                println!("Timeout");
-            }
+            println!("Timeout");
         }
     }
 
@@ -141,7 +142,12 @@ fn cmd_list_controls(args: &[String]) -> Result<(), Box<dyn std::error::Error>> 
     // Open session to list controls
     let config = CaptureConfig {
         device_id: device_id.clone(),
-        format: CameraFormat { width: 640, height: 480, fps: 30.0, format_type: "MJPEG".to_string() }, // dummy
+        format: CameraFormat {
+            width: 640,
+            height: 480,
+            fps: 30.0,
+            format_type: "MJPEG".to_string(),
+        }, // dummy
         buffer_policy: BufferPolicy::DropOldest { capacity: 2 },
         audio_mode: AudioMode::Disabled,
         audio_device_id: None,
@@ -185,7 +191,12 @@ fn cmd_set_control(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     // Open session
     let config = CaptureConfig {
         device_id: device_id.clone(),
-        format: CameraFormat { width: 640, height: 480, fps: 30.0, format_type: "MJPEG".to_string() }, // dummy
+        format: CameraFormat {
+            width: 640,
+            height: 480,
+            fps: 30.0,
+            format_type: "MJPEG".to_string(),
+        }, // dummy
         buffer_policy: BufferPolicy::DropOldest { capacity: 2 },
         audio_mode: AudioMode::Disabled,
         audio_device_id: None,
@@ -210,21 +221,29 @@ fn cmd_set_control(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
 fn parse_control_value(id: ControlId, s: &str) -> Result<ControlValue, Box<dyn std::error::Error>> {
     use ControlValue::*;
     match id {
-        ControlId::AutoFocus | ControlId::AutoExposure | ControlId::NoiseReduction | ControlId::ImageStabilization => {
-            match s {
-                "true" | "1" => Ok(Bool(true)),
-                "false" | "0" => Ok(Bool(false)),
-                _ => Err(format!("Invalid bool value: {}", s).into()),
-            }
-        }
-        ControlId::FocusDistance | ControlId::ExposureTime | ControlId::Aperture | ControlId::Zoom | ControlId::Brightness | ControlId::Contrast | ControlId::Saturation | ControlId::Sharpness => {
-            Ok(F32(s.parse()?))
-        }
+        ControlId::AutoFocus
+        | ControlId::AutoExposure
+        | ControlId::NoiseReduction
+        | ControlId::ImageStabilization => match s {
+            "true" | "1" => Ok(Bool(true)),
+            "false" | "0" => Ok(Bool(false)),
+            _ => Err(format!("Invalid bool value: {}", s).into()),
+        },
+        ControlId::FocusDistance
+        | ControlId::ExposureTime
+        | ControlId::Aperture
+        | ControlId::Zoom
+        | ControlId::Brightness
+        | ControlId::Contrast
+        | ControlId::Saturation
+        | ControlId::Sharpness => Ok(F32(s.parse()?)),
         ControlId::IsoSensitivity => Ok(U32(s.parse()?)),
         ControlId::WhiteBalance => {
             // For simplicity, only support auto for now
             if s == "auto" {
-                Ok(ControlValue::WhiteBalance(crabcamera::types::WhiteBalance::Auto))
+                Ok(ControlValue::WhiteBalance(
+                    crabcamera::types::WhiteBalance::Auto,
+                ))
             } else {
                 Err(format!("Only 'auto' supported for white balance, got: {}", s).into())
             }

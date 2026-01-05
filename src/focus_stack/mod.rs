@@ -113,7 +113,10 @@ impl std::fmt::Display for FocusStackError {
                     expected.0, expected.1, got.0, got.1
                 )
             }
-            Self::DataCorruption { frame_size, expected_size } => {
+            Self::DataCorruption {
+                frame_size,
+                expected_size,
+            } => {
                 write!(
                     f,
                     "Frame data corruption: got {} bytes, expected {}",

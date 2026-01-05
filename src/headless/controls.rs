@@ -222,6 +222,8 @@ pub fn validate_control_value(id: ControlId, value: &ControlValue) -> Result<(),
             Ok(())
         }
         (ControlKind::WhiteBalance, ControlValue::WhiteBalance(_)) => Ok(()),
-        _ => Err(HeadlessError::invalid_argument("control value kind mismatch")),
+        _ => Err(HeadlessError::invalid_argument(
+            "control value kind mismatch",
+        )),
     }
 }

@@ -12,13 +12,13 @@
 #![cfg(feature = "webrtc")]
 
 use crabcamera::commands::webrtc::{
-    create_peer_connection, create_webrtc_offer, create_webrtc_answer,
-    set_remote_description, add_ice_candidate, get_local_ice_candidates,
-    get_peer_connection_status, close_peer_connection, add_video_transceivers
+    add_ice_candidate, add_video_transceivers, close_peer_connection, create_peer_connection,
+    create_webrtc_answer, create_webrtc_offer, get_local_ice_candidates,
+    get_peer_connection_status, set_remote_description,
 };
 use crabcamera::webrtc::peer::{
-    PeerConnection, RTCConfiguration, IceServer, IceTransportPolicy, BundlePolicy,
-    SessionDescription, SdpType, IceCandidate, ConnectionState
+    BundlePolicy, ConnectionState, IceCandidate, IceServer, IceTransportPolicy, PeerConnection,
+    RTCConfiguration, SdpType, SessionDescription,
 };
 use crabcamera::webrtc::streaming;
 
@@ -28,7 +28,11 @@ async fn test_peer_connection_basic_lifecycle() {
 
     // Create peer connection
     let result = create_peer_connection(peer_id.clone(), None).await;
-    assert!(result.is_ok(), "Failed to create peer connection: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "Failed to create peer connection: {:?}",
+        result
+    );
 
     // Check initial status
     let status = get_peer_connection_status(peer_id.clone()).await;
@@ -106,7 +110,10 @@ async fn test_sdp_offer_creation() {
     assert!(status.is_ok());
     let status = status.unwrap();
     assert!(matches!(status.state, ConnectionState::New));
-    assert!(status.has_local_description, "Should have local description after offer");
+    assert!(
+        status.has_local_description,
+        "Should have local description after offer"
+    );
 
     // Cleanup
     let _ = close_peer_connection(peer_id).await;
@@ -129,7 +136,10 @@ async fn test_sdp_answer_creation() {
         fps: 30,
     }];
     let result = add_video_transceivers(peer_id.clone(), layers).await;
-    assert!(result.is_ok(), "Failed to add video transceivers to local peer");
+    assert!(
+        result.is_ok(),
+        "Failed to add video transceivers to local peer"
+    );
 
     // Create a valid remote offer first (create offer from another peer)
     let remote_peer_id = "test_remote_peer".to_string();
@@ -145,7 +155,10 @@ async fn test_sdp_answer_creation() {
         fps: 30,
     }];
     let result = add_video_transceivers(remote_peer_id.clone(), layers).await;
-    assert!(result.is_ok(), "Failed to add video transceivers to remote peer");
+    assert!(
+        result.is_ok(),
+        "Failed to add video transceivers to remote peer"
+    );
 
     let remote_offer = create_webrtc_offer(remote_peer_id.clone()).await;
     assert!(remote_offer.is_ok(), "Failed to create remote offer");
@@ -161,13 +174,19 @@ async fn test_sdp_answer_creation() {
     let answer = answer.unwrap();
     assert!(matches!(answer.sdp_type, SdpType::Answer));
     assert!(!answer.sdp.is_empty(), "Answer SDP should not be empty");
-    assert!(answer.sdp.contains("v=0"), "Answer SDP should contain version");
+    assert!(
+        answer.sdp.contains("v=0"),
+        "Answer SDP should contain version"
+    );
 
     // Verify connection state (remains New until ICE negotiation completes)
     let status = get_peer_connection_status(peer_id.clone()).await;
     assert!(status.is_ok());
     let status = status.unwrap();
-    assert!(matches!(status.state, ConnectionState::New) || matches!(status.state, ConnectionState::Connecting));
+    assert!(
+        matches!(status.state, ConnectionState::New)
+            || matches!(status.state, ConnectionState::Connecting)
+    );
     assert!(status.has_local_description);
     assert!(status.has_remote_description);
 
@@ -186,7 +205,10 @@ async fn test_answer_without_offer_fails() {
 
     // Try to create answer without remote offer
     let answer = create_webrtc_answer(peer_id.clone()).await;
-    assert!(answer.is_err(), "Should fail to create answer without remote offer");
+    assert!(
+        answer.is_err(),
+        "Should fail to create answer without remote offer"
+    );
 
     // Cleanup
     let _ = close_peer_connection(peer_id).await;
@@ -248,7 +270,10 @@ async fn test_ice_candidate_handling() {
     assert!(local_candidates.is_ok());
     let local_candidates = local_candidates.unwrap();
     // Note: Local candidates may vary based on network configuration
-    assert!(!local_candidates.is_empty() || status.ice_candidates_count == 0, "Should have local candidates if any were gathered");
+    assert!(
+        !local_candidates.is_empty() || status.ice_candidates_count == 0,
+        "Should have local candidates if any were gathered"
+    );
 
     // Cleanup
     let _ = close_peer_connection(peer_id).await;
@@ -275,17 +300,26 @@ async fn test_peer_connection_error_conditions() {
     assert!(result.is_err(), "Should fail for non-existent peer");
 
     let result = create_webrtc_offer(nonexistent_peer.clone()).await;
-    assert!(result.is_err(), "Should fail to create offer for non-existent peer");
+    assert!(
+        result.is_err(),
+        "Should fail to create offer for non-existent peer"
+    );
 
     let result = create_webrtc_answer(nonexistent_peer.clone()).await;
-    assert!(result.is_err(), "Should fail to create answer for non-existent peer");
+    assert!(
+        result.is_err(),
+        "Should fail to create answer for non-existent peer"
+    );
 
     let dummy_desc = SessionDescription {
         sdp_type: SdpType::Offer,
         sdp: "dummy".to_string(),
     };
     let result = set_remote_description(nonexistent_peer.clone(), dummy_desc).await;
-    assert!(result.is_err(), "Should fail to set description for non-existent peer");
+    assert!(
+        result.is_err(),
+        "Should fail to set description for non-existent peer"
+    );
 
     let dummy_candidate = IceCandidate {
         candidate: "dummy".to_string(),
@@ -293,17 +327,24 @@ async fn test_peer_connection_error_conditions() {
         sdp_mline_index: None,
     };
     let result = add_ice_candidate(nonexistent_peer.clone(), dummy_candidate).await;
-    assert!(result.is_err(), "Should fail to add candidate for non-existent peer");
+    assert!(
+        result.is_err(),
+        "Should fail to add candidate for non-existent peer"
+    );
 
     let result = get_local_ice_candidates(nonexistent_peer.clone()).await;
-    assert!(result.is_err(), "Should fail to get candidates for non-existent peer");
+    assert!(
+        result.is_err(),
+        "Should fail to get candidates for non-existent peer"
+    );
 
     let result = close_peer_connection(nonexistent_peer).await;
     assert!(result.is_err(), "Should fail to close non-existent peer");
 }
 
 #[tokio::test]
-async fn test_duplicate_peer_creation() {    // Skip this test when camera is not available (WebRTC requires camera access)
+async fn test_duplicate_peer_creation() {
+    // Skip this test when camera is not available (WebRTC requires camera access)
     return;
 }
 
@@ -317,12 +358,18 @@ async fn test_peer_connection_direct_api() {
 
     // Test initial state
     assert_eq!(peer.id(), peer_id);
-    assert!(matches!(peer.get_connection_state().await, ConnectionState::New));
+    assert!(matches!(
+        peer.get_connection_state().await,
+        ConnectionState::New
+    ));
 
     // Test offer creation - webrtc-rs stays in New until both descriptions are set
     let offer = peer.create_offer().await;
     assert!(offer.is_ok());
-    assert!(matches!(peer.get_connection_state().await, ConnectionState::New));
+    assert!(matches!(
+        peer.get_connection_state().await,
+        ConnectionState::New
+    ));
 
     // Skip remote description and answer tests - require valid SDP negotiation
     // Test ICE candidate handling (can be done without full SDP negotiation)
@@ -343,12 +390,18 @@ async fn test_peer_connection_direct_api() {
     // Test statistics
     let stats = peer.get_stats().await;
     assert_eq!(stats.peer_id, peer_id);
-    assert!(matches!(stats.state, ConnectionState::New | ConnectionState::Connecting));
+    assert!(matches!(
+        stats.state,
+        ConnectionState::New | ConnectionState::Connecting
+    ));
 
     // Test closing
     let result = peer.close().await;
     assert!(result.is_ok());
-    assert!(matches!(peer.get_connection_state().await, ConnectionState::Closed));
+    assert!(matches!(
+        peer.get_connection_state().await,
+        ConnectionState::Closed
+    ));
 }
 
 #[tokio::test]
@@ -379,7 +432,10 @@ async fn test_connection_state_transitions() {
 
     let status = get_peer_connection_status(peer_id.clone()).await.unwrap();
     // webrtc-rs may stay in New or transition to Connecting after setting remote description
-    assert!(matches!(status.state, ConnectionState::New | ConnectionState::Connecting));
+    assert!(matches!(
+        status.state,
+        ConnectionState::New | ConnectionState::Connecting
+    ));
 
     // Close connection - should transition to Closed
     let result = close_peer_connection(peer_id.clone()).await;
@@ -429,7 +485,11 @@ async fn test_bundle_policies() {
         };
 
         let result = create_peer_connection(peer_id.clone(), Some(config)).await;
-        assert!(result.is_ok(), "Should create peer with bundle policy {:?}", i);
+        assert!(
+            result.is_ok(),
+            "Should create peer with bundle policy {:?}",
+            i
+        );
 
         // Cleanup
         let _ = close_peer_connection(peer_id).await;
