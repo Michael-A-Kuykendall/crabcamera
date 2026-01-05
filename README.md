@@ -59,7 +59,7 @@
 
 ```toml
 [dependencies]
-crabcamera = { version = "0.7", features = ["recording", "audio", "webrtc"] }
+crabcamera = { version = "0.6", features = ["recording", "audio", "webrtc"] }
 tauri = { version = "2.0", features = ["protocol-asset"] }
 ```
 
