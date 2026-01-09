@@ -77,10 +77,6 @@ pub struct AdvancedConfig {
     pub hdr_enabled: bool,
     /// Number of exposure brackets for HDR
     pub hdr_brackets: u32,
-    /// Enable WebRTC streaming
-    pub webrtc_enabled: bool,
-    /// WebRTC maximum bitrate (kbps)
-    pub webrtc_bitrate: u32,
 }
 
 impl Default for CrabCameraConfig {
@@ -114,8 +110,6 @@ impl Default for CrabCameraConfig {
                 focus_stack_steps: 10,
                 hdr_enabled: false,
                 hdr_brackets: 3,
-                webrtc_enabled: false,
-                webrtc_bitrate: 2000,
             },
         }
     }

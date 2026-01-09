@@ -6,8 +6,6 @@ pub mod focus_stack;
 pub mod init;
 pub mod permissions;
 pub mod quality;
-#[cfg(feature = "webrtc")]
-pub mod webrtc;
 
 #[cfg(feature = "recording")]
 pub mod recording;

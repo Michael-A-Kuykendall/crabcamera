@@ -123,7 +123,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     println!("🖼️  If you see real camera footage in the JPEG files, your camera hardware works!");
     println!("✅ This proves the camera capture pipeline is functional.");
-    println!("\n🔗 Next: Test WebRTC streaming with 'cargo run --example webrtc_real_camera_test --features webrtc'");
+    println!("\n🔗 Next: Try recording video with 'cargo run --example record_video'");
 
     Ok(())
 }
