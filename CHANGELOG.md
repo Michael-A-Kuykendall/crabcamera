@@ -5,9 +5,15 @@ All notable changes to CrabCamera will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.7.0] - YANKED
+## [0.7.0] - 2026-01-05
 
-> **Note**: Version 0.7.0 was tagged in error and has been yanked. This version number will be skipped.
+### 🎯 **Strategic Focus Refinement: WebRTC Feature Removal**
+
+- **WebRTC Feature Removed**: Complete removal of WebRTC streaming functionality after extensive evaluation determined it was beyond the current value proposition
+- **Code Quality**: Eliminated ~1000+ lines of disconnected, non-functional WebRTC code including peer connections, RTP packetization, and simulcast streaming
+- **Strategic Positioning**: CrabCamera now focuses exclusively on camera capture and recording excellence, removing complexity that wasn't delivering value
+- **Clean Architecture**: Removed WebRTC dependencies, feature flags, configuration options, and all related test suites
+- **Documentation Updated**: README.md updated with "Strategic Focus" section explaining the decision and positioning CrabCamera as the premier camera capture library
 
 ---
 

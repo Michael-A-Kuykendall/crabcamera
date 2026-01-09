@@ -15,7 +15,7 @@
 //! Add this to your `Cargo.toml`:
 //! ```toml
 //! [dependencies]
-//! crabcamera = { version = "0.6", features = ["recording", "audio", "webrtc"] }
+//! crabcamera = { version = "0.6", features = ["recording", "audio"] }
 //! tauri = { version = "2.0", features = ["protocol-asset"] }
 //! ```
 //!
@@ -42,7 +42,6 @@ pub mod quality;
 #[cfg(any(feature = "headless", feature = "audio"))]
 pub mod timing;
 pub mod types;
-pub mod webrtc;
 
 #[cfg(feature = "recording")]
 pub mod recording;
@@ -111,49 +110,6 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::advanced::capture_focus_stack_legacy,
             commands::advanced::get_camera_performance,
             commands::advanced::test_camera_capabilities,
-            // WebRTC streaming commands
-            #[cfg(feature = "webrtc")]
-            commands::webrtc::start_webrtc_stream,
-            #[cfg(feature = "webrtc")]
-            commands::webrtc::stop_webrtc_stream,
-            #[cfg(feature = "webrtc")]
-            commands::webrtc::get_webrtc_stream_status,
-            #[cfg(feature = "webrtc")]
-            commands::webrtc::update_webrtc_config,
-            #[cfg(feature = "webrtc")]
-            commands::webrtc::list_webrtc_streams,
-            #[cfg(feature = "webrtc")]
-            commands::webrtc::create_peer_connection,
-            #[cfg(feature = "webrtc")]
-            commands::webrtc::create_webrtc_offer,
-            #[cfg(feature = "webrtc")]
-            commands::webrtc::create_webrtc_answer,
-            #[cfg(feature = "webrtc")]
-            commands::webrtc::set_remote_description,
-            #[cfg(feature = "webrtc")]
-            commands::webrtc::add_ice_candidate,
-            #[cfg(feature = "webrtc")]
-            commands::webrtc::get_local_ice_candidates,
-            #[cfg(feature = "webrtc")]
-            commands::webrtc::add_video_transceivers,
-            #[cfg(feature = "webrtc")]
-            commands::webrtc::create_data_channel,
-            #[cfg(feature = "webrtc")]
-            commands::webrtc::send_data_channel_message,
-            #[cfg(feature = "webrtc")]
-            commands::webrtc::get_peer_connection_status,
-            #[cfg(feature = "webrtc")]
-            commands::webrtc::close_peer_connection,
-            #[cfg(feature = "webrtc")]
-            commands::webrtc::list_peer_connections,
-            #[cfg(feature = "webrtc")]
-            commands::webrtc::get_webrtc_system_status,
-            #[cfg(feature = "webrtc")]
-            commands::webrtc::pause_webrtc_stream,
-            #[cfg(feature = "webrtc")]
-            commands::webrtc::resume_webrtc_stream,
-            #[cfg(feature = "webrtc")]
-            commands::webrtc::set_webrtc_stream_bitrate,
             // Quality validation commands
             commands::quality::validate_frame_quality,
             commands::quality::validate_provided_frame,

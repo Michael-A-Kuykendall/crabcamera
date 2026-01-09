@@ -29,5 +29,3 @@ focus_stacking_enabled = false
 focus_stack_steps = 10
 hdr_enabled = false
 hdr_brackets = 3
-webrtc_enabled = false
-webrtc_bitrate = 2000

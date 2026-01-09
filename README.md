@@ -16,7 +16,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/rust-stable-brightgreen.svg)](https://rustup.rs/)
 [![Tests](https://img.shields.io/badge/tests-163+-brightgreen.svg)](https://github.com/Michael-A-Kuykendall/crabcamera/releases)
-[![WebRTC](https://img.shields.io/badge/WebRTC-Complete-blue.svg)](https://github.com/Michael-A-Kuykendall/crabcamera/releases)
+
 [![Sponsor](https://img.shields.io/badge/❤️-Sponsor-ea4aaa?logo=github)](https://github.com/sponsors/Michael-A-Kuykendall)
 
 **🦀 CrabCamera will be free forever. 🦀** No asterisks. No "free for now." No pivot to paid.
@@ -31,12 +31,37 @@
 | **Hardware Access** | Direct camera + audio 🏆 | Browser restricted | Basic video only |
 | **Audio Recording** | Opus/AAC + sync 🏆 | Unreliable | N/A |
 | **A/V Synchronization** | PTS-based sync 🏆 | Async/unreliable | N/A |
-| **WebRTC Streaming** | **Complete H.264/Opus streaming** 🏆 | Browser native | Limited |
 | **Professional Controls** | Auto-focus, exposure 🏆 | Limited | Basic |
 | **Cross-Platform** | Unified API 🏆 | Platform dependent | Single platform |
 | **Production Ready** | **163 tests, audited quality** 🏆 | No guarantees | Proof-of-concept |
 | **Memory Safety** | Zero unsafe in production 🏆 | N/A | Manual management |
 | **Performance** | **10-100x optimized encoding** 🏆 | N/A | Basic |
+
+## 🎯 Strategic Focus: Camera Capture Excellence
+
+After extensive development and multiple attempts at implementing WebRTC streaming, we've made a strategic decision to focus CrabCamera exclusively on **camera capture and recording excellence**. 
+
+### Why We Removed WebRTC
+
+**The Challenge:** WebRTC streaming represents a significant expansion beyond our core competency. While technically feasible, it introduced substantial complexity:
+- Real-time media server requirements
+- Network protocol implementation (ICE, STUN, TURN)
+- Hardware-accelerated encoding across platforms
+- Browser signaling and peer connection management
+
+**The Decision:** Rather than dilute our focus, we've chosen to excel at what we do best: **professional camera access and recording**. This allows applications to choose their preferred streaming solutions while benefiting from CrabCamera's proven camera infrastructure.
+
+**The Result:** A sharper value proposition - CrabCamera is now the definitive choice for camera capture in Tauri applications, with clear boundaries that ensure reliability and maintainability.
+
+### Streaming Integration Options
+
+For applications needing streaming, we recommend:
+
+1. **Browser-Native WebRTC**: Use CrabCamera for capture, then stream via standard browser WebRTC APIs
+2. **Specialized Libraries**: Integrate dedicated streaming libraries alongside CrabCamera
+3. **Tauri Channels**: For simple IPC-based streaming within your application
+
+This approach gives you maximum flexibility while keeping CrabCamera focused and reliable.
 
 ## 🎯 Perfect for Professional Desktop Applications 🦀
 
@@ -51,7 +76,7 @@
 
 **PROFESSIONAL GRADE:** Advanced camera controls with platform-optimized settings for maximum image quality and performance.
 
-**PRODUCTION READY:** Complete WebRTC streaming with H.264 video and Opus audio encoding, peer connection management, and browser integration.
+**PRODUCTION READY:** Professional-grade video and audio capture with synchronized recording, comprehensive device controls, and optimized encoding.
 
 ## 🦀 Quick Start (30 seconds) 📷🎙️
 
@@ -59,7 +84,7 @@
 
 ```toml
 [dependencies]
-crabcamera = { version = "0.6", features = ["recording", "audio", "webrtc"] }
+crabcamera = { version = "0.6", features = ["recording", "audio"] }
 tauri = { version = "2.0", features = ["protocol-asset"] }
 ```
 
@@ -132,38 +157,6 @@ await invoke('plugin:crabcamera|start_recording', {
 // Automatic PTS-based synchronization
 await invoke('plugin:crabcamera|stop_recording');
 console.log('🎬 Professional recording complete with perfect A/V sync');
-```
-
-### Frontend: WebRTC Live Streaming
-
-```javascript
-import { invoke } from '@tauri-apps/api/core';
-
-// Initialize WebRTC streaming system
-await invoke('plugin:crabcamera|initialize_camera_system');
-
-// Start professional live stream
-await invoke('plugin:crabcamera|start_webrtc_stream', {
-  deviceId: cameras[0].id,
-  config: {
-    codec: 'h264',
-    width: 1280,
-    height: 720,
-    fps: 30.0
-  }
-});
-
-// Get SDP offer for browser integration
-const offer = await invoke('plugin:crabcamera|get_webrtc_offer');
-
-// In browser: Create RTCPeerConnection and setRemoteDescription(offer)
-// Then send answer back to complete handshake
-
-// Apply browser's SDP answer
-await invoke('plugin:crabcamera|apply_webrtc_answer', { sdpAnswer: browserAnswer });
-
-// Professional streaming active!
-console.log('📡 Live WebRTC streaming to browser');
 ```
 
 ## 📦 Enterprise Media Features 🦀
@@ -277,37 +270,6 @@ stop_recording() -> Result<RecordingStatus>
 // Get recording status with sync info
 get_recording_status() -> Result<RecordingStatus>
 ```
-
-### WebRTC Streaming (EXPERIMENTAL)
-```rust
-// Start WebRTC stream with real camera
-start_webrtc_stream(WebRTCConfig) -> Result<WebRTCStreamId>
-
-// WebRTC config for live streaming:
-pub struct WebRTCConfig {
-    pub stream_id: String,
-    pub video_config: VideoConfig,
-    pub audio_config: Option<AudioConfig>,
-    pub mode: StreamMode,  // Live or Synthetic
-}
-
-// Get SDP offer for browser connection
-get_webrtc_offer(stream_id: String) -> Result<String>
-
-// Apply remote SDP answer
-apply_webrtc_answer(stream_id: String, answer: String) -> Result<()>
-
-// Control streaming (pause/resume/bitrate)
-update_webrtc_config(stream_id: String, config: WebRTCUpdate) -> Result<()>
-
-// Stop WebRTC stream
-stop_webrtc_stream(stream_id: String) -> Result<()>
-
-// Get stream status and statistics
-get_webrtc_stream_status(stream_id: String) -> Result<WebRTCStatus>
-```
-
-**ICE / STUN default:** By default, CrabCamera does not configure any public STUN servers. To enable the historical default Google STUN server, set `CRABCAMERA_DEFAULT_STUN=1`.
 
 ### Capture & Streaming
 ```rust
@@ -675,9 +637,9 @@ This is the **game-changing release**. We added professional-grade audio recordi
 - ✅ **Comprehensive Testing**: 163 unit tests + property-based validation
 
 #### 📊 Enterprise Testing Infrastructure
-- **163 unit tests**: Core functionality, WebRTC streaming, audio/video integration
-- **Property-based testing**: Proptest invariants for RTP packetizers and encoders
-- **Contract testing**: Behavioral validation with synthetic streaming data
+- **163 unit tests**: Core functionality, audio/video integration, camera controls
+- **Property-based testing**: Proptest invariants for encoders and synchronization
+- **Contract testing**: Behavioral validation with synthetic camera data
 - **Cross-platform validation**: Windows/macOS/Linux CI matrix
 - **Real hardware validation**: Professional cameras and audio devices
 
@@ -693,14 +655,14 @@ This is the **game-changing release**. We added professional-grade audio recordi
 Professional Pipeline:
   Camera/Microphone → Direct Hardware Access → Quality Validation
                         ↓
-  Encoding Pipeline: H.264/Opus → RTP Packetization → MP4/WebRTC Output
+  Encoding Pipeline: H.264/Opus → MP4 Output
                         ↓
   Synchronization: PTS-based A/V sync with sub-frame accuracy
 ```
 
 #### 💻 Enterprise Platform Support
-- ✅ **Windows**: WASAPI audio + MediaFoundation video + WebRTC streaming
-- ✅ **macOS**: AVFoundation audio/video + WebRTC streaming
+- ✅ **Windows**: WASAPI audio + MediaFoundation video + MP4 recording
+- ✅ **macOS**: AVFoundation audio/video + MP4 recording
 - ✅ **Linux**: ALSA audio + V4L2 video + WebRTC streaming
 
 #### 🔒 Security & Production Readiness
@@ -714,7 +676,7 @@ Professional Pipeline:
 - **Test Coverage**: 163 automated tests with property-based validation
 - **Performance**: 10-100x encoding improvement through intelligent caching
 - **Code Quality**: Clean compilation, single benign deprecation
-- **WebRTC Compliance**: Complete protocol implementation with real streaming
+- **Media Processing**: Professional H.264/Opus encoding with A/V synchronization
 - **Test Coverage**: 80%+
 - **Compilation Time**: 45s (release), 15s (debug)
 - **Binary Size**: +2.1MB (audio libs) vs v0.4.1
