@@ -278,6 +278,54 @@ impl PlatformCamera {
         }
     }
 
+    /// Set callback function for continuous frame streaming
+    ///
+    /// The callback will be called for each frame captured by the camera.
+    /// Use this for high-performance streaming scenarios where you need
+    /// automatic frame delivery without polling.
+    ///
+    /// # Arguments
+    /// * `callback` - Function that receives a nokhwa::Buffer for each captured frame
+    ///
+    /// # Example
+    /// ```rust,no_run
+    /// # use crabcamera::platform::PlatformCamera;
+    /// # use crabcamera::types::CameraInitParams;
+    /// # let params = CameraInitParams::new("0".to_string());
+    /// # let mut camera = PlatformCamera::new(params).unwrap();
+    /// camera.set_callback(|buffer| {
+    ///     println!("Frame: {}x{}", buffer.resolution().width_x, buffer.resolution().height_y);
+    /// }).unwrap();
+    /// camera.start_stream().unwrap();
+    /// ```
+    pub fn set_callback<F>(&mut self, callback: F) -> Result<(), CameraError>
+    where
+        F: FnMut(nokhwa::Buffer) + Send + 'static,
+    {
+        match self {
+            #[cfg(target_os = "windows")]
+            PlatformCamera::Windows(camera) => camera.set_callback(callback),
+
+            #[cfg(target_os = "macos")]
+            PlatformCamera::MacOS(camera) => camera.set_callback(callback),
+
+            #[cfg(target_os = "linux")]
+            PlatformCamera::Linux(camera) => camera.set_callback(callback),
+
+            PlatformCamera::Mock(_camera) => {
+                // Mock camera doesn't support callbacks yet
+                Err(CameraError::InitializationError(
+                    "Mock camera does not support callbacks".to_string(),
+                ))
+            }
+
+            #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+            PlatformCamera::Unsupported => Err(CameraError::InitializationError(
+                "Unsupported platform".to_string(),
+            )),
+        }
+    }
+
     /// Check if camera is available
     pub fn is_available(&self) -> bool {
         match self {

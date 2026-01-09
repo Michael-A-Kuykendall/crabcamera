@@ -23,7 +23,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     camera.open_stream()?;
 
     // Capture frame
-    let frame = camera.frame()?;
+    let frame = camera.poll_frame()?;
     println!(
         "    Frame 1: {}x{}, {} bytes",
         frame.resolution().width_x,
@@ -43,7 +43,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     camera.open_stream()?;
 
     // Capture another frame
-    let frame = camera.frame()?;
+    let frame = camera.poll_frame()?;
     println!(
         "    Frame 2: {}x{}, {} bytes",
         frame.resolution().width_x,
@@ -75,7 +75,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 camera2.camera_format()
             );
             camera2.open_stream()?;
-            let frame = camera2.frame()?;
+            let frame = camera2.poll_frame()?;
             println!(
                 "    Frame 3: {}x{}, {} bytes",
                 frame.resolution().width_x,

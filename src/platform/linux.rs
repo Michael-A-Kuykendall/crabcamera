@@ -4,7 +4,7 @@ use nokhwa::{
     pixel_format::RgbFormat,
     query,
     utils::{RequestedFormat, RequestedFormatType},
-    Camera,
+    CallbackCamera,
 };
 use std::sync::{Arc, Mutex};
 
@@ -46,9 +46,10 @@ pub fn initialize_camera(params: CameraInitParams) -> Result<LinuxCamera, Camera
     // Simple format request for V4L2
     let requested_format = RequestedFormat::new::<RgbFormat>(RequestedFormatType::None);
 
-    let camera = Camera::new(
+    let camera = CallbackCamera::new(
         nokhwa::utils::CameraIndex::Index(device_index),
         requested_format,
+        |_| {},
     )
     .map_err(|e| CameraError::InitializationError(format!("Failed to initialize camera: {}", e)))?;
 
@@ -61,7 +62,7 @@ pub fn initialize_camera(params: CameraInitParams) -> Result<LinuxCamera, Camera
 
 /// Linux-specific camera wrapper
 pub struct LinuxCamera {
-    camera: Arc<Mutex<Camera>>,
+    camera: Arc<Mutex<CallbackCamera>>,
     device_id: String,
     format: CameraFormat,
 }
@@ -75,7 +76,7 @@ impl LinuxCamera {
             .map_err(|_| CameraError::CaptureError("Failed to lock camera".to_string()))?;
 
         let frame = camera
-            .frame()
+            .poll_frame()
             .map_err(|e| CameraError::CaptureError(format!("Failed to capture frame: {}", e)))?;
 
         let camera_frame = CameraFrame::new(
@@ -190,6 +191,37 @@ impl LinuxCamera {
         &self,
     ) -> Result<crate::types::CameraPerformanceMetrics, CameraError> {
         Ok(crate::types::CameraPerformanceMetrics::default())
+    }
+
+    /// Set callback function for continuous frame streaming
+    ///
+    /// The callback will be called for each frame captured by the camera.
+    /// Use this for high-performance streaming scenarios.
+    ///
+    /// # Arguments
+    /// * `callback` - Function that receives a Buffer for each captured frame
+    ///
+    /// # Example
+    /// ```rust,no_run
+    /// camera.set_callback(|buffer| {
+    ///     println!("Frame: {}x{}", buffer.resolution().width_x, buffer.resolution().height_y);
+    /// })?;
+    /// camera.start_stream()?;
+    /// ```
+    pub fn set_callback<F>(&self, callback: F) -> Result<(), CameraError>
+    where
+        F: FnMut(nokhwa::Buffer) + Send + 'static,
+    {
+        let mut camera = self
+            .camera
+            .lock()
+            .map_err(|_| CameraError::InitializationError("Failed to lock camera".to_string()))?;
+
+        camera.set_callback(callback).map_err(|e| {
+            CameraError::InitializationError(format!("Failed to set callback: {}", e))
+        })?;
+
+        Ok(())
     }
 }
 

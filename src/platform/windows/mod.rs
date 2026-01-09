@@ -6,12 +6,12 @@ pub mod controls;
 use self::controls::MediaFoundationControls;
 use crate::errors::CameraError;
 use crate::types::{CameraCapabilities, CameraControls, CameraFormat, CameraFrame};
-use nokhwa::Camera;
+use nokhwa::CallbackCamera;
 
 /// Combined Windows camera interface with both capture and control capabilities
 pub struct WindowsCamera {
     /// nokhwa camera for frame capture
-    pub nokhwa_camera: Camera,
+    pub nokhwa_camera: CallbackCamera,
     /// MediaFoundation controls for advanced camera settings
     pub mf_controls: MediaFoundationControls,
     /// Device identifier
@@ -83,12 +83,12 @@ impl WindowsCamera {
 
     /// Check if the stream is currently open
     pub fn is_stream_open(&self) -> bool {
-        self.nokhwa_camera.is_stream_open()
+        self.nokhwa_camera.is_stream_open().unwrap_or(false)
     }
 
     /// Check if camera is available
     pub fn is_available(&self) -> bool {
-        // Camera availability is determined by successful initialization
+        // CallbackCamera availability is determined by successful initialization
         // Since the Camera object was created successfully, it's available
         // For more robust checking, we could attempt a test frame capture
         true
@@ -97,6 +97,32 @@ impl WindowsCamera {
     /// Get device ID
     pub fn get_device_id(&self) -> &str {
         &self.device_id
+    }
+
+    /// Set callback function for continuous frame streaming
+    ///
+    /// The callback will be called for each frame captured by the camera.
+    /// Use this for high-performance streaming scenarios.
+    ///
+    /// # Arguments
+    /// * `callback` - Function that receives a Buffer for each captured frame
+    ///
+    /// # Example
+    /// ```rust,no_run
+    /// camera.set_callback(|buffer| {
+    ///     println!("Frame: {}x{}", buffer.resolution().width_x, buffer.resolution().height_y);
+    /// })?;
+    /// camera.start_stream()?;
+    /// ```
+    pub fn set_callback<F>(&mut self, callback: F) -> Result<(), CameraError>
+    where
+        F: FnMut(nokhwa::Buffer) + Send + 'static,
+    {
+        self.nokhwa_camera.set_callback(callback).map_err(|e| {
+            CameraError::InitializationError(format!("Failed to set callback: {}", e))
+        })?;
+
+        Ok(())
     }
 }
 

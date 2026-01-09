@@ -70,7 +70,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
     let first_frame_start = Instant::now();
-    let first_frame = camera.frame()?;
+    let first_frame = camera.poll_frame()?;
     let first_frame_time = first_frame_start.elapsed();
 
     println!("  First frame() call took: {:?}", first_frame_time);
@@ -102,7 +102,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for i in 0..30 {
         let frame_start = Instant::now();
-        match camera.frame() {
+        match camera.poll_frame() {
             Ok(frame) => {
                 let elapsed = frame_start.elapsed();
                 let bytes = frame.buffer_bytes();
