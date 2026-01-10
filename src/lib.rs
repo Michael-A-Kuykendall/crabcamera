@@ -31,6 +31,7 @@
 //! }
 //! ```
 pub mod commands;
+pub use commands::*;
 pub mod config;
 pub mod errors;
 pub mod focus_stack;
