@@ -119,7 +119,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut warmup_success = 0;
     for i in 0..5 {
         thread::sleep(Duration::from_millis(100));
-        match camera.frame() {
+        match camera.poll_frame() {
             Ok(_) => warmup_success += 1,
             Err(e) => {
                 if i == 0 {
@@ -141,7 +141,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Step 1.5: Capture test frame and verify data
     print!("  [1.5] Capture and verify frame data... ");
-    match camera.frame() {
+    match camera.poll_frame() {
         Ok(frame) => {
             let bytes = frame.buffer_bytes();
             let res = frame.resolution();

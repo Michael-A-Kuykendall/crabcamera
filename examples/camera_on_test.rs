@@ -33,7 +33,7 @@ fn main() {
 
     // Step 4: frame() - capture
     println!("\nSTEP 4: frame() - capturing...");
-    let frame = camera.frame().unwrap();
+    let frame = camera.poll_frame().unwrap();
     println!("   Got frame: {} bytes", frame.buffer_bytes().len());
     println!(
         "   Resolution: {}x{}",

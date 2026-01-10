@@ -39,7 +39,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Capture a frame
     println!("\n[3] Capturing frame...");
-    let frame = camera.frame()?;
+    let frame = camera.poll_frame()?;
     println!(
         "    Frame resolution: {}x{}",
         frame.resolution().width_x,

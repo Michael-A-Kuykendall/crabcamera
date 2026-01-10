@@ -61,7 +61,7 @@ fn main() {
     for i in 0..20 {
         thread::sleep(Duration::from_millis(100));
 
-        match camera.frame() {
+        match camera.poll_frame() {
             Ok(frame) => {
                 let bytes = frame.buffer_bytes();
                 let len = bytes.len();

@@ -54,13 +54,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     print!("  Warming up (5 frames)... ");
     for _ in 0..5 {
         thread::sleep(Duration::from_millis(100));
-        let _ = camera.frame();
+        let _ = camera.poll_frame();
     }
     println!("done");
 
     // Capture raw MJPEG frame
     print!("  Capturing MJPEG frame... ");
-    let frame = camera.frame()?;
+    let frame = camera.poll_frame()?;
     let raw_bytes = frame.buffer_bytes();
 
     // Check if it's JPEG

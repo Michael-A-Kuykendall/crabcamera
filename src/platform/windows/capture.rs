@@ -4,14 +4,14 @@ use nokhwa::{
     pixel_format::RgbFormat,
     query,
     utils::{RequestedFormat, RequestedFormatType},
-    Camera,
+    CallbackCamera,
 };
 
 /// List available cameras on Windows  
 pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
     let mut all_cameras = Vec::new();
 
-    // Try multiple backends to detect all camera types including OBS Virtual Camera
+    // Try multiple backends to detect all camera types including OBS Virtual CallbackCamera
     let backends = vec![
         nokhwa::utils::ApiBackend::MediaFoundation,
         // DirectShow not available in current nokhwa version
@@ -84,7 +84,10 @@ pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
 /// The `format` parameter is currently not applied because nokhwa's MediaFoundation
 /// backend works best with AbsoluteHighestResolution mode. Format negotiation happens
 /// at the frame capture level via MJPEG decoding.
-pub fn initialize_camera(device_id: &str, format: CameraFormat) -> Result<Camera, CameraError> {
+pub fn initialize_camera(
+    device_id: &str,
+    format: CameraFormat,
+) -> Result<CallbackCamera, CameraError> {
     log::debug!(
         "Requested format: {}x{} @ {}fps (note: nokhwa will use highest resolution)",
         format.width,
@@ -99,9 +102,10 @@ pub fn initialize_camera(device_id: &str, format: CameraFormat) -> Result<Camera
     let requested_format =
         RequestedFormat::new::<RgbFormat>(RequestedFormatType::AbsoluteHighestResolution);
 
-    let camera = Camera::new(
+    let camera = CallbackCamera::new(
         nokhwa::utils::CameraIndex::Index(device_index),
         requested_format,
+        |_| {},
     )
     .map_err(|e| CameraError::InitializationError(format!("Failed to initialize camera: {}", e)))?;
 
@@ -111,9 +115,12 @@ pub fn initialize_camera(device_id: &str, format: CameraFormat) -> Result<Camera
 /// Capture frame from Windows camera
 /// Note: nokhwa returns MJPEG data even when RgbFormat is requested,
 /// so we need to decode it manually to RGB
-pub fn capture_frame(camera: &mut Camera, device_id: &str) -> Result<CameraFrame, CameraError> {
+pub fn capture_frame(
+    camera: &mut CallbackCamera,
+    device_id: &str,
+) -> Result<CameraFrame, CameraError> {
     let frame = camera
-        .frame()
+        .poll_frame()
         .map_err(|e| CameraError::CaptureError(format!("Failed to capture frame: {}", e)))?;
 
     let raw_bytes = frame.buffer_bytes();
