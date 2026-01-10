@@ -432,6 +432,92 @@ pub async fn save_frame_compressed(
     }
 }
 
+/// Set callback function for continuous frame streaming on a specific camera
+///
+/// This is the **recommended** method for streaming. The callback receives a `CameraFrame`
+/// with rich metadata (timestamp, ID, device info) that is consistent with `capture_frame()`.
+///
+/// # Arguments
+/// * `device_id` - The ID of the camera to set the callback on
+/// * `callback` - Function that receives a `CameraFrame` for each captured frame
+///
+/// # Example
+/// ```rust,ignore
+/// set_callback("0".to_string(), |frame| {
+///     println!("Frame {}: {}x{}", frame.id, frame.width, frame.height);
+/// }).await?;
+/// ```
+pub async fn set_callback<F>(device_id: String, callback: F) -> Result<(), String>
+where
+    F: FnMut(CameraFrame) + Send + 'static,
+{
+    log::debug!("Setting callback for camera: {}", device_id);
+
+    // Get camera from registry
+    let registry = CAMERA_REGISTRY.read().await;
+    let camera = registry
+        .get(&device_id)
+        .ok_or_else(|| format!("Camera not found: {}", device_id))?
+        .clone();
+    drop(registry);
+
+    // Set callback on camera
+    let mut camera_guard = camera
+        .lock()
+        .map_err(|_| "Failed to lock camera".to_string())?;
+
+    camera_guard
+        .set_callback(callback)
+        .map_err(|e| format!("Failed to set callback: {}", e))?;
+
+    log::info!("Callback set successfully for camera: {}", device_id);
+    Ok(())
+}
+
+/// Set raw callback function for zero-copy frame streaming on a specific camera
+///
+/// This is the **high-performance** variant that passes `nokhwa::Buffer` directly
+/// without transformation. Use this when you need maximum performance.
+///
+/// # Arguments
+/// * `device_id` - The ID of the camera to set the callback on
+/// * `callback` - Function that receives a `nokhwa::Buffer` for each captured frame
+///
+/// # Example
+/// ```rust,ignore
+/// set_raw_callback("0".to_string(), |buffer| {
+///     let width = buffer.resolution().width_x;
+///     let height = buffer.resolution().height_y;
+///     println!("Raw frame: {}x{}", width, height);
+/// }).await?;
+/// ```
+pub async fn set_raw_callback<F>(device_id: String, callback: F) -> Result<(), String>
+where
+    F: FnMut(nokhwa::Buffer) + Send + 'static,
+{
+    log::debug!("Setting raw callback for camera: {}", device_id);
+
+    // Get camera from registry
+    let registry = CAMERA_REGISTRY.read().await;
+    let camera = registry
+        .get(&device_id)
+        .ok_or_else(|| format!("Camera not found: {}", device_id))?
+        .clone();
+    drop(registry);
+
+    // Set raw callback on camera
+    let mut camera_guard = camera
+        .lock()
+        .map_err(|_| "Failed to lock camera".to_string())?;
+
+    camera_guard
+        .set_raw_callback(callback)
+        .map_err(|e| format!("Failed to set raw callback: {}", e))?;
+
+    log::info!("Raw callback set successfully for camera: {}", device_id);
+    Ok(())
+}
+
 // Helper functions
 
 /// Get existing camera or create new one

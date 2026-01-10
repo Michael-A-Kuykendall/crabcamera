@@ -14,3 +14,20 @@ pub mod recording;
 
 #[cfg(feature = "audio")]
 pub mod audio;
+
+pub use advanced::*;
+pub use capture::*;
+pub use config::*;
+pub use device_monitor::*;
+pub use focus_stack::*;
+pub use init::*;
+pub use permissions::*;
+pub use quality::*;
+#[cfg(feature = "webrtc")]
+pub use webrtc::*;
+
+#[cfg(feature = "recording")]
+pub use recording::*;
+
+#[cfg(feature = "audio")]
+pub use audio::*;
