@@ -94,7 +94,7 @@ impl MacOSCamera {
             self.device_id.clone(),
         );
 
-        Ok(camera_frame.with_format("RGB8".to_string()))
+        Ok(camera_frame.with_format(frame.format().to_string()))
     }
 
     /// Get current format

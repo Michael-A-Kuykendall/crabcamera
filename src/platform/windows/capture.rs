@@ -165,5 +165,5 @@ pub fn capture_frame(
 
     let camera_frame = CameraFrame::new(rgb_data, width, height, device_id.to_string());
 
-    Ok(camera_frame.with_format("RGB8".to_string()))
+    Ok(camera_frame.with_format(frame.source_frame_format().to_string()))
 }
