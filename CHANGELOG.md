@@ -1024,7 +1024,7 @@ crabcamera = "0.4.0"
 **Optional:** Add `crabcamera.toml` for configuration:
 ```bash
 # Get default config template
-curl -O https://raw.githubusercontent.com/Michael-A-Kuykendall/crabcamera/master/crabcamera.toml
+curl -O https://raw.githubusercontent.com/Michael-A-Kuykendall/crabcamera/main/crabcamera.toml
 ```
 
 ---
