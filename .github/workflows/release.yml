@@ -28,18 +28,7 @@ jobs:
         # Look for "## [VERSION]" and extract until next "## [" or end of file
         awk -v version="$VERSION" '
           BEGIN { in_section = 0; found = 0 }
-          /^## \['\''?'version/ { in_section = 1; found = 1; next }
-          /^## \[/ && in_section { in_section = 0; exit }
-          in_section { print }
-          END { if (!found) { print "No changelog entry found for version " version } }
-        ' CHANGELOG.md > release_notes.md
-        
-        # Escape newlines for GitHub output
-        {
-          echo 'notes<<EOF'
-          cat release_notes.md
-          echo EOF
-        } >> $GITHUB_OUTPUT
+          $0 ~ "^## \\[" version "\\]" { in_section = 1; found = 1; next }
         
     - name: 🚀 Create GitHub Release
       uses: actions/create-release@v1
