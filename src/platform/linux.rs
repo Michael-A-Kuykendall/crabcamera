@@ -90,7 +90,7 @@ impl LinuxCamera {
         let camera_frame = camera_frame.with_format(frame.format().to_string());
 
         // Call callback if set
-        if let Some(ref cb) = *self.callback.lock() {
+        if let Some(ref cb) = *self.callback.lock().unwrap() {
             cb(camera_frame.clone());
         }
 
@@ -206,7 +206,7 @@ impl LinuxCamera {
     where
         F: Fn(CameraFrame) + Send + 'static,
     {
-        *self.callback.lock() = Some(Box::new(callback));
+        *self.callback.lock().unwrap() = Some(Box::new(callback));
         Ok(())
     }
 }
