@@ -216,6 +216,57 @@ pub async fn capture_with_quality_retry(
     }
 }
 
+/// Set a callback for real-time frame processing
+#[command]
+pub async fn set_frame_callback(
+    device_id: String,
+    format: Option<CameraFormat>,
+) -> Result<String, String> {
+    log::info!("Setting frame callback for device: {}", device_id);
+
+    let capture_format = format.unwrap_or_else(CameraFormat::standard);
+    let camera = match get_or_create_camera(device_id.clone(), capture_format).await {
+        Ok(cam) => cam,
+        Err(e) => return Err(e),
+    };
+
+    // For now, we'll set a simple callback that logs frames
+    // In a real implementation, this would need to communicate frames back to the frontend
+    // via events or websockets. This is a placeholder implementation.
+    let device_id_clone = device_id.clone();
+    let callback = move |frame: CameraFrame| {
+        log::debug!(
+            "Callback received frame from {}: {}x{} ({} bytes)",
+            device_id_clone,
+            frame.width,
+            frame.height,
+            frame.size_bytes
+        );
+        // TODO: Send frame to frontend via Tauri events
+        // tauri::api::event::emit(&app_handle, "frame", frame);
+    };
+
+    let camera_clone = camera.clone();
+    let device_id_clone = device_id.clone();
+    tokio::task::spawn_blocking(move || {
+        let mut camera_guard = camera_clone
+            .lock()
+            .map_err(|_| "Mutex poisoned".to_string())?;
+        match camera_guard.frame_callback(callback) {
+            Ok(_) => {
+                log::info!("Frame callback set for device: {}", device_id_clone);
+                Ok(format!("Callback set for camera {}", device_id_clone))
+            }
+            Err(e) => {
+                log::error!("Failed to set frame callback: {}", e);
+                Err(format!("Failed to set callback: {}", e))
+            }
+        }
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
+}
+
 /// Start continuous capture from a camera (for live preview)
 #[command]
 pub async fn start_camera_preview(

@@ -5,6 +5,20 @@ All notable changes to CrabCamera will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2026-01-15
+
+### Added
+
+- **Frame Callback Support**: New `set_frame_callback` command enables real-time frame processing without polling. Register a callback to receive frames as they arrive from the camera. Inspired by saurL's CallbackCamera proposal in PR #8.
+
+### Technical Details
+
+- Added `frame_callback` method to `PlatformCamera` trait
+- Platform implementations for Windows, macOS, and Linux
+- Thread-safe callback registration with `Arc<Mutex<>>` pattern
+
+---
+
 ## [0.7.0] - 2026-01-05
 
 ### 🎯 **Strategic Focus Refinement: WebRTC Feature Removal**

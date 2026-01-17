@@ -99,6 +99,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::capture::get_capture_stats,
             commands::capture::save_frame_to_disk,
             commands::capture::save_frame_compressed,
+            commands::capture::set_frame_callback,
             // Advanced camera commands
             commands::advanced::set_camera_controls,
             commands::advanced::get_camera_controls,

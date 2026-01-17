@@ -34,6 +34,7 @@ pub struct MockCamera {
     controls: Arc<Mutex<crate::types::CameraControls>>,
     is_streaming: Arc<Mutex<bool>>,
     capture_mode: Arc<Mutex<crate::tests::MockCaptureMode>>,
+    callback: Arc<Mutex<Option<Box<dyn Fn(CameraFrame) + Send + 'static>>>>,
 }
 
 impl MockCamera {
@@ -44,6 +45,7 @@ impl MockCamera {
             controls: Arc::new(Mutex::new(crate::types::CameraControls::default())),
             is_streaming: Arc::new(Mutex::new(false)),
             capture_mode: Arc::new(Mutex::new(crate::tests::MockCaptureMode::Success)),
+            callback: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -57,7 +59,7 @@ impl MockCamera {
         // Check global registry first, then fall back to local mode
         let mode = crate::tests::get_mock_camera_mode(&self.device_id);
 
-        match mode {
+        let frame = match mode {
             crate::tests::MockCaptureMode::Success => {
                 Ok(crate::tests::create_mock_frame(&self.device_id))
             }
@@ -68,7 +70,18 @@ impl MockCamera {
                 std::thread::sleep(std::time::Duration::from_millis(100));
                 Ok(crate::tests::create_mock_frame(&self.device_id))
             }
+        };
+
+        // Call callback if set and frame was successful
+        if let Ok(ref frame) = frame {
+            if let Ok(cb) = self.callback.lock() {
+                if let Some(ref callback) = *cb {
+                    callback(frame.clone());
+                }
+            }
         }
+
+        frame
     }
 
     pub fn start_stream(&self) -> Result<(), CameraError> {
@@ -85,14 +98,14 @@ impl MockCamera {
         Ok(())
     }
 
-    pub fn frame_callback<F>(&mut self, _callback: F) -> Result<(), CameraError>
+    pub fn frame_callback<F>(&mut self, callback: F) -> Result<(), CameraError>
     where
         F: Fn(CameraFrame) + Send + 'static,
     {
-        // Mock doesn't support callback
-        Err(CameraError::UnsupportedOperation(
-            "Frame callback not supported in mock".to_string(),
-        ))
+        if let Ok(mut cb) = self.callback.lock() {
+            *cb = Some(Box::new(callback));
+        }
+        Ok(())
     }
 
     pub fn is_available(&self) -> bool {
@@ -294,6 +307,30 @@ impl PlatformCamera {
 
             #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
             PlatformCamera::Unsupported => false,
+        }
+    }
+
+    /// Set frame callback for real-time processing
+    pub fn frame_callback<F>(&mut self, callback: F) -> Result<(), CameraError>
+    where
+        F: Fn(CameraFrame) + Send + 'static,
+    {
+        match self {
+            #[cfg(target_os = "windows")]
+            PlatformCamera::Windows(camera) => camera.set_callback(callback),
+
+            #[cfg(target_os = "macos")]
+            PlatformCamera::MacOS(camera) => camera.set_callback(callback),
+
+            #[cfg(target_os = "linux")]
+            PlatformCamera::Linux(camera) => camera.set_callback(callback),
+
+            PlatformCamera::Mock(camera) => camera.frame_callback(callback),
+
+            #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+            PlatformCamera::Unsupported => Err(CameraError::UnsupportedOperation(
+                "Frame callback not supported on this platform".to_string(),
+            )),
         }
     }
 
