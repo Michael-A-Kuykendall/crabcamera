@@ -18,9 +18,9 @@ use std::time::Duration;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{Stream, StreamConfig};
 
+use crate::timing::PTSClock;
 use super::device::find_audio_device;
 use crate::errors::CameraError;
-use crate::timing::PTSClock;
 
 /// Maximum number of audio frames to buffer before dropping oldest.
 /// At 48kHz with 20ms frames (960 samples), this allows ~5 seconds of buffering.
@@ -188,10 +188,7 @@ impl AudioCapture {
     /// Read an audio frame with timeout
     ///
     /// Returns `None` if timeout.
-    pub fn recv_timeout(
-        &self,
-        timeout: Duration,
-    ) -> Result<AudioFrame, crossbeam_channel::RecvTimeoutError> {
+    pub fn recv_timeout(&self, timeout: Duration) -> Result<AudioFrame, crossbeam_channel::RecvTimeoutError> {
         self.receiver.recv_timeout(timeout)
     }
 
@@ -230,9 +227,7 @@ impl AudioCapture {
 impl Drop for AudioCapture {
     fn drop(&mut self) {
         // Ensure stream is stopped before drop
-        if let Err(e) = self.stop() {
-            log::warn!("Error stopping audio capture in drop: {}", e);
-        }
+        let _ = self.stop();
         // Stream is dropped here, which joins any internal threads
         self.stream = None;
     }

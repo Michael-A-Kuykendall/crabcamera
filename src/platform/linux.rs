@@ -56,6 +56,7 @@ pub fn initialize_camera(params: CameraInitParams) -> Result<LinuxCamera, Camera
         camera: Arc::new(Mutex::new(camera)),
         device_id: params.device_id,
         format: params.format,
+        callback: Arc::new(Mutex::new(None)),
     })
 }
 
@@ -64,6 +65,7 @@ pub struct LinuxCamera {
     camera: Arc<Mutex<Camera>>,
     device_id: String,
     format: CameraFormat,
+    callback: Arc<Mutex<Option<Box<dyn Fn(CameraFrame) + Send + 'static>>>>,
 }
 
 impl LinuxCamera {
@@ -85,7 +87,14 @@ impl LinuxCamera {
             self.device_id.clone(),
         );
 
-        Ok(camera_frame.with_format("RGB8".to_string()))
+        let camera_frame = camera_frame.with_format(frame.format().to_string());
+
+        // Call callback if set
+        if let Some(ref cb) = *self.callback.lock() {
+            cb(camera_frame.clone());
+        }
+
+        Ok(camera_frame)
     }
 
     /// Get current format
@@ -190,6 +199,15 @@ impl LinuxCamera {
         &self,
     ) -> Result<crate::types::CameraPerformanceMetrics, CameraError> {
         Ok(crate::types::CameraPerformanceMetrics::default())
+    }
+
+    /// Set frame callback for real-time processing
+    pub fn set_callback<F>(&self, callback: F) -> Result<(), CameraError>
+    where
+        F: Fn(CameraFrame) + Send + 'static,
+    {
+        *self.callback.lock() = Some(Box::new(callback));
+        Ok(())
     }
 }
 

@@ -719,4 +719,45 @@ mod platform_tests {
             metrics.quality_score
         );
     }
+
+    #[test]
+    fn test_mock_camera_frame_callback() {
+        use std::sync::{Arc, Mutex};
+
+        let format = CameraFormat::new(640, 480, 30.0);
+        let mut mock_camera = MockCamera::new("test_callback".to_string(), format);
+
+        // Set up callback tracking
+        let callback_called = Arc::new(Mutex::new(false));
+        let callback_frame = Arc::new(Mutex::new(None));
+        let callback_called_clone = callback_called.clone();
+        let callback_frame_clone = callback_frame.clone();
+
+        // Set the callback
+        let result = mock_camera.frame_callback(move |frame| {
+            *callback_called_clone.lock().unwrap() = true;
+            *callback_frame_clone.lock().unwrap() = Some(frame);
+        });
+        assert!(result.is_ok(), "Setting callback should succeed");
+
+        // Set success mode and capture a frame
+        mock_camera.set_capture_mode(MockCaptureMode::Success);
+        set_mock_camera_mode("test_callback", MockCaptureMode::Success);
+
+        let capture_result = mock_camera.capture_frame();
+        assert!(capture_result.is_ok(), "Capture should succeed");
+
+        // Verify callback was called
+        assert!(*callback_called.lock().unwrap(), "Callback should have been called");
+
+        // Verify callback received the correct frame
+        let callback_frame_data = callback_frame.lock().unwrap().take();
+        assert!(callback_frame_data.is_some(), "Callback should have received a frame");
+
+        let callback_frame = callback_frame_data.unwrap();
+        assert_eq!(callback_frame.device_id, "test_callback");
+        assert!(callback_frame.width > 0);
+        assert!(callback_frame.height > 0);
+        assert!(!callback_frame.data.is_empty());
+    }
 }

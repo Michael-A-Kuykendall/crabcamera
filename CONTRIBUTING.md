@@ -1,10 +1,8 @@
-# Ì¥ù Contributing to RustChain Community Edition
-
-**Welcome to RustChain!** Ì∂Ä
+# Contributing to CrabCamera
 
 ## Open Source, Not Open Contribution
 
-RustChain is **open source** but **not open contribution**.
+CrabCamera is **open source** but **not open contribution**.
 
 - The code is freely available under the MIT license
 - You can fork, modify, use, and learn from it without restriction
@@ -15,14 +13,14 @@ This model keeps the project coherent, maintains clear ownership, and ensures co
 
 ## How to Contribute
 
-If you believe you can contribute meaningfully to RustChain:
+If you believe you can contribute meaningfully to CrabCamera:
 
 1. **Email the maintainer first**: [michaelallenkuykendall@gmail.com](mailto:michaelallenkuykendall@gmail.com)
 2. Describe your background and proposed contribution
 3. If there is alignment, a scoped collaboration may be discussed privately
 4. Only after discussion will PRs be considered
 
-**Unsolicited PRs will be closed without merge.** This isn't personal ‚Äî it's how this project operates.
+**Unsolicited PRs will be closed without merge.** This isn't personal, it's how this project operates.
 
 ## What We Welcome (via email first)
 
@@ -43,7 +41,7 @@ If you believe you can contribute meaningfully to RustChain:
 
 Bug reports via GitHub Issues are welcome! Please include:
 - Platform (Windows/macOS/Linux) and version
-- Rust version and rustchain version
+- Rust version and crabcamera version
 - Minimal reproduction case
 - Expected vs actual behavior
 - System configuration details
@@ -52,23 +50,23 @@ Bug reports via GitHub Issues are welcome! Please include:
 
 If a contribution is discussed and approved:
 - Rust 2021 edition with `cargo fmt` and `cargo clippy`
-- Comprehensive error handling using `Result<T, RustChainError>`
+- Comprehensive error handling using `Result<T, CameraError>`
 - All public APIs must have documentation with examples
-- Enterprise-grade code with safety and performance focus
+- Production-grade code with safety and performance focus
 
-## RustChain Philosophy
+## CrabCamera Philosophy
 
 Any accepted work must align with:
 - **Memory Safety First**: Zero unsafe code in critical paths
-- **Performance by Design**: Sub-second execution for complex workflows
-- **Enterprise Security**: Cryptographic audit trails and compliance
+- **Performance by Design**: Efficient frame handling and minimal latency
+- **Cross-Platform**: Windows, macOS, and Linux support
 - **Production Ready**: Comprehensive error handling and testing
 - **Free Forever**: No features that could lead to paid tiers
 
 ## Why This Model?
 
-Building reliable enterprise AI orchestration requires tight architectural control. This ensures:
-- Consistent API design across all AI providers and tools
+Building reliable cross-platform camera infrastructure requires tight architectural control. This ensures:
+- Consistent API design across all platforms
 - No ownership disputes or governance overhead
 - Quality control without committee delays
 - Clear direction for the project's future
@@ -77,7 +75,7 @@ The code is open. The governance is centralized. This is intentional.
 
 ## Recognition
 
-Helpful bug reports and community members are acknowledged in release notes.
+Helpful bug reports and community feedback are acknowledged in release notes.
 If email collaboration leads to merged work, attribution will be given appropriately.
 
 ---

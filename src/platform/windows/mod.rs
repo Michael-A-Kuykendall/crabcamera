@@ -16,6 +16,8 @@ pub struct WindowsCamera {
     pub mf_controls: MediaFoundationControls,
     /// Device identifier
     pub device_id: String,
+    /// Frame callback
+    pub callback: std::sync::Mutex<Option<Box<dyn Fn(CameraFrame) + Send + 'static>>>,
 }
 
 impl WindowsCamera {
@@ -39,12 +41,20 @@ impl WindowsCamera {
             nokhwa_camera,
             mf_controls,
             device_id,
+            callback: std::sync::Mutex::new(None),
         })
     }
 
     /// Capture a frame using nokhwa
     pub fn capture_frame(&mut self) -> Result<CameraFrame, CameraError> {
-        capture::capture_frame(&mut self.nokhwa_camera, &self.device_id)
+        let frame = capture::capture_frame(&mut self.nokhwa_camera, &self.device_id)?;
+
+        // Call callback if set
+        if let Some(ref cb) = *self.callback.lock().map_err(|_| CameraError::InitializationError("Mutex poisoned".to_string()))? {
+            cb(frame.clone());
+        }
+
+        Ok(frame)
     }
 
     /// Apply camera controls using MediaFoundation
@@ -97,6 +107,15 @@ impl WindowsCamera {
     /// Get device ID
     pub fn get_device_id(&self) -> &str {
         &self.device_id
+    }
+
+    /// Set frame callback for real-time processing
+    pub fn set_callback<F>(&self, callback: F) -> Result<(), CameraError>
+    where
+        F: Fn(CameraFrame) + Send + 'static,
+    {
+        *self.callback.lock().map_err(|_| CameraError::InitializationError("Mutex poisoned".to_string()))? = Some(Box::new(callback));
+        Ok(())
     }
 }
 

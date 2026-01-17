@@ -493,7 +493,14 @@ This model ensures consistent quality across all platforms and clear project dir
 
 ### Sponsors
 
-See our amazing [sponsors](SPONSORS.md) who make 🦀 CrabCamera possible! 🙏
+**🎉 Huge thank you to our amazing sponsors who make 🦀 CrabCamera possible! 🙏**
+
+**Current Sponsors:**
+- **$100/month Corporate Backer** (joined December 25th, 2025) - Thank you for your generous support!
+- **$25/month Developer Supporter** - Your support helps drive feature development!
+- **$5/month Coffee Hero** - Every contribution counts, thank you!
+
+See our complete [sponsors list](SPONSORS.md) for more details.
 
 **Sponsorship Tiers:**
 - **$5/month**: Coffee tier - My eternal gratitude + sponsor badge
