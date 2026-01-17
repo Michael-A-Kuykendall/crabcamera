@@ -95,10 +95,10 @@ impl MacOSCamera {
             self.device_id.clone(),
         );
 
-        let camera_frame = camera_frame.with_format(frame.format().to_string());
+        let camera_frame = camera_frame.with_format(format!("{:?}", self.format));
 
         // Call callback if set
-        if let Some(ref cb) = *self.callback.lock() {
+        if let Some(ref cb) = *self.callback.lock().unwrap() {
             cb(camera_frame.clone());
         }
 
@@ -184,7 +184,7 @@ impl MacOSCamera {
     where
         F: Fn(CameraFrame) + Send + 'static,
     {
-        *self.callback.lock() = Some(Box::new(callback));
+        *self.callback.lock().unwrap() = Some(Box::new(callback));
         Ok(())
     }
 }
