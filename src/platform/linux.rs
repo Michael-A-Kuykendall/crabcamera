@@ -87,7 +87,7 @@ impl LinuxCamera {
             self.device_id.clone(),
         );
 
-        let camera_frame = camera_frame.with_format(frame.format().to_string());
+        let camera_frame = camera_frame.with_format(format!("{:?}", self.format));
 
         // Call callback if set
         if let Some(ref cb) = *self.callback.lock().unwrap() {
