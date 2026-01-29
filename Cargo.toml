@@ -1,6 +1,6 @@
 [package]
 name = "crabcamera"
-version = "0.7.1"
+version = "0.8.0"
 edition = "2021"
 description = "Advanced cross-platform camera integration for Tauri applications"
 license = "MIT OR Apache-2.0"

@@ -5,6 +5,36 @@ All notable changes to CrabCamera will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-01-29
+
+### 🚀 Major Feature: Smart Trigger & Invariant Superhighway
+
+Introduced the **Invariant Superhighway**, a novel architectural pattern for self-verifying systems, and leveraged it to build the **Smart Trigger** system for intelligent photography.
+
+#### Added
+- **Smart Trigger System**: `SmartTrigger` struct that automates image capture based on quality stability.
+    - Uses real-time analysis to detect when a shot is "stabilized" (not blurry, good exposure, persistent quality).
+    - Intelligent timeout handling ensures you never miss a shot, even in difficult conditions.
+    - Configurable sensitivity, stability duration, and timeout budgets.
+- **Invariant Superhighway**: A complete re-architecture of the system's safety guarantees.
+    - `assert_invariant!`: Runtime macro that enforces architectural contracts in debug builds.
+    - `assert_performance_invariant!`: Predictive performance testing that panics if operations (like analysis) exceed latency budgets.
+    - **Black Box Recorder**: Invariant checks now log to a ring buffer history for crash dump analysis.
+- **Type Safety Hardening**: 
+    - Refactored `QualityReport` to use `Option<T>` for metrics components, effectively eliminating "invalid state" crashes for partial analysis results.
+    - Added strict contract enforcement for Focus Stacking (frame dimensions must match exactly).
+
+#### Changed
+- Moved `WEBRTC_AUDIT_REPORT.md` and related docs to `docs/archive/` to declutter the root workspace.
+- Updated `README.md` with new professional logo and "Invariant Superhighway" engineering philosophy section.
+- Renamed "FeedMe" methodology to "Invariant PPT" to reflect its native integration into CrabCamera.
+
+#### Fixed
+- Fixed Issue #9: Tauri v2 frontend "undefined invoke" issue by updating documentation.
+- Improved error handling in `focus_stack` ensures proper panic/error propagation for dimension mismatches.
+
+---
+
 ## [0.7.1] - 2026-01-15
 
 ### Added

@@ -332,8 +332,8 @@ async fn test_validate_frame_quality_command() {
 
             // Verify report structure
             assert!(report.score.overall >= 0.0 && report.score.overall <= 1.0);
-            assert!(report.blur_metrics.quality_score >= 0.0);
-            assert!(report.exposure_metrics.quality_score >= 0.0);
+            assert!(report.blur_metrics.unwrap().quality_score >= 0.0);
+            assert!(report.exposure_metrics.unwrap().quality_score >= 0.0);
         }
         Err(e) if e.contains("mutex") || e.contains("camera") => {
             println!(

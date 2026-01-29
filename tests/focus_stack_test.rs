@@ -430,6 +430,7 @@ fn test_merge_no_frames() {
 
 /// Test merge with dimension mismatch
 #[test]
+#[cfg(not(debug_assertions))] // Only run checking for error in release mode
 fn test_merge_dimension_mismatch() {
     let frame1 = create_test_frame_with_focus(100, 100, "uniform_sharp");
     let frame2 = create_test_frame_with_focus(50, 50, "uniform_sharp");
@@ -440,6 +441,20 @@ fn test_merge_dimension_mismatch() {
     if let Err(e) = result {
         assert!(matches!(e, FocusStackError::DimensionMismatch { .. }));
     }
+}
+
+#[test]
+#[cfg(debug_assertions)] // In strictly checked builds, this violates the invariant superhighway!
+#[should_panic(expected = "Focus stack frames must have identical dimensions")]
+fn test_merge_dimension_mismatch_invariants() {
+    // Clear invariants so we don't pollute other tests if they share state (though they shouldn't)
+    crabcamera::invariant_ppt::clear_invariant_log();
+    
+    let frame1 = create_test_frame_with_focus(100, 100, "uniform_sharp");
+    let frame2 = create_test_frame_with_focus(50, 50, "uniform_sharp");
+
+    let frames = vec![frame1, frame2];
+    let _ = merge_frames(&frames, 0.5, 3);
 }
 
 /// Test mathematical correctness of focus algorithms
