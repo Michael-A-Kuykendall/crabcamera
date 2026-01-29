@@ -3,7 +3,7 @@
 CrabCamera is the **first production-ready desktop camera + audio plugin** for Tauri applications.
 Its mission is **invisible camera infrastructure**: drop it in, it works.
 
-## Current Status: v0.6.0 - Headless Operation Complete ✅
+## Current Status: v0.8.x - The Invariant Era ✅
 
 ### Core Features (v0.1.0-0.5.0)
 - ✅ Cross-platform camera capture (Windows/macOS/Linux)
@@ -15,22 +15,22 @@ Its mission is **invisible camera infrastructure**: drop it in, it works.
 - ✅ Property-based testing framework
 - ✅ Published to crates.io
 
-### Advanced Features (v0.6.0)
+### Advanced Features (v0.6.0-0.8.0)
 - ✅ **Headless Operation**: Complete CLI toolkit for servers and automation
 - ✅ **Production CLI**: `crabcamera-cli` for command-line camera operations
 - ✅ **Session Management**: Programmatic camera/audio lifecycle control
 - ✅ **Enhanced Timing**: Improved PTS clock with nanosecond precision
 - ✅ **Muxide Integration**: v0.1.3 with validation and metadata support
-- ✅ **WebRTC Streaming**: Enhanced peer connections and data channels
+- ✅ **Smart Trigger**: Intelligent capture automation based on quality stability
 - ✅ **Invariant PPT Framework**: Runtime correctness guarantees (40+ checks)
-- ✅ **Comprehensive Testing**: 157+ unit tests, 95%+ coverage
+- ✅ **Comprehensive Testing**: 160+ unit tests, 95%+ coverage
 - ✅ **Cross-Platform Binaries**: Native headless binaries for all platforms
 
-## Next Goals (v0.7.0) - AI & Professional Features
+## Next Goals (v0.9.0) - AI & Professional Features
 
 ### High Priority
+- [x] **Image Analysis CLI**: Command-line tool for blur/exposure scoring (`analyze-image`)
 - [ ] **AI-Powered Auto-Framing**: Subject detection and automatic camera positioning
-- [ ] **Quality Enhancement**: ML-based image quality improvement
 - [ ] **Performance Benchmarks**: Establish baseline metrics for camera operations
 
 ### Medium Priority

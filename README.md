@@ -1,6 +1,6 @@
 # 🦀 CrabCamera: Professional Desktop Camera & Audio Plugin for Tauri 📷🎙️
 
-![CrabCamera Logo](assets/logo.png)
+![CrabCamera Logo](https://raw.githubusercontent.com/Michael-A-Kuykendall/crabcamera/main/assets/logo.png)
 
 [![Crates.io](https://img.shields.io/crates/v/crabcamera.svg)](https://crates.io/crates/crabcamera)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
