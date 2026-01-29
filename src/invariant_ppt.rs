@@ -97,3 +97,35 @@ pub fn clear_invariant_log() {
         log.borrow_mut().clear();
     });
 }
+
+// ==============================================================================================
+//  FeedMe-style Performance Invariants
+// ==============================================================================================
+
+/// Performance metrics snapshot for invariant analysis
+#[derive(Debug, Clone, PartialEq)]
+pub struct PerfSnapshot {
+    pub label: String,
+    pub latency_ms: f64,
+    pub throughput_ops: f64,
+    pub memory_delta_kb: i64,
+}
+
+/// Assert that performance meets a baseline predictive model
+///
+/// This follows the FeedMe methodology of "Predictive Property Testing":
+/// We assert that the system behaves within a predicted envelope.
+pub fn assert_performance_invariant(
+    snapshot: &PerfSnapshot,
+    baseline_latency: f64,
+    tolerance_factor: f64
+) {
+    let max_latency = baseline_latency * (1.0 + tolerance_factor);
+    
+    // Log the check so contract tests know we validated performance
+    __assert_invariant_impl(
+        snapshot.latency_ms <= max_latency, 
+        &format!("PERF: {} latency within predicted envelope", snapshot.label),
+        Some("performance")
+    );
+}

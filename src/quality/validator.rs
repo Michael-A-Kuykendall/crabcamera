@@ -15,6 +15,13 @@ pub struct QualityScore {
 impl QualityScore {
     /// Create new quality score
     pub fn new(blur: f32, exposure: f32, composition: f32, technical: f32) -> Self {
+        // FeedMe Invariant: Score components must be normalized
+        #[cfg(debug_assertions)]
+        crate::assert_invariant!(
+            (0.0..=1.0).contains(&blur) && (0.0..=1.0).contains(&exposure),
+            "Quality components must be normalized 0.0-1.0"
+        );
+
         let overall =
             (blur * 0.35 + exposure * 0.35 + composition * 0.15 + technical * 0.15).clamp(0.0, 1.0);
 
@@ -79,8 +86,8 @@ impl QualityGrade {
 pub struct QualityReport {
     pub score: QualityScore,
     pub grade: QualityGrade,
-    pub blur_metrics: BlurMetrics,
-    pub exposure_metrics: ExposureMetrics,
+    pub blur_metrics: Option<BlurMetrics>,         // Fixed: Made optional
+    pub exposure_metrics: Option<ExposureMetrics>, // Fixed: Made optional
     pub recommendations: Vec<String>,
     pub is_acceptable: bool,
     pub technical_details: TechnicalDetails,
@@ -183,8 +190,8 @@ impl QualityValidator {
         QualityReport {
             score: quality_score,
             grade,
-            blur_metrics,
-            exposure_metrics,
+            blur_metrics: Some(blur_metrics),
+            exposure_metrics: Some(exposure_metrics),
             recommendations,
             is_acceptable,
             technical_details,
