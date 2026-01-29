@@ -41,6 +41,16 @@
 
 After extensive development and multiple attempts at implementing WebRTC streaming, we've made a strategic decision to focus CrabCamera exclusively on **camera capture and recording excellence**. 
 
+### 🛡️ Engineering Philosophy: The Invariant Superhighway
+
+CrabCamera is built differently. We don't just "check for errors"; we enforce architectural guarantees through what we call **Predictive Property-Based Testing (PPT)** or the **Invariant Superhighway**.
+
+*   **Deterministic Reliability**: Every critical data path (video encoding, audio sync, frame merging) is paved with "toll booths"—runtime invariant checks that enforce strict contracts about state validity.
+*   **Self-Verifying Architecture**: The system monitors its own health. In debug builds, it panics immediately on logic violations. In production, it ensures data integrity before it ever reaches the user.
+*   **Contract-Driven Tests**: Our test suite doesn't just check outputs; it checks that the *safety mechanisms themselves* were engaged. We verify that the guards are watching.
+
+This methodology (adapted from high-reliability systems engineering) ensures that CrabCamera isn't just "working code"—it's a verifiable system.
+
 ### Why We Removed WebRTC
 
 **The Challenge:** WebRTC streaming represents a significant expansion beyond our core competency. While technically feasible, it introduced substantial complexity:

@@ -3,32 +3,47 @@
 //! This module provides runtime invariant checking and contract test support
 //! for Predictive Property-Based Testing (PPT).
 //!
-//! # Usage
+//! # Philosophy
 //!
-//! ```rust,ignore
-//! use crabcamera::invariant_ppt::*;
-//!
-//! // In production code - assert invariants
-//! assert_invariant!(
-//!     box_size == payload.len() + 8,
-//!     "Box size must equal header + payload"
-//! );
-//!
-//! // In tests - verify contracts are enforced
-//! #[test]
-//! fn contract_mp4_boxes() {
-//!     contract_test("mp4 boxes", &[
-//!         "Box size must equal header + payload",
-//!     ]);
-//! }
-//! ```
+//! "Invariant Superhighways": State flows through the system and is checked at
+//! deterministic toll booths. These checks form a verifiable contract that the
+//! system architecture enforces at runtime (debug) and verifies in tests.
 
 use std::cell::RefCell;
-use std::collections::HashSet;
+use std::collections::VecDeque;
 use std::thread_local;
 
+/// Categories of invariants for granular analysis
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InvariantType {
+    /// Correctness of data structures and algorithms
+    Correctness,
+    /// Memory safety, boundary checks, valid pointers
+    Safety,
+    /// Performance envelopes (latency, throughput)
+    Performance,
+    /// API Contracts and State consistency
+    State,
+}
+
+impl Default for InvariantType {
+    fn default() -> Self {
+        Self::Correctness
+    }
+}
+
+/// A record of a checked invariant
+#[derive(Debug, Clone)]
+pub struct InvariantRecord {
+    pub message: String,
+    pub invariant_type: InvariantType,
+    pub context: String,
+    pub passed: bool,
+}
+
 thread_local! {
-    static INVARIANT_LOG: RefCell<HashSet<String>> = RefCell::new(HashSet::new());
+    // Ring buffer history of recent invariant checks (for crash dumps)
+    static INVARIANT_HISTORY: RefCell<VecDeque<InvariantRecord>> = RefCell::new(VecDeque::with_capacity(100));
 }
 
 /// Assert an invariant and log it for contract testing.
@@ -43,23 +58,41 @@ thread_local! {
 #[macro_export]
 macro_rules! assert_invariant {
     ($condition:expr, $message:expr) => {
-        $crate::invariant_ppt::__assert_invariant_impl($condition, $message, None)
+        $crate::invariant_ppt::__assert_invariant_impl($condition, $message, None, $crate::invariant_ppt::InvariantType::Correctness)
     };
     ($condition:expr, $message:expr, $context:expr) => {
-        $crate::invariant_ppt::__assert_invariant_impl($condition, $message, Some($context))
+        $crate::invariant_ppt::__assert_invariant_impl($condition, $message, Some($context), $crate::invariant_ppt::InvariantType::Correctness)
     };
 }
 
 /// Internal implementation - do not call directly
 #[doc(hidden)]
-pub fn __assert_invariant_impl(condition: bool, message: &str, context: Option<&str>) {
-    // Log that this invariant was checked
-    INVARIANT_LOG.with(|log| {
-        log.borrow_mut().insert(message.to_string());
+pub fn __assert_invariant_impl(
+    condition: bool,
+    message: &str,
+    context: Option<&str>,
+    type_: InvariantType
+) {
+    let ctx = context.unwrap_or("unknown");
+    
+    let record = InvariantRecord {
+        message: message.to_string(),
+        invariant_type: type_,
+        context: ctx.to_string(),
+        passed: condition,
+    };
+
+    // Log to history
+    INVARIANT_HISTORY.with(|history| {
+        let mut h = history.borrow_mut();
+        if h.len() >= 100 {
+            h.pop_front();
+        }
+        h.push_back(record);
     });
 
     if !condition {
-        let ctx = context.unwrap_or("unknown");
+        // In the future: Dump history here
         panic!("INVARIANT VIOLATION [{}]: {}", ctx, message);
     }
 }
@@ -73,11 +106,12 @@ pub fn __assert_invariant_impl(condition: bool, message: &str, context: Option<&
 /// # Panics
 /// Panics if any required invariant was not checked.
 pub fn contract_test(test_name: &str, required_invariants: &[&str]) {
-    let log = INVARIANT_LOG.with(|log| log.borrow().clone());
+    let history = INVARIANT_HISTORY.with(|h| h.borrow().clone());
 
     let mut missing: Vec<&str> = Vec::new();
     for invariant in required_invariants {
-        if !log.contains(*invariant) {
+        let found = history.iter().any(|r| r.message == *invariant);
+        if !found {
             missing.push(invariant);
         }
     }
@@ -93,13 +127,13 @@ pub fn contract_test(test_name: &str, required_invariants: &[&str]) {
 
 /// Clear the invariant log (call between test runs if needed)
 pub fn clear_invariant_log() {
-    INVARIANT_LOG.with(|log| {
-        log.borrow_mut().clear();
+    INVARIANT_HISTORY.with(|h| {
+        h.borrow_mut().clear();
     });
 }
 
 // ==============================================================================================
-//  FeedMe-style Performance Invariants
+//  Performance Invariants
 // ==============================================================================================
 
 /// Performance metrics snapshot for invariant analysis
@@ -113,7 +147,7 @@ pub struct PerfSnapshot {
 
 /// Assert that performance meets a baseline predictive model
 ///
-/// This follows the FeedMe methodology of "Predictive Property Testing":
+/// This follows the methodology of "Predictive Property Testing":
 /// We assert that the system behaves within a predicted envelope.
 pub fn assert_performance_invariant(
     snapshot: &PerfSnapshot,
@@ -126,6 +160,7 @@ pub fn assert_performance_invariant(
     __assert_invariant_impl(
         snapshot.latency_ms <= max_latency, 
         &format!("PERF: {} latency within predicted envelope", snapshot.label),
-        Some("performance")
+        Some("performance"),
+        InvariantType::Performance
     );
 }

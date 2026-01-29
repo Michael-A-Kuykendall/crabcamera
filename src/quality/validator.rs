@@ -15,7 +15,7 @@ pub struct QualityScore {
 impl QualityScore {
     /// Create new quality score
     pub fn new(blur: f32, exposure: f32, composition: f32, technical: f32) -> Self {
-        // FeedMe Invariant: Score components must be normalized
+        // Invariant: Score components must be normalized
         #[cfg(debug_assertions)]
         crate::assert_invariant!(
             (0.0..=1.0).contains(&blur) && (0.0..=1.0).contains(&exposure),

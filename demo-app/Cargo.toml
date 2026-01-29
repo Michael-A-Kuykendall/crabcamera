@@ -1,0 +1,15 @@
+[package]
+name = "crabcamera-demo-app"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+slint = "1.7"
+tokio = { version = "1.40", features = ["full"] }
+crabcamera = { path = "../", features = ["headless", "audio"] }
+image = "0.25"
+
+
+[build-dependencies]
+slint-build = "1.7"
+[workspace]
