@@ -36,6 +36,7 @@ pub mod errors;
 pub mod focus_stack;
 #[cfg(feature = "headless")]
 pub mod headless;
+pub mod invariant_ppt; // Added to expose invariant methodology
 pub mod permissions;
 pub mod platform;
 pub mod quality;

@@ -47,6 +47,12 @@ pub fn merge_frames(
 
     // Validate all frames have same dimensions
     for frame in frames.iter().skip(1) {
+        #[cfg(debug_assertions)]
+        crate::assert_invariant!(
+            frame.width == width && frame.height == height,
+            "Focus stack frames must have identical dimensions"
+        );
+
         if frame.width != width || frame.height != height {
             return Err(FocusStackError::DimensionMismatch {
                 expected: (width, height),
