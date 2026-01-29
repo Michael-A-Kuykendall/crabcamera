@@ -102,15 +102,62 @@ fn main() {
 }
 ```
 
-**Note**: This plugin is designed for Tauri 2.x. The plugin is registered in your Rust code as shown above. No additional configuration in `tauri.conf.json` is required for basic usage.
+### Frontend Integration
+
+To call CrabCamera commands from your frontend, use the `plugin:crabcamera|` prefix with the Tauri `invoke` function.
+
+**1. Using a Bundler (Vite, Webpack, etc.)**
+
+```javascript
+import { invoke } from '@tauri-apps/api/core';
+
+// Initialize the camera system (Required)
+try {
+  await invoke('plugin:crabcamera|initialize_camera_system', {
+    params: {
+        camera_index: 0,
+        resolution: "1920x1080",
+        fps: 30,
+        format: "MJPEG"
+    }
+  });
+  console.log('Camera System Initialized');
+} catch (e) {
+  console.error('Init failed:', e);
+}
+
+// Capture a photo
+async function takePhoto() {
+  const path = await invoke('plugin:crabcamera|capture_single_photo', {
+      path: "capture.jpg"
+  });
+  console.log('Saved to:', path);
+}
+```
+
+**2. Using Vanilla JS (No Bundler)**
+
+Enable `withGlobalTauri: true` in `src-tauri/tauri.conf.json`:
+```json
+{
+  "app": {
+    "withGlobalTauri": true
+  }
+}
+```
+
+Then access via `window.__TAURI__`:
+```javascript
+const { invoke } = window.__TAURI__.core;
+await invoke('plugin:crabcamera|initialize_camera_system');
+```
+
+**Important**: All CrabCamera commands must be invoked with the `plugin:crabcamera|` prefix.
 
 ### Frontend: Professional Photo Capture
 
 ```javascript
 import { invoke } from '@tauri-apps/api/core';
-
-// Initialize professional camera system
-await invoke('plugin:crabcamera|initialize_camera_system');
 
 // Get cameras with quality analysis
 const cameras = await invoke('plugin:crabcamera|get_available_cameras');
@@ -123,8 +170,6 @@ const photo = await invoke('plugin:crabcamera|capture_single_photo', {
   quality: { min_score: 0.8 }  // Professional quality threshold
 });
 ```
-
-**Important**: All CrabCamera commands must be invoked with the `plugin:crabcamera|` prefix when using Tauri 2.x.
 
 ### Frontend: Synchronized A/V Recording
 
