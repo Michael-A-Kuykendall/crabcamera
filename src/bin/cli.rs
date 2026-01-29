@@ -1,5 +1,8 @@
 use crabcamera::headless::*;
-use crabcamera::types::CameraFormat;
+use crabcamera::quality::blur::BlurDetector;
+use crabcamera::quality::exposure::ExposureAnalyzer;
+use crabcamera::types::{CameraFormat, CameraFrame};
+use image::GenericImageView;
 use std::env;
 use std::time::Duration;
 
@@ -17,11 +20,45 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "capture" => cmd_capture(&args),
         "list-controls" => cmd_list_controls(&args),
         "set-control" => cmd_set_control(&args),
+        "analyze-image" => cmd_analyze_image(&args),
         _ => {
             eprintln!("Unknown command: {}", command);
             std::process::exit(1);
         }
     }
+}
+
+fn cmd_analyze_image(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+    if args.len() < 3 {
+        eprintln!("Usage: crabcamera-cli analyze-image <path/to/image.jpg>");
+        std::process::exit(1);
+    }
+    let path = &args[2];
+
+    // Load image
+    let img = image::open(path)?;
+    let (width, height) = img.dimensions();
+    let data = img.to_rgb8().into_raw();
+
+    // Create frame
+    let frame = CameraFrame::new(data, width, height, "cli-file-source".to_string());
+
+    // Analyze
+    let blur_detector = BlurDetector::default();
+    let blur_metrics = blur_detector.analyze_frame(&frame);
+
+    let exposure_analyzer = ExposureAnalyzer::default();
+    let exposure_metrics = exposure_analyzer.analyze_frame(&frame);
+
+    // Output JSON
+    let output = serde_json::json!({
+        "blur": blur_metrics,
+        "exposure": exposure_metrics
+    });
+
+    println!("{}", serde_json::to_string_pretty(&output)?);
+
+    Ok(())
 }
 
 fn cmd_list_devices(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
