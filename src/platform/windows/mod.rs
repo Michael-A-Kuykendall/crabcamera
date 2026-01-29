@@ -8,6 +8,9 @@ use crate::errors::CameraError;
 use crate::types::{CameraCapabilities, CameraControls, CameraFormat, CameraFrame};
 use nokhwa::Camera;
 
+/// Type alias for frame callback to reduce complexity
+type FrameCallback = Box<dyn Fn(CameraFrame) + Send + 'static>;
+
 /// Combined Windows camera interface with both capture and control capabilities
 pub struct WindowsCamera {
     /// nokhwa camera for frame capture
@@ -17,7 +20,7 @@ pub struct WindowsCamera {
     /// Device identifier
     pub device_id: String,
     /// Frame callback
-    pub callback: std::sync::Mutex<Option<Box<dyn Fn(CameraFrame) + Send + 'static>>>,
+    pub callback: std::sync::Mutex<Option<FrameCallback>>,
 }
 
 impl WindowsCamera {
