@@ -7,6 +7,9 @@
 use crate::errors::CameraError;
 use crate::types::{CameraDeviceInfo, CameraFormat, CameraFrame, CameraInitParams, Platform};
 
+// Type alias for frame callback to reduce complexity
+type FrameCallback = Box<dyn Fn(CameraFrame) + Send + 'static>;
+
 // Platform-specific modules
 #[cfg(target_os = "windows")]
 pub mod windows;
@@ -34,7 +37,7 @@ pub struct MockCamera {
     controls: Arc<Mutex<crate::types::CameraControls>>,
     is_streaming: Arc<Mutex<bool>>,
     capture_mode: Arc<Mutex<crate::tests::MockCaptureMode>>,
-    callback: Arc<Mutex<Option<Box<dyn Fn(CameraFrame) + Send + 'static>>>>,
+    callback: Arc<Mutex<Option<FrameCallback>>>,
 }
 
 impl MockCamera {
