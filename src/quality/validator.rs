@@ -86,8 +86,8 @@ impl QualityGrade {
 pub struct QualityReport {
     pub score: QualityScore,
     pub grade: QualityGrade,
-    pub blur_metrics: Option<BlurMetrics>,         // Fixed: Made optional
-    pub exposure_metrics: Option<ExposureMetrics>, // Fixed: Made optional
+    pub blur_metrics: Option<BlurMetrics>,
+    pub exposure_metrics: Option<ExposureMetrics>,
     pub recommendations: Vec<String>,
     pub is_acceptable: bool,
     pub technical_details: TechnicalDetails,

@@ -9,3 +9,6 @@ pub mod validator;
 pub use blur::{BlurDetector, BlurLevel, BlurMetrics};
 pub use exposure::{ExposureAnalyzer, ExposureLevel, ExposureMetrics};
 pub use validator::{QualityReport, QualityScore, QualityValidator, ValidationConfig};
+
+pub mod smart_trigger;
+pub use smart_trigger::{SmartTrigger, TriggerConfig, TriggerStatus};
