@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-update-storage-config"
+description = "Enables the update_storage_config command without any pre-configured scope."
+commands.allow = ["update_storage_config"]
+
+[[permission]]
+identifier = "deny-update-storage-config"
+description = "Denies the update_storage_config command without any pre-configured scope."
+commands.deny = ["update_storage_config"]

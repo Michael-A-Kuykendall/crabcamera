@@ -25,6 +25,13 @@ pub mod device_monitor;
 
 pub use device_monitor::{DeviceEvent, DeviceMonitor};
 
+// Camera manager
+pub mod manager;
+pub use manager::{
+    capture_with_reconnect, get_existing_camera, get_or_create_camera, reconnect_camera,
+    release_camera,
+};
+
 // Mock camera implementation for testing
 // Mock camera for testing - always available
 use std::sync::{Arc, Mutex};

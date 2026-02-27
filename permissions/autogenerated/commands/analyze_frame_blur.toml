@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-analyze-frame-blur"
+description = "Enables the analyze_frame_blur command without any pre-configured scope."
+commands.allow = ["analyze_frame_blur"]
+
+[[permission]]
+identifier = "deny-analyze-frame-blur"
+description = "Denies the analyze_frame_blur command without any pre-configured scope."
+commands.deny = ["analyze_frame_blur"]

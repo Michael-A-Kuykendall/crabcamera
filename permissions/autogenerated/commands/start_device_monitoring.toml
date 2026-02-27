@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-start-device-monitoring"
+description = "Enables the start_device_monitoring command without any pre-configured scope."
+commands.allow = ["start_device_monitoring"]
+
+[[permission]]
+identifier = "deny-start-device-monitoring"
+description = "Denies the start_device_monitoring command without any pre-configured scope."
+commands.deny = ["start_device_monitoring"]

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-capture-focus-stack"
+description = "Enables the capture_focus_stack command without any pre-configured scope."
+commands.allow = ["capture_focus_stack"]
+
+[[permission]]
+identifier = "deny-capture-focus-stack"
+description = "Denies the capture_focus_stack command without any pre-configured scope."
+commands.deny = ["capture_focus_stack"]

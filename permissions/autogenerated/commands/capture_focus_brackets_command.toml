@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-capture-focus-brackets-command"
+description = "Enables the capture_focus_brackets_command command without any pre-configured scope."
+commands.allow = ["capture_focus_brackets_command"]
+
+[[permission]]
+identifier = "deny-capture-focus-brackets-command"
+description = "Denies the capture_focus_brackets_command command without any pre-configured scope."
+commands.deny = ["capture_focus_brackets_command"]

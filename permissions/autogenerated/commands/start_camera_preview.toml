@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-start-camera-preview"
+description = "Enables the start_camera_preview command without any pre-configured scope."
+commands.allow = ["start_camera_preview"]
+
+[[permission]]
+identifier = "deny-start-camera-preview"
+description = "Denies the start_camera_preview command without any pre-configured scope."
+commands.deny = ["start_camera_preview"]

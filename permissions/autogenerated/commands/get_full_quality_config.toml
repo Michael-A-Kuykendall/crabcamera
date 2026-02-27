@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-get-full-quality-config"
+description = "Enables the get_full_quality_config command without any pre-configured scope."
+commands.allow = ["get_full_quality_config"]
+
+[[permission]]
+identifier = "deny-get-full-quality-config"
+description = "Denies the get_full_quality_config command without any pre-configured scope."
+commands.deny = ["get_full_quality_config"]

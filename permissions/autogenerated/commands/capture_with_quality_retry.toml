@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-capture-with-quality-retry"
+description = "Enables the capture_with_quality_retry command without any pre-configured scope."
+commands.allow = ["capture_with_quality_retry"]
+
+[[permission]]
+identifier = "deny-capture-with-quality-retry"
+description = "Denies the capture_with_quality_retry command without any pre-configured scope."
+commands.deny = ["capture_with_quality_retry"]

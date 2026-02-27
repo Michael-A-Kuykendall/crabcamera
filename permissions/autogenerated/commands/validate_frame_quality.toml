@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-validate-frame-quality"
+description = "Enables the validate_frame_quality command without any pre-configured scope."
+commands.allow = ["validate_frame_quality"]
+
+[[permission]]
+identifier = "deny-validate-frame-quality"
+description = "Denies the validate_frame_quality command without any pre-configured scope."
+commands.deny = ["validate_frame_quality"]

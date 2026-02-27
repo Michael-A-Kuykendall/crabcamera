@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-get-monitored-devices"
+description = "Enables the get_monitored_devices command without any pre-configured scope."
+commands.allow = ["get_monitored_devices"]
+
+[[permission]]
+identifier = "deny-get-monitored-devices"
+description = "Denies the get_monitored_devices command without any pre-configured scope."
+commands.deny = ["get_monitored_devices"]

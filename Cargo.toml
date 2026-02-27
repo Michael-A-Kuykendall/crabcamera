@@ -7,6 +7,10 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/Michael-A-Kuykendall/crabcamera"
 keywords = ["tauri", "camera", "cross-platform", "desktop", "rust"]
 categories = ["multimedia", "gui"]
+links = "tauri_plugin_crabcamera"
+
+[build-dependencies]
+tauri-plugin = { version = "2.0", features = ["build"], optional = true }
 
 [workspace]
 
@@ -25,8 +29,7 @@ path = "src/bin/headless_capture.rs"
 required-features = ["headless", "audio"]
 
 [dependencies]
-tauri = { version = "2.0", features = ["protocol-asset"] }
-tauri-plugin = "2.0"
+tauri = { version = "2.0", features = ["protocol-asset"], optional = true }
 nokhwa = { version = "0.10.10", features = ["input-native", "output-threaded"] }
 tokio = { version = "1.40", features = ["full"] }
 uuid = { version = "1.10", features = ["v4", "serde"] }
@@ -70,7 +73,8 @@ contextlite-client = { version = "2.0.7", optional = true }
 # webrtc-util = "0.12.0"
 
 [features]
-default = []
+default = ["tauri"]
+tauri = ["dep:tauri", "dep:tauri-plugin"]
 recording = ["dep:muxide", "dep:openh264"]
 audio = ["dep:cpal", "dep:libopus_sys", "dep:crossbeam-channel"]
 full-recording = ["recording", "audio"]
