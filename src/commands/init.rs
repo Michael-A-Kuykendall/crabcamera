@@ -246,23 +246,36 @@ pub async fn get_system_diagnostics() -> Result<SystemDiagnostics, String> {
 /// System diagnostics response
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SystemDiagnostics {
+    /// Version of the crabcamera crate.
     pub crate_version: String,
+    /// Operating system platform (e.g., "windows", "macos").
     pub platform: String,
+    /// Camera backend in use (e.g., "MediaFoundation", "AVFoundation").
     pub backend: String,
+    /// Number of detected cameras.
     pub camera_count: usize,
+    /// List of summarized camera devices.
     pub cameras: Vec<CameraSummary>,
+    /// Status of camera permissions ("granted", "denied", "unknown").
     pub permission_status: String,
+    /// List of enabled cargo features (e.g., "audio", "recording").
     pub features_enabled: Vec<String>,
+    /// ISO 8601 timestamp of the diagnostics report.
     pub timestamp: String,
 }
 
 /// Summary of a camera device
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CameraSummary {
+    /// Unique device ID.
     pub id: String,
+    /// Human-readable device name.
     pub name: String,
+    /// Whether the device is currently accessible.
     pub is_available: bool,
+    /// Number of supported video formats.
     pub format_count: usize,
+    /// Maximum supported resolution (width, height), if any.
     pub max_resolution: Option<(u32, u32)>,
 }
 

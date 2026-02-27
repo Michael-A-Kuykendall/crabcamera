@@ -5,9 +5,13 @@ use uuid::Uuid;
 /// Platform enumeration
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Platform {
+    /// Windows OS.
     Windows,
+    /// Apple macOS.
     MacOS,
+    /// Linux OS.
     Linux,
+    /// Unknown or unsupported platform.
     Unknown,
 }
 
@@ -39,11 +43,17 @@ impl Platform {
 /// Camera device information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CameraDeviceInfo {
+    /// Unique identifier for the camera device.
     pub id: String,
+    /// Human-readable name of the camera.
     pub name: String,
+    /// Optional description of the camera.
     pub description: Option<String>,
+    /// Whether the camera is currently available for use.
     pub is_available: bool,
+    /// List of supported capture formats.
     pub supports_formats: Vec<CameraFormat>,
+    /// The platform this camera belongs to.
     pub platform: Platform,
 }
 
@@ -82,9 +92,13 @@ impl CameraDeviceInfo {
 /// Camera format specification
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct CameraFormat {
+    /// Width in pixels.
     pub width: u32,
+    /// Height in pixels.
     pub height: u32,
+    /// Frames per second.
     pub fps: f32,
+    /// Format identifier (e.g. "MJPEG").
     pub format_type: String,
 }
 
@@ -124,14 +138,23 @@ impl CameraFormat {
 /// Camera frame data with metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CameraFrame {
+    /// Unique identifier for the frame (UUID).
     pub id: String,
+    /// Raw pixel data.
     pub data: Vec<u8>,
+    /// Frame width in pixels.
     pub width: u32,
+    /// Frame height in pixels.
     pub height: u32,
+    /// Format identifier.
     pub format: String,
+    /// Capture timestamp.
     pub timestamp: DateTime<Utc>,
+    /// ID of the source device.
     pub device_id: String,
+    /// Size of the data buffer in bytes.
     pub size_bytes: usize,
+    /// Additional frame metadata.
     pub metadata: FrameMetadata,
 }
 
@@ -172,32 +195,55 @@ impl CameraFrame {
 /// Advanced camera controls for professional photography
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct CameraControls {
+    /// Enable auto-focus.
     pub auto_focus: Option<bool>,
-    pub focus_distance: Option<f32>, // 0.0 = infinity, 1.0 = closest
+    /// Focus distance (0.0 = infinity, 1.0 = closest).
+    pub focus_distance: Option<f32>,
+    /// Enable auto-exposure.
     pub auto_exposure: Option<bool>,
-    pub exposure_time: Option<f32>,   // Seconds
-    pub iso_sensitivity: Option<u32>, // ISO value
+    /// Exposure time in seconds.
+    pub exposure_time: Option<f32>,
+    /// ISO sensitivity value.
+    pub iso_sensitivity: Option<u32>,
+    /// White balance setting.
     pub white_balance: Option<WhiteBalance>,
-    pub aperture: Option<f32>,   // f-stop value
-    pub zoom: Option<f32>,       // Digital zoom factor
-    pub brightness: Option<f32>, // -1.0 to 1.0
-    pub contrast: Option<f32>,   // -1.0 to 1.0
-    pub saturation: Option<f32>, // -1.0 to 1.0
-    pub sharpness: Option<f32>,  // -1.0 to 1.0
+    /// Aperture f-stop value.
+    pub aperture: Option<f32>,
+    /// Digital zoom factor.
+    pub zoom: Option<f32>,
+    /// Brightness adjustment (-1.0 to 1.0).
+    pub brightness: Option<f32>,
+    /// Contrast adjustment (-1.0 to 1.0).
+    pub contrast: Option<f32>,
+    /// Saturation adjustment (-1.0 to 1.0).
+    pub saturation: Option<f32>,
+    /// Sharpness adjustment (-1.0 to 1.0).
+    pub sharpness: Option<f32>,
+    /// Enable noise reduction.
     pub noise_reduction: Option<bool>,
+    /// Enable image stabilization.
     pub image_stabilization: Option<bool>,
 }
 
+/// White balance presets.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum WhiteBalance {
+    /// Automatic white balance.
     Auto,
+    /// Daylight preset (approx 5000K-6500K).
     Daylight,
+    /// Fluorescent light preset (approx 4000K-5000K).
     Fluorescent,
+    /// Incandescent/Tungsten light preset (approx 2500K-3000K).
     Incandescent,
+    /// Flash preset.
     Flash,
+    /// Cloudy sky preset (approx 6500K-8000K).
     Cloudy,
+    /// Shade preset (approx 8000K+).
     Shade,
-    Custom(u32), // Color temperature in Kelvin
+    /// Custom color temperature in Kelvin (e.g. 5000).
+    Custom(u32),
 }
 
 impl Default for CameraControls {
@@ -222,6 +268,7 @@ impl Default for CameraControls {
 }
 
 impl CameraControls {
+    /// Create a preset for professional photography.
     pub fn professional() -> Self {
         Self {
             auto_focus: Some(false),
@@ -245,21 +292,33 @@ impl CameraControls {
 /// Burst capture configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BurstConfig {
-    pub count: u32,       // Number of photos
-    pub interval_ms: u32, // Time between shots
+    /// Number of photos to capture.
+    pub count: u32,
+    /// Time interval between shots in milliseconds.
+    pub interval_ms: u32,
+    /// Optional exposure bracketing configuration.
     pub bracketing: Option<ExposureBracketing>,
-    pub focus_stacking: bool, // Vary focus for each shot
-    pub auto_save: bool,      // Automatically save all frames
+    /// Whether to vary focus distance for each shot (focus stacking).
+    pub focus_stacking: bool,
+    /// Whether to automatically save all frames to disk.
+    pub auto_save: bool,
+    /// Directory to save frames if auto_save is enabled.
     pub save_directory: Option<String>,
 }
 
+/// Exposure bracketing configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExposureBracketing {
-    pub stops: Vec<f32>,    // EV adjustments: [-2.0, 0.0, +2.0]
-    pub base_exposure: f32, // Base exposure time in seconds
+    /// List of exposure compensation values in stops (e.g. `[-2.0, 0.0, 2.0]`).
+    pub stops: Vec<f32>,
+    /// Base exposure time in seconds.
+    pub base_exposure: f32,
 }
 
 impl BurstConfig {
+    /// Create a standard HDR burst configuration.
+    ///
+    /// Captures 3 frames at -1.0, 0.0, and +1.0 EV.
     pub fn hdr_burst() -> Self {
         Self {
             count: 3,
@@ -278,20 +337,34 @@ impl BurstConfig {
 /// Camera hardware capabilities
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CameraCapabilities {
+    /// Supports auto-focus.
     pub supports_auto_focus: bool,
+    /// Supports manual focus.
     pub supports_manual_focus: bool,
+    /// Supports auto-exposure.
     pub supports_auto_exposure: bool,
+    /// Supports manual exposure.
     pub supports_manual_exposure: bool,
+    /// Supports white balance adjustment.
     pub supports_white_balance: bool,
+    /// Supports zoom (optical or digital).
     pub supports_zoom: bool,
+    /// Supports flash.
     pub supports_flash: bool,
+    /// Supports burst mode capture.
     pub supports_burst_mode: bool,
+    /// Supports HDR mode.
     pub supports_hdr: bool,
+    /// Maximum supported resolution (width, height).
     pub max_resolution: (u32, u32),
+    /// Maximum supported framerate.
     pub max_fps: f32,
-    pub exposure_range: Option<(f32, f32)>, // min, max exposure time
-    pub iso_range: Option<(u32, u32)>,      // min, max ISO
-    pub focus_range: Option<(f32, f32)>,    // min, max focus distance
+    /// Range of supported exposure times (min, max) in seconds.
+    pub exposure_range: Option<(f32, f32)>,
+    /// Range of supported ISO values (min, max).
+    pub iso_range: Option<(u32, u32)>,
+    /// Range of supported focus distances (min, max).
+    pub focus_range: Option<(f32, f32)>,
 }
 
 impl Default for CameraCapabilities {
@@ -318,25 +391,40 @@ impl Default for CameraCapabilities {
 /// Extended metadata for camera frames
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct FrameMetadata {
+    /// Exposure time in seconds.
     pub exposure_time: Option<f32>,
+    /// ISO sensitivity.
     pub iso_sensitivity: Option<u32>,
+    /// White balance setting.
     pub white_balance: Option<WhiteBalance>,
+    /// Focus distance (0.0-1.0).
     pub focus_distance: Option<f32>,
+    /// Aperture f-stop.
     pub aperture: Option<f32>,
+    /// Whether flash fired.
     pub flash_fired: Option<bool>,
+    /// Scene mode description.
     pub scene_mode: Option<String>,
+    /// Full capture settings snapshot.
     pub capture_settings: Option<CameraControls>,
 }
 
 /// Performance metrics for camera operations
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CameraPerformanceMetrics {
+    /// Capture latency in milliseconds.
     pub capture_latency_ms: f32,
+    /// Processing time in milliseconds.
     pub processing_time_ms: f32,
+    /// Memory usage in megabytes.
     pub memory_usage_mb: f32,
+    /// Actual frames per second delivered.
     pub fps_actual: f32,
+    /// Number of dropped frames.
     pub dropped_frames: u32,
+    /// Number of buffer overruns.
     pub buffer_overruns: u32,
+    /// Overall quality score (0.0-1.0).
     pub quality_score: f32,
 }
 
@@ -357,8 +445,11 @@ impl Default for CameraPerformanceMetrics {
 /// Camera initialization parameters
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CameraInitParams {
+    /// Device identifier.
     pub device_id: String,
+    /// Desired camera format.
     pub format: CameraFormat,
+    /// Initial camera controls.
     pub controls: CameraControls,
 }
 
@@ -373,24 +464,28 @@ impl CameraInitParams {
     }
 
     /// Set desired format
+    #[must_use]
     pub fn with_format(mut self, format: CameraFormat) -> Self {
         self.format = format;
         self
     }
 
     /// Set camera controls
+    #[must_use]
     pub fn with_controls(mut self, controls: CameraControls) -> Self {
         self.controls = controls;
         self
     }
 
     /// Enable/disable auto focus
+    #[must_use]
     pub fn with_auto_focus(mut self, enabled: bool) -> Self {
         self.controls.auto_focus = Some(enabled);
         self
     }
 
     /// Enable/disable auto exposure  
+    #[must_use]
     pub fn with_auto_exposure(mut self, enabled: bool) -> Self {
         self.controls.auto_exposure = Some(enabled);
         self

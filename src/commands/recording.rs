@@ -78,9 +78,9 @@ pub async fn start_recording(
 
     // Parse quality preset
     let recording_quality = match quality.as_deref() {
-        Some("low") | Some("720p") => Some(RecordingQuality::Low),
-        Some("medium") | Some("1080p") => Some(RecordingQuality::Medium),
-        Some("high") | Some("4k") => Some(RecordingQuality::High),
+        Some("low" | "720p") => Some(RecordingQuality::Low),
+        Some("medium" | "1080p") => Some(RecordingQuality::Medium),
+        Some("high" | "4k") => Some(RecordingQuality::High),
         _ => None,
     };
 
@@ -295,10 +295,15 @@ pub async fn list_recording_sessions() -> Result<Vec<String>, String> {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RecordingStatus {
+    /// Unique identifier for the recording session.
     pub session_id: String,
+    /// Whether the recording is actively capturing.
     pub is_running: bool,
+    /// Total video frames successfully encoded.
     pub frame_count: u64,
+    /// Frames dropped due to performance issues.
     pub dropped_frames: u64,
+    /// Duration of the recording in seconds.
     pub duration_secs: f64,
     /// Audio recording status (None if audio not enabled)
     #[cfg(feature = "audio")]

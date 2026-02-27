@@ -116,14 +116,37 @@ struct Inner {
     audio_sequence: Mutex<u64>,
 }
 
+/// A handle to an active headless capture session.
+///
+/// This struct allows controlling the session (start, stop, close), retrieving frames,
+/// and adjusting camera settings. It is thread-safe and can be cloned to share access
+/// to the underlying session state.
 #[derive(Clone)]
 pub struct SessionHandle {
     inner: Arc<Inner>,
 }
 
+/// A factory for creating headless capture sessions.
+///
+/// This struct provides the entry point for initializing a camera device and
+/// preparing it for capture.
 pub struct HeadlessSession;
 
 impl HeadlessSession {
+    /// Opens a camera device and prepares a capture session.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - The configuration for the capture session, including device ID, format, and buffer policy.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Result` containing a `SessionHandle` on success, or a `HeadlessError` if initialization fails.
+    ///
+    /// # Errors
+    ///
+    /// * `HeadlessError::BackendError`: If the camera backend fails to initialize the device.
+    /// * `HeadlessError::Unsupported`: If the requested configuration (e.g., audio) is not supported by the build.
     pub fn open(config: CaptureConfig) -> Result<SessionHandle, HeadlessError> {
         // Audio is compile-time gated; enforce config coherence.
         match config.audio_mode {
@@ -190,6 +213,16 @@ impl HeadlessSession {
 }
 
 impl SessionHandle {
+    /// Starts the capture loop in a background thread.
+    ///
+    /// This method spawns a thread to continuously capture frames from the camera
+    /// and pushes them to the internal queue based on the buffer policy.
+    ///
+    /// # Errors
+    ///
+    /// * `HeadlessError::AlreadyStarted`: If the session is already running.
+    /// * `HeadlessError::AlreadyClosed`: If the session has been permanently closed.
+    /// * `HeadlessError::InvalidArgument`: If thread spawning fails.
     pub fn start(&self) -> Result<(), HeadlessError> {
         let mut state = self.inner.state.lock().expect("lock poisoned");
         match *state {
@@ -233,6 +266,20 @@ impl SessionHandle {
         Ok(())
     }
 
+    /// Stops the capture session, joining the threads.
+    ///
+    /// The `close` method also stops the session, but this method allows for a controlled
+    /// shutdown without cleaning up all resources, potentially allowing a restart (though currently only `start` is available).
+    ///
+    /// # Arguments
+    ///
+    /// * `join_timeout` - The maximum time to wait for the capture thread to terminate.
+    ///
+    /// # Errors
+    ///
+    /// * `HeadlessError::AlreadyClosed`: If the session has already been closed.
+    /// * `HeadlessError::AlreadyStopped`: If the session is already stopped.
+    /// * `HeadlessError::ThreadJoin`: If the capture thread panics or times out.
     pub fn stop(&self, join_timeout: Duration) -> Result<(), HeadlessError> {
         let state = self.inner.state.lock().expect("lock poisoned");
         match *state {
@@ -305,6 +352,19 @@ impl SessionHandle {
         Ok(())
     }
 
+    /// Permanently closes the session and releases associated resources.
+    ///
+    /// This method stops the capture thread, closes the queues, and releases the
+    /// camera device. The session cannot be reused after calling `close`.
+    ///
+    /// # Arguments
+    ///
+    /// * `join_timeout` - The timeout for stopping the background threads.
+    ///
+    /// # Errors
+    ///
+    /// * `HeadlessError::AlreadyClosed`: If the session has already been closed.
+    /// * `HeadlessError`: Propagates any error encountered during `stop()`.
     pub fn close(&self, join_timeout: Duration) -> Result<(), HeadlessError> {
         {
             let state = *self.inner.state.lock().expect("lock poisoned");
@@ -329,11 +389,32 @@ impl SessionHandle {
         Ok(())
     }
 
+    /// Returns the number of frames dropped due to buffer overflow or decoding issues.
+    ///
+    /// # Errors
+    ///
+    /// * `HeadlessError::Closed`: If called on a closed session.
     pub fn dropped_frames(&self) -> Result<u64, HeadlessError> {
         self.ensure_not_closed()?;
         Ok(self.inner.queue.dropped())
     }
 
+    /// Retrieves the next available frame from the capture queue, waiting up to `timeout`.
+    ///
+    /// # Arguments
+    ///
+    /// * `timeout` - The maximum duration to wait for a frame.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Some(Frame))`: If a frame is retrieved successfully.
+    /// * `Ok(None)`: If the timeout is reached before a frame is available.
+    ///
+    /// # Errors
+    ///
+    /// * `HeadlessError::Closed`: If called on a closed session.
+    /// * `HeadlessError::Stopped`: If called on a stopped session.
+    /// * `HeadlessError::InvalidArgument`: If called on a session that has not been started.
     pub fn get_frame(&self, timeout: Duration) -> Result<Option<Frame>, HeadlessError> {
         self.ensure_not_closed()?;
         let state = *self.inner.state.lock().expect("lock poisoned");
@@ -348,6 +429,23 @@ impl SessionHandle {
         self.inner.queue.pop_timeout(timeout)
     }
 
+    /// Retrieves the next available audio packet from the queue, waiting up to `timeout`.
+    ///
+    /// # Arguments
+    ///
+    /// * `timeout` - The maximum duration to wait for an audio packet.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Some(AudioPacket))`: If a packet is retrieved.
+    /// * `Ok(None)`: If no packet is available within the timeout.
+    /// * `Err(HeadlessError::Unsupported)`: if audio support is compiled out or not enabled.
+    ///
+    /// # Errors
+    ///
+    /// * `HeadlessError::Closed`: If called on a closed session.
+    /// * `HeadlessError::Stopped`: If called on a stopped session.
+    /// * `HeadlessError::InvalidArgument`: If called on a session that has not been started.
     pub fn get_audio_packet(
         &self,
         timeout: Duration,
@@ -377,6 +475,21 @@ impl SessionHandle {
         }
     }
 
+    /// Sets a camera control value directly.
+    ///
+    /// The control value is validated against the platform capabilities if possible,
+    /// and then applied to the camera backend.
+    ///
+    /// # Arguments
+    ///
+    /// * `control_id` - The identifier of the control to change.
+    /// * `value` - The new value for the control.
+    ///
+    /// # Errors
+    ///
+    /// * `HeadlessError::BackendError`: If the camera backend rejects the setting.
+    /// * `HeadlessError::InvalidControl`: If the value is out of range or incorrect type.
+    /// * `HeadlessError::Closed`: If the session is closed.
     pub fn set_control(
         &self,
         control_id: ControlId,
@@ -397,6 +510,15 @@ impl SessionHandle {
             .map(|_| ())
     }
 
+    /// Retrieves the current values of all supported camera controls.
+    ///
+    /// This queries the backend for the current state of settings like exposure,
+    /// focus, and white balance.
+    ///
+    /// # Errors
+    ///
+    /// * `HeadlessError::BackendError`: If the query fails.
+    /// * `HeadlessError::Closed`: If the session is closed.
     pub fn get_controls(&self) -> Result<CameraControls, HeadlessError> {
         self.ensure_not_closed()?;
         let camera_guard = self.inner.camera.lock().expect("lock poisoned");
@@ -404,6 +526,21 @@ impl SessionHandle {
         cam_guard.get_controls().map_err(HeadlessError::backend)
     }
 
+    /// Lists all known controls with their current values.
+    ///
+    /// This is a convenience method that returns a `Vec` of `(ControlInfo, Option<ControlValue>)`
+    /// for introspection. It retrieves all current settings via `get_controls()` and maps
+    /// them to their definition.
+    ///
+    /// # Return
+    ///
+    /// A vector of tuples where the first element describes the control and the second
+    /// contains its current value, if available.
+    ///
+    /// # Errors
+    ///
+    /// * `HeadlessError::BackendError`: If `get_controls` fails.
+    /// * `HeadlessError::Closed`: If the session in closed.
     pub fn list_controls(
         &self,
     ) -> Result<
@@ -444,6 +581,24 @@ impl SessionHandle {
         Ok(result)
     }
 
+    /// Retrieves the current value of a specific control.
+    ///
+    /// The value is extracted from the result of `get_controls()`, mapped
+    /// to a `ControlValue`. Note that some controls may be missing if not supported.
+    ///
+    /// # Arguments
+    ///
+    /// * `control_id` - The identifier of the control to query.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Some(ControlValue))`: If the control is supported and has a value.
+    /// * `Ok(None)`: If the control is unsupported.
+    ///
+    /// # Errors
+    ///
+    /// * `HeadlessError::BackendError`: If `get_controls` fails.
+    /// * `HeadlessError::Closed`: If the session is closed.
     pub fn get_control(
         &self,
         control_id: crate::headless::controls::ControlId,
@@ -523,7 +678,7 @@ fn capture_loop(inner: Arc<Inner>) {
 fn audio_capture_loop(inner: Arc<Inner>) {
     let pts_clock = PTSClock::new();
     let mut audio_capture =
-        match AudioCapture::new(inner.config.audio_device_id.clone(), 48000, 2, pts_clock) {
+        match AudioCapture::new(inner.config.audio_device_id.as_deref(), 48000, 2, pts_clock) {
             Ok(cap) => cap,
             Err(_) => return, // Audio failed
         };

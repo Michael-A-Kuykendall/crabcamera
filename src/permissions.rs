@@ -58,8 +58,11 @@ pub fn check_permission_detailed() -> PermissionInfo {
 /// Detailed permission information
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct PermissionInfo {
+    /// The current status of the permission.
     pub status: PermissionStatus,
+    /// A human-readable message describing the permission state.
     pub message: String,
+    /// Whether the application can request this permission from the user.
     pub can_request: bool,
 }
 

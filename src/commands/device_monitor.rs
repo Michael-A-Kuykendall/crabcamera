@@ -73,7 +73,9 @@ pub async fn get_monitored_devices() -> Result<Vec<crate::types::CameraDeviceInf
 /// Device event information for Tauri
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct DeviceEventInfo {
+    /// The type of event ("connected" or "disconnected").
     pub event_type: String,
+    /// The ID of the affected device.
     pub device_id: String,
 }
 

@@ -41,7 +41,6 @@ pub async fn release_camera(device_id: &str) -> Result<String, String> {
 }
 
 /// Get existing camera or create new one
-
 pub async fn get_or_create_camera(
     device_id: String,
     format: CameraFormat,

@@ -9,8 +9,11 @@ use crate::types::CameraFrame;
 /// Contains per-pixel sharpness scores (0.0 = blurry, 1.0 = sharp)
 #[derive(Debug, Clone)]
 pub struct SharpnessMap {
+    /// Width of the sharpness map in pixels.
     pub width: u32,
+    /// Height of the sharpness map in pixels.
     pub height: u32,
+    /// Vector of sharpness scores, row-major.
     pub scores: Vec<f32>,
 }
 

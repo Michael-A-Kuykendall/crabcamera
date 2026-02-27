@@ -3,11 +3,10 @@ use crate::errors::CameraError;
 use crate::types::{CameraCapabilities, CameraControls, WhiteBalance};
 use windows::core::Interface;
 use windows::Win32::Media::DirectShow::{
-    CameraControl_Exposure, CameraControl_Focus, CameraControl_Pan, CameraControl_Roll,
-    CameraControl_Tilt, CameraControl_Zoom, IAMCameraControl, IAMVideoProcAmp,
-    VideoProcAmp_BacklightCompensation, VideoProcAmp_Brightness, VideoProcAmp_ColorEnable,
-    VideoProcAmp_Contrast, VideoProcAmp_Gain, VideoProcAmp_Gamma, VideoProcAmp_Hue,
-    VideoProcAmp_Saturation, VideoProcAmp_Sharpness, VideoProcAmp_WhiteBalance,
+    CameraControl_Exposure, CameraControl_Focus, CameraControl_Zoom,
+    IAMCameraControl, IAMVideoProcAmp,
+    VideoProcAmp_Brightness, VideoProcAmp_Contrast,
+    VideoProcAmp_Saturation, VideoProcAmp_WhiteBalance,
     CameraControl_Flags_Auto, CameraControl_Flags_Manual,
     VideoProcAmp_Flags_Auto, VideoProcAmp_Flags_Manual,
 };
@@ -21,9 +20,13 @@ use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_APARTME
 /// Control range information for normalization
 #[derive(Debug, Clone)]
 pub struct ControlRange {
+    /// Minimum allowed value
     pub min: i32,
+    /// Maximum allowed value
     pub max: i32,
+    /// Step size (granularity)
     pub step: i32,
+    /// Default factory value
     pub default: i32,
 }
 
@@ -286,13 +289,13 @@ impl MediaFoundationControls {
         };
 
         // Test camera control capabilities
-        if let Some(ref camera_control) = self.camera_control {
+        if let Some(ref _camera_control) = self.camera_control {
             // Test focus support
             if self.test_camera_control_support(CameraControl_Focus.0) {
                 // Focus property
                 capabilities.supports_auto_focus = true;
                 capabilities.supports_manual_focus = true;
-                if let Some(ref range) = self.focus_range {
+                if let Some(ref _range) = self.focus_range {
                     capabilities.focus_range = Some((0.0, 1.0)); // Normalized range
                 }
             }
@@ -318,7 +321,7 @@ impl MediaFoundationControls {
         }
 
         // Test video processing capabilities
-        if let Some(ref video_proc_amp) = self.video_proc_amp {
+        if let Some(ref _video_proc_amp) = self.video_proc_amp {
             if self.test_video_proc_support(4) {
                 // White balance property
                 capabilities.supports_white_balance = true;

@@ -32,7 +32,7 @@ use crate::audio::{EncodedAudio, OpusEncoder, PTSClock};
 use std::thread::JoinHandle;
 
 /// Video recorder that captures frames, encodes to H.264, and muxes to MP4
-/// Per #RecorderIntegrateAudio: ! supports_audio_optional
+/// Per #`RecorderIntegrateAudio`: ! `supports_audio_optional`
 pub struct Recorder {
     encoder: H264Encoder,
     muxer: muxide::api::Muxer<BufWriter<File>>,
@@ -56,21 +56,24 @@ pub struct Recorder {
     #[cfg(feature = "audio")]
     audio_stop: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
     /// Shared flag for audio thread to report errors
-    /// Per #AudioErrorRecovery: ! error_logged, ! session_status_reflects_audio_state
+    /// Per #`AudioErrorRecovery`: ! `error_logged`, ! `session_status_reflects_audio_state`
     #[cfg(feature = "audio")]
     audio_error_flag: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
     /// Whether audio is enabled for this recording
     #[cfg(feature = "audio")]
     audio_enabled: bool,
     /// Audio error state (cached from shared flag)
-    /// Per #AudioErrorRecovery: ! continues_video_if_audio_fails
+    /// Per #`AudioErrorRecovery`: ! `continues_video_if_audio_fails`
     #[cfg(feature = "audio")]
     audio_failed: bool,
 }
 
 impl Recorder {
     /// Create a new recorder that writes to the specified file
-    /// Per #RecorderIntegrateAudio: ! configures_muxer_audio_track_when_enabled
+    /// Per #`RecorderIntegrateAudio`: ! `configures_muxer_audio_track_when_enabled`
+    ///
+    /// # Errors
+    /// Returns `CameraError` if file creation, encoding initialization, or muxer setup fails.
     pub fn new<P: AsRef<Path>>(
         output_path: P,
         config: RecordingConfig,
@@ -79,7 +82,7 @@ impl Recorder {
 
         // Create the output file
         let file = File::create(&output_path)
-            .map_err(|e| CameraError::IoError(format!("Failed to create output file: {}", e)))?;
+            .map_err(|e| CameraError::IoError(format!("Failed to create output file: {e}")))?;
         let writer = BufWriter::new(file);
 
         // Create the H.264 encoder
@@ -91,7 +94,7 @@ impl Recorder {
             .with_fast_start(config.fast_start);
 
         // Configure audio track if enabled
-        // Per #RecorderIntegrateAudio: ! configures_muxer_audio_track_when_enabled
+        // Per #`RecorderIntegrateAudio`: ! `configures_muxer_audio_track_when_enabled`
         #[cfg(feature = "audio")]
         let audio_config = config.audio.clone();
         #[cfg(feature = "audio")]
@@ -109,7 +112,7 @@ impl Recorder {
 
         let muxer = builder
             .build()
-            .map_err(|e| CameraError::MuxingError(format!("Failed to create muxer: {}", e)))?;
+            .map_err(|e| CameraError::MuxingError(format!("Failed to create muxer: {e}")))?;
 
         let frame_duration_secs = 1.0 / config.fps;
 
@@ -146,9 +149,9 @@ impl Recorder {
     }
 
     /// Start audio capture thread (call after first video frame)
-    /// Per #RecorderIntegrateAudio: ! continues_video_if_audio_fails
-    /// Per #AudioErrorRecovery: ! error_logged, - panic, - silent_data_loss
-    /// Audio runs in its own thread to avoid Send issues with cpal::Stream
+    /// Per #`RecorderIntegrateAudio`: ! `continues_video_if_audio_fails`
+    /// Per #`AudioErrorRecovery`: ! `error_logged`, - panic, - `silent_data_loss`
+    /// Audio runs in its own thread to avoid Send issues with `cpal::Stream`
     #[cfg(feature = "audio")]
     fn start_audio_capture(&mut self) {
         use crate::audio::AudioCapture;
@@ -171,7 +174,7 @@ impl Recorder {
         // Channel for encoded audio packets
         let (sender, receiver) = crossbeam_channel::bounded::<EncodedAudio>(256);
         let stop_flag = Arc::new(AtomicBool::new(false));
-        // Per #AudioErrorRecovery: ! session_status_reflects_audio_state
+        // Per #`AudioErrorRecovery`: ! `session_status_reflects_audio_state`
         let error_flag = Arc::new(AtomicBool::new(false));
 
         let device_id = audio_cfg.device_id.clone();
@@ -183,20 +186,20 @@ impl Recorder {
         let error_clone = error_flag.clone();
 
         // Spawn audio thread
-        // Per #AudioErrorRecovery: ! video_continues_on_audio_failure (thread errors don't affect video)
+        // Per #`AudioErrorRecovery`: ! `video_continues_on_audio_failure` (thread errors don't affect video)
         let handle = std::thread::spawn(move || {
             // Helper to set error flag and log
             let report_error = |msg: &str| {
-                log::error!("Audio thread error: {}", msg);
+                log::error!("Audio thread error: {msg}");
                 error_clone.store(true, Ordering::SeqCst);
             };
 
             // Create capture and encoder in this thread (they stay here)
-            let mut capture = match AudioCapture::new(device_id, sample_rate, channels, clock_clone)
+            let mut capture = match AudioCapture::new(device_id.as_deref(), sample_rate, channels, clock_clone)
             {
                 Ok(c) => c,
                 Err(e) => {
-                    report_error(&format!("Audio capture init failed: {}", e));
+                    report_error(&format!("Audio capture init failed: {e}"));
                     return;
                 }
             };
@@ -204,13 +207,13 @@ impl Recorder {
             let mut encoder = match OpusEncoder::new(sample_rate, channels, bitrate) {
                 Ok(e) => e,
                 Err(e) => {
-                    report_error(&format!("Opus encoder init failed: {}", e));
+                    report_error(&format!("Opus encoder init failed: {e}"));
                     return;
                 }
             };
 
             if let Err(e) = capture.start() {
-                report_error(&format!("Audio capture start failed: {}", e));
+                report_error(&format!("Audio capture start failed: {e}"));
                 return;
             }
 
@@ -233,7 +236,7 @@ impl Recorder {
 
             // Flush remaining
             if let Err(e) = capture.stop() {
-                log::warn!("Failed to stop audio capture cleanly: {}", e);
+                log::warn!("Failed to stop audio capture cleanly: {e}");
             }
             if let Ok(packets) = encoder.flush() {
                 for packet in packets {
@@ -249,12 +252,15 @@ impl Recorder {
     }
 
     /// Write a camera frame to the recording
-    /// Per #RecorderIntegrateAudio: @WriteFrame
-    ///   ! writes_video_pts_from_PTSClock
-    ///   ! drains_audio_non_blocking
-    ///   ! writes_audio_pts_from_audio_frames
-    ///   - busy_wait
-    ///   - unbounded_audio_drain
+    /// Per #`RecorderIntegrateAudio`: @`WriteFrame`
+    ///   ! `writes_video_pts_from_PTSClock`
+    ///   ! `drains_audio_non_blocking`
+    ///   ! `writes_audio_pts_from_audio_frames`
+    ///   - `busy_wait`
+    ///   - `unbounded_audio_drain`
+    ///
+    /// # Errors
+    /// Returns `CameraError` if the frame dimensions don't match or encoding/muxing fails.
     pub fn write_frame(&mut self, frame: &CameraFrame) -> Result<(), CameraError> {
         let now = Instant::now();
 
@@ -304,7 +310,7 @@ impl Recorder {
         }
 
         // Calculate PTS
-        // Per #AVSyncPolicy: ! shared_baseline, - dual_clock_sources
+        // Per #`AVSyncPolicy`: ! `shared_baseline`, - `dual_clock_sources`
         // When audio is enabled, use PTSClock for both A/V to ensure sync.
         // When video-only, use frame-count based PTS (no sync needed).
         #[cfg(feature = "audio")]
@@ -319,7 +325,7 @@ impl Recorder {
         // Write to muxer (use the keyframe info from the encoder)
         self.muxer
             .write_video(pts, &encoded.data, encoded.is_keyframe)
-            .map_err(|e| CameraError::MuxingError(format!("Failed to write frame: {}", e)))?;
+            .map_err(|e| CameraError::MuxingError(format!("Failed to write frame: {e}")))?;
 
         self.frame_count += 1;
         self.last_frame_time = Some(now);
@@ -332,7 +338,7 @@ impl Recorder {
     }
 
     /// Drain available audio frames and write to muxer (non-blocking)
-    /// Per #RecorderIntegrateAudio: ! drains_audio_non_blocking
+    /// Per #`RecorderIntegrateAudio`: ! `drains_audio_non_blocking`
     /// Bounded drain: processes at most MAX_AUDIO_DRAIN_PER_FRAME packets
     /// to prevent blocking video on slow audio processing
     #[cfg(feature = "audio")]
@@ -355,7 +361,7 @@ impl Recorder {
                 Ok(packet) => {
                     // Write to muxer with PTS from audio frame
                     if let Err(e) = self.muxer.write_audio(packet.timestamp, &packet.data) {
-                        log::warn!("Audio write failed (video continues): {}", e);
+                        log::warn!("Audio write failed (video continues): {e}");
                         self.audio_failed = true;
                         return;
                     }

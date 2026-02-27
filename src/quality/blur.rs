@@ -4,37 +4,44 @@ use serde::{Deserialize, Serialize};
 /// Blur detection levels
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BlurLevel {
-    Sharp,      // Very clear, minimal blur
-    Good,       // Slight blur, still acceptable
-    Moderate,   // Noticeable blur, borderline acceptable
-    Blurry,     // Significant blur, poor quality
-    VeryBlurry, // Severely blurred, unusable
+    /// Very clear, minimal blur. Suitable for high quality capture.
+    Sharp,
+    /// Slight blur, still acceptable for general use.
+    Good,
+    /// Noticeable blur, borderline acceptable depending on use case.
+    Moderate,
+    /// Significant blur, poor quality. Should likely be discarded.
+    Blurry,
+    /// Severely blurred, unusable for any purpose.
+    VeryBlurry,
 }
 
 impl BlurLevel {
     /// Convert blur variance to blur level
+    #[must_use]
     pub fn from_variance(variance: f64) -> Self {
         if variance > 1000.0 {
-            BlurLevel::Sharp
+            Self::Sharp
         } else if variance > 500.0 {
-            BlurLevel::Good
+            Self::Good
         } else if variance > 200.0 {
-            BlurLevel::Moderate
+            Self::Moderate
         } else if variance > 50.0 {
-            BlurLevel::Blurry
+            Self::Blurry
         } else {
-            BlurLevel::VeryBlurry
+            Self::VeryBlurry
         }
     }
 
     /// Get quality score (0.0 to 1.0)
-    pub fn quality_score(&self) -> f32 {
+    #[must_use]
+    pub fn quality_score(self) -> f32 {
         match self {
-            BlurLevel::Sharp => 1.0,
-            BlurLevel::Good => 0.8,
-            BlurLevel::Moderate => 0.6,
-            BlurLevel::Blurry => 0.3,
-            BlurLevel::VeryBlurry => 0.1,
+            Self::Sharp => 1.0,
+            Self::Good => 0.8,
+            Self::Moderate => 0.6,
+            Self::Blurry => 0.3,
+            Self::VeryBlurry => 0.1,
         }
     }
 }
@@ -42,16 +49,29 @@ impl BlurLevel {
 /// Blur detection metrics
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlurMetrics {
-    pub variance: f64,           // Laplacian variance (higher = sharper)
-    pub gradient_magnitude: f64, // Sobel gradient magnitude
-    pub edge_density: f64,       // Density of detected edges
-    pub blur_level: BlurLevel,   // Overall blur assessment
-    pub quality_score: f32,      // Quality score (0.0 to 1.0)
+    /// Laplacian variance (higher = sharper).
+    /// Typically used as the primary metric for focus detection.
+    pub variance: f64,
+    /// Sobel gradient magnitude.
+    /// Measures the strength of edges in the image.
+    pub gradient_magnitude: f64,
+    /// Density of detected edges.
+    /// Higher density usually correlates with more detail.
+    pub edge_density: f64,
+    /// Overall blur assessment level.
+    pub blur_level: BlurLevel,
+    /// Normalized quality score (0.0 to 1.0).
+    pub quality_score: f32,
 }
 
-/// Blur detector using multiple algorithms
+/// Blur detector using multiple algorithms.
+///
+/// Combines Laplacian variance, Sobel gradients, and edge density to determine
+/// if an image is in focus.
 pub struct BlurDetector {
+    /// Threshold for variance-based detection
     threshold_variance: f64,
+    /// Threshold for gradient-based detection
     threshold_gradient: f64,
 }
 
@@ -79,14 +99,14 @@ impl BlurDetector {
         let grayscale = self.rgb_to_grayscale(&frame.data, frame.width, frame.height);
 
         // Calculate Laplacian variance (primary blur metric)
-        let variance = self.calculate_laplacian_variance(&grayscale, frame.width, frame.height);
+        let variance = Self::calculate_laplacian_variance(&grayscale, frame.width, frame.height);
 
         // Calculate Sobel gradient magnitude
         let gradient_magnitude =
-            self.calculate_sobel_gradient(&grayscale, frame.width, frame.height);
+            Self::calculate_sobel_gradient(&grayscale, frame.width, frame.height);
 
         // Calculate edge density
-        let edge_density = self.calculate_edge_density(&grayscale, frame.width, frame.height);
+        let edge_density = Self::calculate_edge_density(&grayscale, frame.width, frame.height);
 
         // Determine blur level
         let blur_level = BlurLevel::from_variance(variance);
@@ -106,9 +126,13 @@ impl BlurDetector {
         let mut grayscale = Vec::with_capacity((width * height) as usize);
 
         for i in (0..rgb_data.len()).step_by(3) {
-            let r = rgb_data[i] as f32;
-            let g = rgb_data[i + 1] as f32;
-            let b = rgb_data[i + 2] as f32;
+            // Safety check for buffer overrun
+            if i + 2 >= rgb_data.len() {
+                break;
+            }
+            let r = f32::from(rgb_data[i]);
+            let g = f32::from(rgb_data[i + 1]);
+            let b = f32::from(rgb_data[i + 2]);
 
             // Standard luminance formula
             let gray = (0.299 * r + 0.587 * g + 0.114 * b) as u8;
@@ -119,12 +143,13 @@ impl BlurDetector {
     }
 
     /// Calculate Laplacian variance for blur detection
-    fn calculate_laplacian_variance(&self, grayscale: &[u8], width: u32, height: u32) -> f64 {
+    fn calculate_laplacian_variance(grayscale: &[u8], width: u32, height: u32) -> f64 {
         let laplacian_kernel = [0, -1, 0, -1, 4, -1, 0, -1, 0];
 
         let mut laplacian_values = Vec::new();
 
         // Apply Laplacian filter
+        // We skip the border pixels to avoid boundary checking for 3x3 kernel
         for y in 1..(height - 1) {
             for x in 1..(width - 1) {
                 let mut sum = 0i32;
@@ -134,10 +159,11 @@ impl BlurDetector {
                         let pixel_y = (y as i32 + ky - 1) as usize;
                         let pixel_x = (x as i32 + kx - 1) as usize;
                         let pixel_index = pixel_y * width as usize + pixel_x;
-
-                        if pixel_index < grayscale.len() {
-                            let kernel_value = laplacian_kernel[(ky * 3 + kx) as usize];
-                            sum += grayscale[pixel_index] as i32 * kernel_value;
+                        
+                        // Bounds check not strictly necessary due to loop limits but safe
+                        if let Some(&val) = grayscale.get(pixel_index) {
+                             let kernel_value = laplacian_kernel[(ky * 3 + kx) as usize];
+                             sum += i32::from(val) * kernel_value;
                         }
                     }
                 }
@@ -151,24 +177,24 @@ impl BlurDetector {
             return 0.0;
         }
 
-        let mean = laplacian_values.iter().sum::<i32>() as f64 / laplacian_values.len() as f64;
-        let variance = laplacian_values
+        let count = laplacian_values.len() as f64;
+        let mean = f64::from(laplacian_values.iter().sum::<i32>()) / count;
+        
+        laplacian_values
             .iter()
-            .map(|&x| (x as f64 - mean).powi(2))
+            .map(|&x| (f64::from(x) - mean).powi(2))
             .sum::<f64>()
-            / laplacian_values.len() as f64;
-
-        variance
+            / count
     }
 
     /// Calculate Sobel gradient magnitude
-    fn calculate_sobel_gradient(&self, grayscale: &[u8], width: u32, height: u32) -> f64 {
+    fn calculate_sobel_gradient(grayscale: &[u8], width: u32, height: u32) -> f64 {
         let sobel_x = [-1, 0, 1, -2, 0, 2, -1, 0, 1];
-
         let sobel_y = [-1, -2, -1, 0, 0, 0, 1, 2, 1];
 
         let mut gradients = Vec::new();
 
+        // Skip borders
         for y in 1..(height - 1) {
             for x in 1..(width - 1) {
                 let mut gx = 0i32;
@@ -180,15 +206,16 @@ impl BlurDetector {
                         let pixel_x = (x as i32 + kx - 1) as usize;
                         let pixel_index = pixel_y * width as usize + pixel_x;
 
-                        if pixel_index < grayscale.len() {
-                            let pixel_value = grayscale[pixel_index] as i32;
-                            gx += pixel_value * sobel_x[(ky * 3 + kx) as usize];
-                            gy += pixel_value * sobel_y[(ky * 3 + kx) as usize];
+                        if let Some(&val) = grayscale.get(pixel_index) {
+                            let pixel_value = i32::from(val);
+                            let kernel_idx = (ky * 3 + kx) as usize;
+                            gx += pixel_value * sobel_x[kernel_idx];
+                            gy += pixel_value * sobel_y[kernel_idx];
                         }
                     }
                 }
 
-                let magnitude = ((gx * gx + gy * gy) as f64).sqrt();
+                let magnitude = (f64::from(gx * gx + gy * gy)).sqrt();
                 gradients.push(magnitude);
             }
         }
@@ -201,22 +228,24 @@ impl BlurDetector {
     }
 
     /// Calculate edge density using simple threshold
-    fn calculate_edge_density(&self, grayscale: &[u8], width: u32, height: u32) -> f64 {
+    fn calculate_edge_density(grayscale: &[u8], width: u32, height: u32) -> f64 {
         let edge_threshold = 50;
         let mut edge_count = 0;
         let mut total_pixels = 0;
 
+        // Using simple neighbor difference
         for y in 1..(height - 1) {
             for x in 1..(width - 1) {
                 let center_idx = (y * width + x) as usize;
-                if center_idx >= grayscale.len() {
-                    continue;
-                }
-
-                let center = grayscale[center_idx] as i32;
+                
+                let center = match grayscale.get(center_idx) {
+                    Some(&c) => i32::from(c),
+                    None => continue,
+                };
 
                 // Check 8-connected neighbors
-                let neighbors = [
+                // Pre-calculating indices could be optimized but this is readable
+                let neighbors_indices = [
                     ((y - 1) * width + (x - 1)) as usize,
                     ((y - 1) * width + x) as usize,
                     ((y - 1) * width + (x + 1)) as usize,
@@ -228,9 +257,9 @@ impl BlurDetector {
                 ];
 
                 let mut max_diff = 0;
-                for &neighbor_idx in &neighbors {
-                    if neighbor_idx < grayscale.len() {
-                        let diff = (center - grayscale[neighbor_idx] as i32).abs();
+                for &neighbor_idx in &neighbors_indices {
+                    if let Some(&val) = grayscale.get(neighbor_idx) {
+                        let diff = (center - i32::from(val)).abs();
                         max_diff = max_diff.max(diff);
                     }
                 }
@@ -243,7 +272,7 @@ impl BlurDetector {
         }
 
         if total_pixels > 0 {
-            edge_count as f64 / total_pixels as f64
+            f64::from(edge_count) / f64::from(total_pixels)
         } else {
             0.0
         }
@@ -285,22 +314,24 @@ mod tests {
 
     #[test]
     fn test_blur_level_quality_score() {
-        assert_eq!(BlurLevel::Sharp.quality_score(), 1.0);
-        assert_eq!(BlurLevel::Good.quality_score(), 0.8);
-        assert_eq!(BlurLevel::Moderate.quality_score(), 0.6);
-        assert_eq!(BlurLevel::Blurry.quality_score(), 0.3);
-        assert_eq!(BlurLevel::VeryBlurry.quality_score(), 0.1);
+        let epsilon = 1e-10;
+        assert!((BlurLevel::Sharp.quality_score() - 1.0).abs() < epsilon);
+        assert!((BlurLevel::Good.quality_score() - 0.8).abs() < epsilon);
+        assert!((BlurLevel::Moderate.quality_score() - 0.6).abs() < epsilon);
+        assert!((BlurLevel::Blurry.quality_score() - 0.3).abs() < epsilon);
+        assert!((BlurLevel::VeryBlurry.quality_score() - 0.1).abs() < epsilon);
     }
 
     #[test]
     fn test_blur_detector_creation() {
+        let epsilon = 1e-10;
         let detector = BlurDetector::default();
-        assert_eq!(detector.threshold_variance, 200.0);
-        assert_eq!(detector.threshold_gradient, 50.0);
+        assert!((detector.threshold_variance - 200.0).abs() < epsilon);
+        assert!((detector.threshold_gradient - 50.0).abs() < epsilon);
 
         let custom_detector = BlurDetector::new(300.0, 60.0);
-        assert_eq!(custom_detector.threshold_variance, 300.0);
-        assert_eq!(custom_detector.threshold_gradient, 60.0);
+        assert!((custom_detector.threshold_variance - 300.0).abs() < epsilon);
+        assert!((custom_detector.threshold_gradient - 60.0).abs() < epsilon);
     }
 
     #[test]

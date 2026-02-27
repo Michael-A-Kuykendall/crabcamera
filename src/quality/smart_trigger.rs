@@ -57,6 +57,7 @@ pub struct SmartTrigger {
 }
 
 impl SmartTrigger {
+    /// Create a new smart trigger with the given configuration.
     pub fn new(config: TriggerConfig) -> Self {
         Self {
             validator: QualityValidator::default(),
@@ -69,6 +70,7 @@ impl SmartTrigger {
         }
     }
 
+    /// Set a custom validator for quality scoring.
     pub fn with_validator(mut self, validator: QualityValidator) -> Self {
         self.validator = validator;
         self
@@ -100,7 +102,7 @@ impl SmartTrigger {
                              throughput_ops: 0.0,
                              memory_delta_kb: 0,
                          },
-                         200.0, // Generous budget for debug mode analysis
+                         500.0, // Generous budget for debug mode analysis
                          1.0   
                      );
                  }
