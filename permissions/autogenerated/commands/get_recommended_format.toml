@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-get-recommended-format"
+description = "Enables the get_recommended_format command without any pre-configured scope."
+commands.allow = ["get_recommended_format"]
+
+[[permission]]
+identifier = "deny-get-recommended-format"
+description = "Denies the get_recommended_format command without any pre-configured scope."
+commands.deny = ["get_recommended_format"]

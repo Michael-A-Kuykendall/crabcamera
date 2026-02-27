@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-stop-device-monitoring"
+description = "Enables the stop_device_monitoring command without any pre-configured scope."
+commands.allow = ["stop_device_monitoring"]
+
+[[permission]]
+identifier = "deny-stop-device-monitoring"
+description = "Denies the stop_device_monitoring command without any pre-configured scope."
+commands.deny = ["stop_device_monitoring"]

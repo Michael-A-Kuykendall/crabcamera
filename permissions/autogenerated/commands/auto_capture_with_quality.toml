@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-auto-capture-with-quality"
+description = "Enables the auto_capture_with_quality command without any pre-configured scope."
+commands.allow = ["auto_capture_with_quality"]
+
+[[permission]]
+identifier = "deny-auto-capture-with-quality"
+description = "Denies the auto_capture_with_quality command without any pre-configured scope."
+commands.deny = ["auto_capture_with_quality"]

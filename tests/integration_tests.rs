@@ -1,5 +1,8 @@
+#![cfg(feature = "tauri")]
+
 #[cfg(test)]
 mod integration_tests {
+
     use crabcamera::commands::capture::{
         capture_photo_sequence, capture_single_photo, get_capture_stats, release_camera,
         start_camera_preview, stop_camera_preview,

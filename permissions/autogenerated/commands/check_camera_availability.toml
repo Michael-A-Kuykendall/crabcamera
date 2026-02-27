@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-check-camera-availability"
+description = "Enables the check_camera_availability command without any pre-configured scope."
+commands.allow = ["check_camera_availability"]
+
+[[permission]]
+identifier = "deny-check-camera-availability"
+description = "Denies the check_camera_availability command without any pre-configured scope."
+commands.deny = ["check_camera_availability"]

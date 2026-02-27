@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-save-frame-compressed"
+description = "Enables the save_frame_compressed command without any pre-configured scope."
+commands.allow = ["save_frame_compressed"]
+
+[[permission]]
+identifier = "deny-save-frame-compressed"
+description = "Denies the save_frame_compressed command without any pre-configured scope."
+commands.deny = ["save_frame_compressed"]

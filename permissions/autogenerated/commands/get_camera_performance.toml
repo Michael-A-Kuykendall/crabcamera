@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-get-camera-performance"
+description = "Enables the get_camera_performance command without any pre-configured scope."
+commands.allow = ["get_camera_performance"]
+
+[[permission]]
+identifier = "deny-get-camera-performance"
+description = "Denies the get_camera_performance command without any pre-configured scope."
+commands.deny = ["get_camera_performance"]

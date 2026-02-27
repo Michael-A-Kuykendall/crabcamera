@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-update-advanced-config"
+description = "Enables the update_advanced_config command without any pre-configured scope."
+commands.allow = ["update_advanced_config"]
+
+[[permission]]
+identifier = "deny-update-advanced-config"
+description = "Denies the update_advanced_config command without any pre-configured scope."
+commands.deny = ["update_advanced_config"]

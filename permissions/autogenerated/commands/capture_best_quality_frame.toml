@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-capture-best-quality-frame"
+description = "Enables the capture_best_quality_frame command without any pre-configured scope."
+commands.allow = ["capture_best_quality_frame"]
+
+[[permission]]
+identifier = "deny-capture-best-quality-frame"
+description = "Denies the capture_best_quality_frame command without any pre-configured scope."
+commands.deny = ["capture_best_quality_frame"]

@@ -1,6 +1,7 @@
 use super::{FocusStackConfig, FocusStackError};
-use crate::commands::capture::capture_with_reconnect;
+use crate::platform::capture_with_reconnect;
 /// Focus stack capture module
+
 ///
 /// Handles capturing multiple images at different focus distances
 /// for focus stacking. Requires camera with manual focus control.

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-save-frame-to-disk"
+description = "Enables the save_frame_to_disk command without any pre-configured scope."
+commands.allow = ["save_frame_to_disk"]
+
+[[permission]]
+identifier = "deny-save-frame-to-disk"
+description = "Denies the save_frame_to_disk command without any pre-configured scope."
+commands.deny = ["save_frame_to_disk"]

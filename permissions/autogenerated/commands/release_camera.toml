@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-release-camera"
+description = "Enables the release_camera command without any pre-configured scope."
+commands.allow = ["release_camera"]
+
+[[permission]]
+identifier = "deny-release-camera"
+description = "Denies the release_camera command without any pre-configured scope."
+commands.deny = ["release_camera"]

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-reset-config"
+description = "Enables the reset_config command without any pre-configured scope."
+commands.allow = ["reset_config"]
+
+[[permission]]
+identifier = "deny-reset-config"
+description = "Denies the reset_config command without any pre-configured scope."
+commands.deny = ["reset_config"]

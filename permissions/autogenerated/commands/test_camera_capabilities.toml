@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-test-camera-capabilities"
+description = "Enables the test_camera_capabilities command without any pre-configured scope."
+commands.allow = ["test_camera_capabilities"]
+
+[[permission]]
+identifier = "deny-test-camera-capabilities"
+description = "Denies the test_camera_capabilities command without any pre-configured scope."
+commands.deny = ["test_camera_capabilities"]

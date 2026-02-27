@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-set-frame-callback"
+description = "Enables the set_frame_callback command without any pre-configured scope."
+commands.allow = ["set_frame_callback"]
+
+[[permission]]
+identifier = "deny-set-frame-callback"
+description = "Denies the set_frame_callback command without any pre-configured scope."
+commands.deny = ["set_frame_callback"]

@@ -52,6 +52,8 @@ CLAUDE.md
 *.jpeg
 !demo/**/*.png
 !demo/**/*.jpg
+!assets/**/*.png
+!assets/**/*.jpg
 direct_capture.*
 audit_*
 debug_*

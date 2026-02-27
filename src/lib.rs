@@ -30,6 +30,7 @@
 //!         .expect("error while running tauri application");
 //! }
 //! ```
+#[cfg(feature = "tauri")]
 pub mod commands;
 pub mod config;
 pub mod errors;
@@ -66,12 +67,14 @@ pub use types::{
 #[cfg(feature = "headless")]
 pub use headless::{list_controls, list_devices, list_formats, HeadlessSession};
 
+#[cfg(feature = "tauri")]
 use tauri::{
     plugin::{Builder, TauriPlugin},
     Runtime,
 };
 
 /// Initialize the CrabCamera plugin with all commands
+#[cfg(feature = "tauri")]
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
     Builder::new("crabcamera")
         .invoke_handler(tauri::generate_handler![
