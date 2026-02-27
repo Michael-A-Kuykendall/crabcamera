@@ -3,12 +3,10 @@ pub use crate::platform::{
     PlatformCamera,
 };
 use crate::quality::QualityValidator;
-use crate::types::{CameraFormat, CameraFrame, CameraInitParams};
-use std::collections::HashMap;
+use crate::types::{CameraFormat, CameraFrame};
 use std::fs::File;
 use std::sync::{Arc, Mutex as SyncMutex};
 use tauri::command;
-use tokio::sync::RwLock;
 
 /// Capture a single photo from the specified camera with automatic reconnection
 #[command]
@@ -473,6 +471,12 @@ pub struct FramePool {
 }
 
 impl FramePool {
+    /// Creates a new frame pool with pre-allocated buffers.
+    ///
+    /// # Arguments
+    ///
+    /// * `max_frames` - Maximum number of buffers to keep in the pool.
+    /// * `frame_size` - Size in bytes of each pre-allocated buffer.
     pub fn new(max_frames: usize, frame_size: usize) -> Self {
         let mut pool = Vec::with_capacity(max_frames);
         for _ in 0..max_frames {
@@ -486,6 +490,10 @@ impl FramePool {
         }
     }
 
+    /// Retrieves a buffer from the pool, or creates a new one if pool is empty.
+    ///
+    /// This operation is async to allow offloading allocation if necessary, though
+    /// currently uses `spawn_blocking` to avoid blocking the async executor with mutex contention.
     pub async fn get_buffer(&self) -> Vec<u8> {
         let pool = self.pool.clone();
         let frame_size = self.frame_size;
@@ -499,6 +507,10 @@ impl FramePool {
         .unwrap()
     }
 
+    /// Returns a used buffer to the pool for reuse.
+    ///
+    /// The buffer is cleared before being added back to the pool.
+    /// If the pool is full, the buffer is dropped.
     pub async fn return_buffer(&self, mut buffer: Vec<u8>) {
         let pool = self.pool.clone();
         let max_frames = self.max_frames;
@@ -521,8 +533,11 @@ lazy_static::lazy_static! {
 /// Capture statistics structure
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CaptureStats {
+    /// Active device identifier.
     pub device_id: String,
+    /// Whether the device is currently streaming.
     pub is_active: bool,
+    /// Detailed device description (name, format, etc.).
     pub device_info: Option<String>,
 }
 

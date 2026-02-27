@@ -1,6 +1,12 @@
-// Windows platform implementation combining nokhwa capture with MediaFoundation controls
+//! Windows platform implementation.
+//!
+//! Combines `nokhwa` for basic capture (DirectShow/MediaFoundation) with
+//! custom `MediaFoundation` controls for professional features like
+//! exposure, focus, and white balance that `nokhwa` might abstraction-layer away.
 
+/// Capture implementation using nokhwa.
 pub mod capture;
+/// Advanced camera controls via MediaFoundation.
 pub mod controls;
 
 use self::controls::MediaFoundationControls;

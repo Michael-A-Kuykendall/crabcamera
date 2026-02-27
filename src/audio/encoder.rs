@@ -95,21 +95,21 @@ impl OpusEncoder {
         let encoder = unsafe {
             libopus_sys::opus_encoder_create(
                 sample_rate as i32,
-                channels as i32,
+                i32::from(channels),
                 OPUS_APPLICATION_AUDIO,
-                &mut error,
+                &raw mut error,
             )
         };
 
         if encoder.is_null() || error != 0 {
             return Err(CameraError::AudioError(format!(
-                "Failed to create Opus encoder: error code {}",
-                error
+                "Failed to create Opus encoder: error code {error}"
             )));
         }
 
         // Set bitrate
         let result = unsafe {
+            #[allow(clippy::cast_possible_wrap)] // Safe: constant is valid i32
             libopus_sys::opus_encoder_ctl(
                 encoder,
                 libopus_sys::OPUS_SET_BITRATE_REQUEST as i32,
@@ -120,8 +120,7 @@ impl OpusEncoder {
         if result != 0 {
             unsafe { libopus_sys::opus_encoder_destroy(encoder) };
             return Err(CameraError::AudioError(format!(
-                "Failed to set bitrate: error code {}",
-                result
+                "Failed to set bitrate: error code {result}"
             )));
         }
 
@@ -135,10 +134,14 @@ impl OpusEncoder {
         })
     }
 
-    /// Encode an audio frame
+    /// Encode an audio frame.
     ///
     /// May return empty vec if not enough samples accumulated for a full Opus frame.
     /// May return multiple packets if input contains multiple frames worth of samples.
+    ///
+    /// # Errors
+    ///
+    /// * `CameraError::AudioError`: If sample rate/channels don't match or encoding fails.
     pub fn encode(&mut self, frame: &AudioFrame) -> Result<Vec<EncodedAudio>, CameraError> {
         // Validate input
         if frame.sample_rate != self.sample_rate {
@@ -166,17 +169,24 @@ impl OpusEncoder {
         // Encode complete frames
         let mut encoded_packets = Vec::new();
         let samples_per_frame = OPUS_FRAME_SAMPLES * self.channels as usize;
-        let frame_duration = OPUS_FRAME_SAMPLES as f64 / self.sample_rate as f64;
+
+        // Use f64::from for safe lossless casting where possible
+        let sample_rate_f64 = f64::from(self.sample_rate);
+        #[allow(clippy::cast_precision_loss)] // u64 -> f64 is lossy but acceptable for timestamps here
+        let opus_samples_f64 = OPUS_FRAME_SAMPLES as f64;
+        let frame_duration = opus_samples_f64 / sample_rate_f64;
 
         while self.sample_buffer.len() >= samples_per_frame {
             let frame_samples: Vec<f32> = self.sample_buffer.drain(..samples_per_frame).collect();
 
             // Calculate PTS for this frame
-            let pts = self.samples_encoded as f64 / self.sample_rate as f64;
+            #[allow(clippy::cast_precision_loss)] // u64 -> f64 is lossy but acceptable for timestamps here
+            let pts = self.samples_encoded as f64 / sample_rate_f64;
 
             // Encode to Opus
             let mut output = vec![0u8; 4000]; // Max Opus packet size
             let len = unsafe {
+                #[allow(clippy::cast_possible_wrap)] // Safe for small Opus frame sizes
                 libopus_sys::opus_encode_float(
                     self.encoder,
                     frame_samples.as_ptr(),
@@ -188,8 +198,7 @@ impl OpusEncoder {
 
             if len < 0 {
                 return Err(CameraError::AudioError(format!(
-                    "Opus encoding failed: error code {}",
-                    len
+                    "Opus encoding failed: error code {len}"
                 )));
             }
 
@@ -211,9 +220,13 @@ impl OpusEncoder {
         Ok(encoded_packets)
     }
 
-    /// Flush remaining samples
+    /// Flush remaining samples.
     ///
     /// Call this when recording ends to encode any remaining buffered samples.
+    ///
+    /// # Errors
+    ///
+    /// * `CameraError::AudioError`: If encoding fails.
     pub fn flush(&mut self) -> Result<Vec<EncodedAudio>, CameraError> {
         if self.sample_buffer.is_empty() {
             return Ok(Vec::new());
@@ -228,14 +241,20 @@ impl OpusEncoder {
 
         // Encode remaining
         let mut encoded_packets = Vec::new();
-        let frame_duration = OPUS_FRAME_SAMPLES as f64 / self.sample_rate as f64;
+        // Use f64::from for safe lossless casting where possible
+        let sample_rate_f64 = f64::from(self.sample_rate);
+        #[allow(clippy::cast_precision_loss)] // Safe for small Opus frame sizes
+        let opus_samples_f64 = OPUS_FRAME_SAMPLES as f64;
+        let frame_duration = opus_samples_f64 / sample_rate_f64;
 
         while self.sample_buffer.len() >= samples_per_frame {
             let frame_samples: Vec<f32> = self.sample_buffer.drain(..samples_per_frame).collect();
-            let pts = self.samples_encoded as f64 / self.sample_rate as f64;
+            #[allow(clippy::cast_precision_loss)] // u64 -> f64 is lossy but acceptable for timestamps here
+            let pts = self.samples_encoded as f64 / sample_rate_f64;
 
             let mut output = vec![0u8; 4000];
             let len = unsafe {
+                #[allow(clippy::cast_possible_wrap)] // Safe for small Opus frame sizes
                 libopus_sys::opus_encode_float(
                     self.encoder,
                     frame_samples.as_ptr(),
@@ -247,8 +266,7 @@ impl OpusEncoder {
 
             if len < 0 {
                 return Err(CameraError::AudioError(format!(
-                    "Opus flush failed: error code {}",
-                    len
+                    "Opus flush failed: error code {len}"
                 )));
             }
 
@@ -293,25 +311,25 @@ mod tests {
 
     #[test]
     fn test_encoder_creation() {
-        let encoder = OpusEncoder::new(48000, 2, 128000);
+        let encoder = OpusEncoder::new(48000, 2, 128_000);
         assert!(encoder.is_ok());
     }
 
     #[test]
     fn test_encoder_rejects_wrong_sample_rate() {
-        let encoder = OpusEncoder::new(44100, 2, 128000);
+        let encoder = OpusEncoder::new(44100, 2, 128_000);
         assert!(encoder.is_err());
     }
 
     #[test]
     fn test_encoder_rejects_wrong_channels() {
-        let encoder = OpusEncoder::new(48000, 5, 128000);
+        let encoder = OpusEncoder::new(48000, 5, 128_000);
         assert!(encoder.is_err());
     }
 
     #[test]
     fn test_encode_full_frame() {
-        let mut encoder = OpusEncoder::new(48000, 2, 128000).unwrap();
+        let mut encoder = OpusEncoder::new(48000, 2, 128_000).unwrap();
 
         // Create a full frame worth of stereo samples (960 samples * 2 channels)
         let frame = AudioFrame {
@@ -321,14 +339,14 @@ mod tests {
             timestamp: 0.0,
         };
 
-        let encoded = encoder.encode(&frame).unwrap();
-        assert_eq!(encoded.len(), 1);
-        assert!(!encoded[0].data.is_empty());
+        let encoded_packets = encoder.encode(&frame).unwrap();
+        assert_eq!(encoded_packets.len(), 1);
+        assert!(!encoded_packets[0].data.is_empty());
     }
 
     #[test]
     fn test_encode_partial_frame() {
-        let mut encoder = OpusEncoder::new(48000, 2, 128000).unwrap();
+        let mut encoder = OpusEncoder::new(48000, 2, 128_000).unwrap();
 
         // Less than a full frame
         let frame = AudioFrame {
@@ -338,16 +356,16 @@ mod tests {
             timestamp: 0.0,
         };
 
-        let encoded = encoder.encode(&frame).unwrap();
+        let encoded_packets = encoder.encode(&frame).unwrap();
         assert!(
-            encoded.is_empty(),
+            encoded_packets.is_empty(),
             "Partial frame should not produce output"
         );
     }
 
     #[test]
     fn test_flush_remaining() {
-        let mut encoder = OpusEncoder::new(48000, 2, 128000).unwrap();
+        let mut encoder = OpusEncoder::new(48000, 2, 128_000).unwrap();
 
         // Add partial frame
         let frame = AudioFrame {

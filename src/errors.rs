@@ -1,20 +1,31 @@
 use std::fmt;
 
+/// The top-level error type for camera operations.
 #[derive(Debug)]
 pub enum CameraError {
+    /// Failed to initialize the camera backend or device.
     InitializationError(String),
+    /// Permission denied by OS or user.
     PermissionDenied(String),
+    /// Failed to capture a frame.
     CaptureError(String),
+    /// Failed to set a camera control.
     ControlError(String),
+    /// Error in the video stream pipeline.
     StreamError(String),
+    /// Operation not supported by the current hardware or platform.
     UnsupportedOperation(String),
     #[cfg(feature = "recording")]
+    /// Video encoding initialization or processing error.
     EncodingError(String),
     #[cfg(feature = "recording")]
+    /// Container muxing error.
     MuxingError(String),
     #[cfg(feature = "recording")]
+    /// File system I/O error during recording.
     IoError(String),
     #[cfg(feature = "audio")]
+    /// Audio device or capture error.
     AudioError(String),
 }
 

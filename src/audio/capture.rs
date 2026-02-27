@@ -37,7 +37,7 @@ pub struct AudioFrame {
     pub sample_rate: u32,
     /// Number of channels
     pub channels: u16,
-    /// Presentation timestamp in seconds (from PTSClock)
+    /// Presentation timestamp in seconds (from [`PTSClock`])
     pub timestamp: f64,
 }
 
@@ -54,15 +54,22 @@ pub struct AudioCapture {
 impl AudioCapture {
     /// Create a new audio capture for the specified device
     ///
-    /// If `device_id` is None or empty, uses the system default input.
+    /// If `device_id` is `None` or empty, uses the system default input.
     /// The `clock` should be shared with the video recorder for sync.
+    ///
+    /// # Errors
+    ///
+    /// Returns `CameraError::AudioError` if:
+    /// - The device cannot be found
+    /// - The device configuration is unsupported
+    /// - The audio stream cannot be built
     pub fn new(
-        device_id: Option<String>,
+        device_id: Option<&str>,
         sample_rate: u32,
         channels: u16,
         clock: PTSClock,
     ) -> Result<Self, CameraError> {
-        let device_id_str = device_id.as_deref().unwrap_or("default");
+        let device_id_str = device_id.unwrap_or("default");
         let device_info = find_audio_device(device_id_str)?;
 
         let host = cpal::default_host();
@@ -72,18 +79,18 @@ impl AudioCapture {
         } else {
             host.input_devices()
                 .map_err(|e| {
-                    CameraError::AudioError(format!("Failed to enumerate devices: {}", e))
+                    CameraError::AudioError(format!("Failed to enumerate devices: {e}"))
                 })?
                 .find(|d| d.name().ok().as_ref() == Some(&device_info.name))
                 .ok_or_else(|| {
-                    CameraError::AudioError(format!("Device not found: {}", device_id_str))
+                    CameraError::AudioError(format!("Device not found: {device_id_str}"))
                 })?
         };
 
         // Use requested sample rate, falling back to device default
         let supported_config = device
             .default_input_config()
-            .map_err(|e| CameraError::AudioError(format!("No supported config: {}", e)))?;
+            .map_err(|e| CameraError::AudioError(format!("No supported config: {e}")))?;
 
         let actual_sample_rate = if sample_rate == 48000 || sample_rate == 44100 {
             sample_rate
@@ -130,11 +137,11 @@ impl AudioCapture {
                     let _ = sender.try_send(frame);
                 },
                 move |err| {
-                    log::error!("Audio capture error: {}", err);
+                    log::error!("Audio capture error: {err}");
                 },
                 None,
             )
-            .map_err(|e| CameraError::AudioError(format!("Failed to build stream: {}", e)))?;
+            .map_err(|e| CameraError::AudioError(format!("Failed to build stream: {e}")))?;
 
         Ok(Self {
             stream: Some(stream),
@@ -147,6 +154,9 @@ impl AudioCapture {
     }
 
     /// Start capturing audio (idempotent)
+    ///
+    /// # Errors
+    /// Returns `CameraError::AudioError` if the underlying stream fails to play.
     pub fn start(&mut self) -> Result<(), CameraError> {
         if self.is_running.load(Ordering::Relaxed) {
             return Ok(()); // Already running
@@ -155,7 +165,7 @@ impl AudioCapture {
         if let Some(ref stream) = self.stream {
             stream
                 .play()
-                .map_err(|e| CameraError::AudioError(format!("Failed to start stream: {}", e)))?;
+                .map_err(|e| CameraError::AudioError(format!("Failed to start stream: {e}")))?;
             self.is_running.store(true, Ordering::Relaxed);
         }
 
@@ -163,6 +173,9 @@ impl AudioCapture {
     }
 
     /// Stop capturing audio (idempotent)
+    ///
+    /// # Errors
+    /// Returns `CameraError::AudioError` if the underlying stream fails to pause.
     pub fn stop(&mut self) -> Result<(), CameraError> {
         if !self.is_running.load(Ordering::Relaxed) {
             return Ok(()); // Already stopped
@@ -171,7 +184,7 @@ impl AudioCapture {
         if let Some(ref stream) = self.stream {
             stream
                 .pause()
-                .map_err(|e| CameraError::AudioError(format!("Failed to stop stream: {}", e)))?;
+                .map_err(|e| CameraError::AudioError(format!("Failed to stop stream: {e}")))?;
             self.is_running.store(false, Ordering::Relaxed);
         }
 
@@ -187,7 +200,8 @@ impl AudioCapture {
 
     /// Read an audio frame with timeout
     ///
-    /// Returns `None` if timeout.
+    /// # Errors
+    /// Returns `RecvTimeoutError` if no frame is available within the timeout.
     pub fn recv_timeout(&self, timeout: Duration) -> Result<AudioFrame, crossbeam_channel::RecvTimeoutError> {
         self.receiver.recv_timeout(timeout)
     }

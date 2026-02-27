@@ -11,9 +11,13 @@ use std::path::{Path, PathBuf};
 /// Root configuration structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CrabCameraConfig {
+    /// Camera hardware preferences and defaults.
     pub camera: CameraConfig,
+    /// Image quality analysis thresholds.
     pub quality: QualityConfig,
+    /// File storage paths and naming conventions.
     pub storage: StorageConfig,
+    /// Experimental and advanced features.
     pub advanced: AdvancedConfig,
 }
 

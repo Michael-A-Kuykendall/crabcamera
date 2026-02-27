@@ -25,17 +25,19 @@ pub mod device_monitor;
 
 pub use device_monitor::{DeviceEvent, DeviceMonitor};
 
-// Camera manager
+/// Camera manager module for handling device lifecycle.
 pub mod manager;
 pub use manager::{
     capture_with_reconnect, get_existing_camera, get_or_create_camera, reconnect_camera,
     release_camera,
 };
 
-// Mock camera implementation for testing
-// Mock camera for testing - always available
 use std::sync::{Arc, Mutex};
 
+/// Mock camera implementation for testing.
+///
+/// This provides a fake camera device that returns generated frames for testing
+/// without physical hardware.
 pub struct MockCamera {
     device_id: String,
     #[allow(dead_code)]
@@ -48,6 +50,7 @@ pub struct MockCamera {
 }
 
 impl MockCamera {
+    /// Create a new mock camera instance.
     pub fn new(device_id: String, format: CameraFormat) -> Self {
         Self {
             device_id,
@@ -59,12 +62,15 @@ impl MockCamera {
         }
     }
 
+    /// Set the behavior mode for this mock camera (e.g. simulate failure).
     pub fn set_capture_mode(&self, mode: crate::tests::MockCaptureMode) {
         if let Ok(mut capture_mode) = self.capture_mode.lock() {
             *capture_mode = mode;
         }
     }
 
+
+    /// Capture a single frame from the mock camera.
     pub fn capture_frame(&mut self) -> Result<CameraFrame, CameraError> {
         // Check global registry first, then fall back to local mode
         let mode = crate::tests::get_mock_camera_mode(&self.device_id);
@@ -94,6 +100,7 @@ impl MockCamera {
         frame
     }
 
+    /// Start the stream.
     pub fn start_stream(&self) -> Result<(), CameraError> {
         if let Ok(mut streaming) = self.is_streaming.lock() {
             *streaming = true;
@@ -101,6 +108,7 @@ impl MockCamera {
         Ok(())
     }
 
+    /// Stop the stream.
     pub fn stop_stream(&self) -> Result<(), CameraError> {
         if let Ok(mut streaming) = self.is_streaming.lock() {
             *streaming = false;
@@ -108,6 +116,8 @@ impl MockCamera {
         Ok(())
     }
 
+
+    /// Register a callback for new frames.
     pub fn frame_callback<F>(&mut self, callback: F) -> Result<(), CameraError>
     where
         F: Fn(CameraFrame) + Send + 'static,
@@ -118,14 +128,17 @@ impl MockCamera {
         Ok(())
     }
 
+    /// Check if the camera is available.
     pub fn is_available(&self) -> bool {
         true
     }
 
+    /// Get the device ID.
     pub fn get_device_id(&self) -> &str {
         &self.device_id
     }
 
+    /// Apply camera controls.
     pub fn apply_controls(
         &mut self,
         controls: &crate::types::CameraControls,
@@ -136,6 +149,7 @@ impl MockCamera {
         Ok(())
     }
 
+    /// Get current camera controls.
     pub fn get_controls(&self) -> Result<crate::types::CameraControls, CameraError> {
         if let Ok(controls) = self.controls.lock() {
             Ok(controls.clone())
@@ -144,6 +158,7 @@ impl MockCamera {
         }
     }
 
+    /// Create a mock capabilities report.
     pub fn test_capabilities(&self) -> Result<crate::types::CameraCapabilities, CameraError> {
         Ok(crate::types::CameraCapabilities {
             supports_auto_focus: true,
@@ -163,6 +178,7 @@ impl MockCamera {
         })
     }
 
+    /// Get mock performance metrics.
     pub fn get_performance_metrics(
         &self,
     ) -> Result<crate::types::CameraPerformanceMetrics, CameraError> {
@@ -180,17 +196,22 @@ impl MockCamera {
 
 /// Unified camera interface that abstracts platform differences
 pub enum PlatformCamera {
+    /// Windows Media Foundation backend.
     #[cfg(target_os = "windows")]
     Windows(windows::WindowsCamera),
 
+    /// MacOS AVFoundation backend.
     #[cfg(target_os = "macos")]
     MacOS(macos::MacOSCamera),
 
+    /// Linux V4L2 backend.
     #[cfg(target_os = "linux")]
     Linux(linux::LinuxCamera),
 
+    /// Mock camera for testing.
     Mock(MockCamera),
 
+    /// Fallback for unsupported platforms.
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
     Unsupported,
 }
@@ -604,25 +625,35 @@ impl CameraSystem {
 /// Platform information structure
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct PlatformInfo {
+    /// The operating system platform.
     pub platform: Platform,
+    /// The camera backend in use (e.g. "MediaFoundation", "V4L2").
     pub backend: String,
+    /// List of supported camera features.
     pub features: Vec<String>,
 }
 
 /// System test result
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SystemTestResult {
+    /// The operating system platform.
     pub platform: Platform,
+    /// Number of cameras detected.
     pub cameras_found: usize,
+    /// Detailed results of camera tests.
     pub test_results: Vec<(String, CameraTestResult)>,
 }
 
 /// Individual camera test result
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum CameraTestResult {
+    /// Camera passed all tests
     Success,
+    /// Initialization failed
     InitError(String),
+    /// Capture failed during test
     CaptureError(String),
+    /// Camera not available or busy
     NotAvailable,
 }
 

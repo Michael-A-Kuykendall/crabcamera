@@ -412,7 +412,7 @@ async fn save_burst_sequence(frames: &[CameraFrame], save_dir: &str) -> Result<(
 
 /// Calculate optimal exposure settings for current lighting
 #[allow(dead_code)]
-async fn calculate_optimal_exposure(
+fn calculate_optimal_exposure(
     camera: &mut crate::platform::PlatformCamera,
 ) -> Result<(f32, u32), String> {
     // Take a test shot to analyze lighting

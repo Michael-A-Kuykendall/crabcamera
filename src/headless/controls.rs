@@ -2,21 +2,36 @@ use crate::headless::errors::HeadlessError;
 use crate::types::WhiteBalance;
 use std::str::FromStr;
 
+/// Identifiers for supported camera controls.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize)]
 pub enum ControlId {
+    /// Automatic focus control (Boolean).
     AutoFocus,
+    /// Manual focus distance (0.0 to 1.0).
     FocusDistance,
+    /// Automatic exposure control (Boolean).
     AutoExposure,
+    /// Exposure time in seconds.
     ExposureTime,
+    /// ISO sensitivity (e.g., 100, 400).
     IsoSensitivity,
+    /// White balance mode.
     WhiteBalance,
+    /// Aperture (f-stop).
     Aperture,
+    /// Digital or optical zoom factor.
     Zoom,
+    /// Image brightness.
     Brightness,
+    /// Image contrast.
     Contrast,
+    /// Color saturation.
     Saturation,
+    /// Image sharpness.
     Sharpness,
+    /// Noise reduction (Boolean or strength).
     NoiseReduction,
+    /// Image stabilization (Boolean).
     ImageStabilization,
 }
 
@@ -44,32 +59,54 @@ impl FromStr for ControlId {
     }
 }
 
+/// The data type of a control.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub enum ControlKind {
+    /// Boolean value (on/off).
     Bool,
+    /// Floating point value.
     F32,
+    /// Unsigned integer value.
     U32,
+    /// White balance mode enum.
     WhiteBalance,
 }
 
+/// The concrete value for a control setting.
 #[derive(Debug, Clone, serde::Serialize)]
 pub enum ControlValue {
+    /// Boolean value.
     Bool(bool),
+    /// Floating point value.
     F32(f32),
+    /// Unsigned integer value.
     U32(u32),
+    /// White balance preset.
     WhiteBalance(WhiteBalance),
 }
 
+/// Metadata describing a camera control's type and valid range.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct ControlInfo {
+    /// The unique identifier for the control.
     pub id: ControlId,
+    /// The data type of the control value.
     pub kind: ControlKind,
+    /// Minimum allowed float value, if applicable.
     pub min_f32: Option<f32>,
+    /// Maximum allowed float value, if applicable.
     pub max_f32: Option<f32>,
+    /// Minimum allowed integer value, if applicable.
     pub min_u32: Option<u32>,
+    /// Maximum allowed integer value, if applicable.
     pub max_u32: Option<u32>,
 }
 
+/// Returns a list of all supported controls and their specifications.
+///
+/// This provides a static registry of camera capabilities used for validation
+/// and introspection.
+#[must_use]
 pub fn all_controls() -> Vec<ControlInfo> {
     vec![
         ControlInfo {
@@ -187,6 +224,15 @@ pub fn all_controls() -> Vec<ControlInfo> {
     ]
 }
 
+/// Validates if a given value is appropriate for a specific control.
+///
+/// checks if the `value` type matches the `id`'s expected type, and if the value
+/// is within the allowed numeric range.
+///
+/// # Errors
+///
+/// * `HeadlessError::InvalidControl`: If the value is out of bounds or type mismatch.
+/// * `HeadlessError::Unsupported`: If the control ID is not recognized.
 pub fn validate_control_value(id: ControlId, value: &ControlValue) -> Result<(), HeadlessError> {
     let info = all_controls()
         .into_iter()

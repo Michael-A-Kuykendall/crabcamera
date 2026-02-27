@@ -12,17 +12,27 @@ use tokio::sync::{mpsc, RwLock};
 /// Device event types
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DeviceEvent {
-    Connected(String),    // Device ID
-    Disconnected(String), // Device ID
-    Modified(String),     // Device ID (settings changed)
+    /// A new camera device was connected (Device ID).
+    Connected(String),
+    /// A camera device was disconnected (Device ID).
+    Disconnected(String),
+    /// A camera device's settings or availability changed (Device ID).
+    Modified(String),
 }
 
-/// Device monitor for detecting camera changes
+/// Device monitor for detecting camera changes.
+///
+/// Runs a background task to poll for device changes or listen to OS events.
 pub struct DeviceMonitor {
+    /// Target platform for monitoring strategy.
     platform: Platform,
+    /// Cache of currently known active devices.
     active_devices: Arc<RwLock<HashMap<String, CameraDeviceInfo>>>,
+    /// Channel sender for internal event distribution.
     event_sender: mpsc::UnboundedSender<DeviceEvent>,
+    /// Channel receiver for consuming events.
     event_receiver: Arc<RwLock<mpsc::UnboundedReceiver<DeviceEvent>>>,
+    /// Flag indicating if monitoring is active.
     is_monitoring: Arc<RwLock<bool>>,
 }
 
@@ -234,6 +244,7 @@ impl DeviceMonitor {
     }
 
     #[cfg(not(target_os = "macos"))]
+    #[allow(clippy::unused_async)]
     async fn start_macos_monitoring(&self) -> Result<(), CameraError> {
         Err(CameraError::InitializationError("Not on macOS".to_string()))
     }
@@ -287,6 +298,7 @@ impl DeviceMonitor {
     }
 
     #[cfg(not(target_os = "linux"))]
+    #[allow(clippy::unused_async)]
     async fn start_linux_monitoring(&self) -> Result<(), CameraError> {
         Err(CameraError::InitializationError("Not on Linux".to_string()))
     }

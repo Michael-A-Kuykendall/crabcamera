@@ -1,27 +1,44 @@
 use crate::errors::CameraError;
 
+/// The simplified category of error.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HeadlessErrorKind {
+    /// Operation timed out.
     Timeout,
+    /// Session was closed.
     Closed,
+    /// Session is stopped but expected to be running.
     Stopped,
+    /// Session already in started state.
     AlreadyStarted,
+    /// Session already in stopped state.
     AlreadyStopped,
+    /// Session already in closed state.
     AlreadyClosed,
+    /// Requested resource definition not found.
     NotFound,
+    /// Invalid input parameter.
     InvalidArgument,
+    /// Feature not supported in current configuration.
     Unsupported,
+    /// Underlying camera backend error.
     Backend,
+    /// Thread sync primitive poisoned.
     PoisonedLock,
 }
 
+/// A structured error type for headless operations.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HeadlessError {
+    /// The high-level category of this error.
     pub kind: HeadlessErrorKind,
+    /// A human-readable description of the error.
     pub message: String,
 }
 
 impl HeadlessError {
+    /// Creates a timeout error.
+    #[must_use]
     pub fn timeout() -> Self {
         Self {
             kind: HeadlessErrorKind::Timeout,
@@ -29,6 +46,8 @@ impl HeadlessError {
         }
     }
 
+    /// Creates a closed session error.
+    #[must_use]
     pub fn closed() -> Self {
         Self {
             kind: HeadlessErrorKind::Closed,
@@ -36,6 +55,8 @@ impl HeadlessError {
         }
     }
 
+    /// Creates a stopped session error.
+    #[must_use]
     pub fn stopped() -> Self {
         Self {
             kind: HeadlessErrorKind::Stopped,
@@ -43,6 +64,8 @@ impl HeadlessError {
         }
     }
 
+    /// Creates an already started error.
+    #[must_use]
     pub fn already_started() -> Self {
         Self {
             kind: HeadlessErrorKind::AlreadyStarted,
@@ -50,6 +73,8 @@ impl HeadlessError {
         }
     }
 
+    /// Creates an already stopped error.
+    #[must_use]
     pub fn already_stopped() -> Self {
         Self {
             kind: HeadlessErrorKind::AlreadyStopped,
@@ -57,6 +82,8 @@ impl HeadlessError {
         }
     }
 
+    /// Creates an already closed error.
+    #[must_use]
     pub fn already_closed() -> Self {
         Self {
             kind: HeadlessErrorKind::AlreadyClosed,
@@ -64,6 +91,8 @@ impl HeadlessError {
         }
     }
 
+    /// Creates a not found error.
+    #[must_use]
     pub fn not_found(entity: &str, id: &str) -> Self {
         Self {
             kind: HeadlessErrorKind::NotFound,
@@ -71,6 +100,8 @@ impl HeadlessError {
         }
     }
 
+    /// Creates an invalid argument error.
+    #[must_use]
     pub fn invalid_argument(message: impl Into<String>) -> Self {
         Self {
             kind: HeadlessErrorKind::InvalidArgument,
@@ -78,6 +109,8 @@ impl HeadlessError {
         }
     }
 
+    /// Creates an unsupported feature error.
+    #[must_use]
     pub fn unsupported(message: impl Into<String>) -> Self {
         Self {
             kind: HeadlessErrorKind::Unsupported,
@@ -85,6 +118,8 @@ impl HeadlessError {
         }
     }
 
+    /// Wraps a backend camera error.
+    #[must_use]
     pub fn backend(error: CameraError) -> Self {
         Self {
             kind: HeadlessErrorKind::Backend,
@@ -92,6 +127,8 @@ impl HeadlessError {
         }
     }
 
+    /// Creates a lock poisoned error.
+    #[must_use]
     pub fn poisoned_lock() -> Self {
         Self {
             kind: HeadlessErrorKind::PoisonedLock,

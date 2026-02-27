@@ -35,9 +35,13 @@ impl Default for InvariantType {
 /// A record of a checked invariant
 #[derive(Debug, Clone)]
 pub struct InvariantRecord {
+    /// Description of the invariant check.
     pub message: String,
+    /// Category of the invariant.
     pub invariant_type: InvariantType,
+    /// Context where the check occurred (e.g. module name).
     pub context: String,
+    /// Whether the check passed.
     pub passed: bool,
 }
 
@@ -139,9 +143,13 @@ pub fn clear_invariant_log() {
 /// Performance metrics snapshot for invariant analysis
 #[derive(Debug, Clone, PartialEq)]
 pub struct PerfSnapshot {
+    /// Label identifying the performance checkpoint.
     pub label: String,
+    /// Latency in milliseconds.
     pub latency_ms: f64,
+    /// Throughput in operations per second.
     pub throughput_ops: f64,
+    /// Memory usage change in kilobytes.
     pub memory_delta_kb: i64,
 }
 

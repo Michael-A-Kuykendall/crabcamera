@@ -58,7 +58,7 @@ pub fn list_audio_devices() -> Result<Vec<AudioDevice>, CameraError> {
                 use std::hash::{Hash, Hasher};
                 let mut hasher = DefaultHasher::new();
                 name.hash(&mut hasher);
-                format!("{:08x}", hasher.finish() & 0xFFFFFFFF)
+                format!("{:08x}", hasher.finish() & 0xFFFF_FFFF)
             };
             let id = format!("audio_{}_{}", index, name_hash);
 
@@ -107,7 +107,7 @@ pub fn get_default_audio_device() -> Result<AudioDevice, CameraError> {
         use std::hash::{Hash, Hasher};
         let mut hasher = DefaultHasher::new();
         name.hash(&mut hasher);
-        format!("{:08x}", hasher.finish() & 0xFFFFFFFF)
+        format!("{:08x}", hasher.finish() & 0xFFFF_FFFF)
     };
     let id = format!("audio_0_{}", name_hash);
 

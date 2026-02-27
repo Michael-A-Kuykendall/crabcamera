@@ -3,19 +3,28 @@
 //! This crate provides unified camera access across desktop platforms
 //! with real-time processing capabilities and professional camera controls.
 //!
+//! It aims to be "The Standard" for high-quality, professional-grade camera
+//! applications on desktop platforms.
+//!
+//! # Strict Engineering Standards
+//! This codebase enforces:
+//! - Complete Documentation (`#![warn(missing_docs)]`)
+//! - Safe Code (no `unwrap()` or `expect()` in library code via `clippy::unwrap_used`)
+//! - Idiomatic Rust Practices (`clippy::pedantic`)
+//!
 //! # Features
 //! - Cross-platform camera access (Windows, macOS, Linux)
 //! - Real-time camera streaming and capture
 //! - Platform-specific optimizations
 //! - Professional camera controls
 //! - Thread-safe camera management
-//! - Multiple camera format support
+//! - Multiple camera format support (RGB, YUYV, MJPEG)
 //!
 //! # Usage
 //! Add this to your `Cargo.toml`:
 //! ```toml
 //! [dependencies]
-//! crabcamera = { version = "0.6", features = ["recording", "audio"] }
+//! crabcamera = { version = "0.8", features = ["recording", "audio"] }
 //! tauri = { version = "2.0", features = ["protocol-asset"] }
 //! ```
 //!
@@ -30,31 +39,66 @@
 //!         .expect("error while running tauri application");
 //! }
 //! ```
+
+#![warn(missing_docs)]
+#![warn(clippy::pedantic)]
+#![warn(clippy::unwrap_used)]
+// Common enough reasonable exceptions
+#![allow(clippy::module_name_repetitions)]
+#![allow(clippy::must_use_candidate)]
+#![allow(clippy::cast_precision_loss)]
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::cast_sign_loss)]
+
 #[cfg(feature = "tauri")]
+/// Tauri command handlers.
 pub mod commands;
+
+/// Configuration management.
 pub mod config;
+
+/// Error types.
 pub mod errors;
+
+/// Automatic focus stacking.
 pub mod focus_stack;
+
 #[cfg(feature = "headless")]
+/// Headless capture session management.
 pub mod headless;
+
+/// Invariant checks for PPT.
 pub mod invariant_ppt;
+
+/// Permission management.
 pub mod permissions;
+
+/// Platform abstraction layer.
 pub mod platform;
+
+/// Image quality analysis.
 pub mod quality;
+
 #[cfg(any(feature = "headless", feature = "audio"))]
+/// Timing utilities.
 pub mod timing;
+/// Common data types and structures.
 pub mod types;
 
 #[cfg(feature = "recording")]
+/// Video recording and encoding.
 pub mod recording;
 
 #[cfg(feature = "audio")]
+/// Audio capture and processing.
 pub mod audio;
 
 // Tests module - available for external tests
+/// Integration tests and test utilities.
 pub mod tests;
 
 // Testing utilities - synthetic data for offline testing
+/// Testing utilities.
 pub mod testing;
 
 // Re-exports for convenience
@@ -73,7 +117,7 @@ use tauri::{
     Runtime,
 };
 
-/// Initialize the CrabCamera plugin with all commands
+/// Initialize the `CrabCamera` plugin with all commands
 #[cfg(feature = "tauri")]
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
     Builder::new("crabcamera")
@@ -171,7 +215,9 @@ pub fn init_logging() {
 
 /// Version information
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+/// The name of the crate.
 pub const NAME: &str = env!("CARGO_PKG_NAME");
+/// A brief description of the crate.
 pub const DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
 
 /// Get crate information
@@ -187,9 +233,13 @@ pub fn get_info() -> CrateInfo {
 /// Crate information structure
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CrateInfo {
+    /// Crate name.
     pub name: String,
+    /// Crate version.
     pub version: String,
+    /// Crate description.
     pub description: String,
+    /// Host platform.
     pub platform: Platform,
 }
 

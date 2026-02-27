@@ -316,33 +316,51 @@ pub async fn analyze_quality_trends(
 /// Validation configuration DTO
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ValidationConfigDto {
+    /// Minimum acceptable sharpness score (0.0-1.0).
     pub blur_threshold: f32,
+    /// Minimum acceptable exposure score (0.0-1.0).
     pub exposure_threshold: f32,
+    /// Minimum aggregate quality score required.
     pub overall_threshold: f32,
+    /// Minimum image width in pixels.
     pub min_width: u32,
+    /// Minimum image height in pixels.
     pub min_height: u32,
+    /// Maximum allowable noise level (lower is better).
     pub max_noise_level: f32,
 }
 
 /// Capture with quality result
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CaptureQualityResult {
+    /// The captured image frame.
     pub frame: CameraFrame,
+    /// The quality analysis report for this frame.
     pub quality_report: QualityReport,
+    /// Number of capture attempts made to get this frame (if retry was enabled).
     pub attempts_used: u32,
 }
 
 /// Quality trend analysis result
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct QualityTrendAnalysis {
+    /// Number of frames included in this analysis.
     pub samples_analyzed: u32,
+    /// Mean quality score across all samples.
     pub average_quality: f32,
+    /// Mean sharpness/blur score.
     pub average_blur_score: f32,
+    /// Mean exposure correctness score.
     pub average_exposure_score: f32,
+    /// Statistical variance of the quality scores.
     pub quality_variance: f32,
+    /// A derived score indicating steadiness (inverse of variance).
     pub stability_score: f32,
+    /// The highest quality score observed.
     pub best_score: f32,
+    /// The lowest quality score observed.
     pub worst_score: f32,
+    /// The fraction of frames (0.0-1.0) that met the minimum quality threshold.
     pub acceptable_ratio: f32,
 }
 

@@ -1,3 +1,4 @@
+/// Image alignment utilities.
 pub mod align;
 /// Focus Stacking Module
 ///
@@ -9,6 +10,7 @@ pub mod align;
 ///
 /// This is useful for macro photography where depth of field is limited.
 pub mod capture;
+/// Image merging and stacking algorithms.
 pub mod merge;
 
 use crate::types::CameraFrame;
@@ -72,17 +74,26 @@ pub struct FocusStackResult {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum FocusStackError {
     /// Not enough source images
-    InsufficientImages { required: usize, provided: usize },
+    InsufficientImages {
+        /// The minimum number of images required.
+        required: usize,
+        /// The number of images actually provided.
+        provided: usize,
+    },
 
     /// Image dimensions don't match
     DimensionMismatch {
+        /// Expected dimensions (width, height).
         expected: (u32, u32),
+        /// Actual dimensions found (width, height).
         got: (u32, u32),
     },
 
     /// Frame data is corrupted or wrong size
     DataCorruption {
+        /// Frame size found.
         frame_size: usize,
+        /// Frame size expected.
         expected_size: usize,
     },
 

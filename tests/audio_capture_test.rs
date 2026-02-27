@@ -141,7 +141,7 @@ fn test_capture_lifecycle_comprehensive() {
             device_id, sample_rate, channels
         );
 
-        match AudioCapture::new(device_id.clone(), sample_rate, channels, clock.clone()) {
+        match AudioCapture::new(device_id.as_deref(), sample_rate, channels, clock.clone()) {
             Ok(mut capture) => {
                 // Test initial state
                 assert!(
@@ -439,14 +439,14 @@ fn test_invalid_device_handling() {
     ];
 
     for device_id in invalid_devices {
-        let result = AudioCapture::new(device_id.clone(), 48000, 2, clock.clone());
+        let result = AudioCapture::new(device_id.as_deref(), 48000, 2, clock.clone());
         match result {
             Ok(_) => {
-                println!("Unexpectedly succeeded with device: {:?}", device_id);
+                println!("Unexpectedly succeeded with device: {device_id:?}");
                 // This might happen if the system has very permissive device handling
             }
             Err(e) => {
-                println!("Expected error for device {:?}: {}", device_id, e);
+                println!("Expected error for device {device_id:?}: {e}");
 
                 // Error should be descriptive
                 let error_str = e.to_string();

@@ -15,14 +15,19 @@ pub struct MockCameraSystem {
     error_mode: Arc<Mutex<Option<CameraError>>>,
 }
 
+/// Detailed mock capture behavior.
 #[derive(Debug, Clone)]
 pub enum MockCaptureMode {
+    /// Return a valid frame.
     Success,
+    /// Return an error.
     Failure,
+    /// Delay before returning a frame.
     SlowCapture,
 }
 
 impl MockCameraSystem {
+    /// Initialize a new mock camera system registry.
     pub fn new() -> Self {
         Self::default()
     }
@@ -32,8 +37,8 @@ impl MockCameraSystem {
     /// # Panics
     ///
     /// Panics if the internal mutex is poisoned.
-    pub async fn add_mock_devices(&self, platform: Platform) {
-        let mut devices = self.devices.lock().unwrap();
+    pub fn add_mock_devices(&self, platform: Platform) {
+        let mut devices = self.devices.lock().expect("Devices mutex poisoned");
         devices.clear();
 
         let test_devices = match platform {
@@ -60,7 +65,7 @@ impl MockCameraSystem {
     /// # Panics
     ///
     /// Panics if the internal mutex is poisoned.
-    pub async fn get_devices(&self) -> Vec<CameraDeviceInfo> {
+    pub fn get_devices(&self) -> Vec<CameraDeviceInfo> {
         self.devices.lock().unwrap().clone()
     }
 
@@ -70,7 +75,7 @@ impl MockCameraSystem {
     ///
     /// Panics if the internal mutex is poisoned.
     pub fn set_capture_mode(&self, mode: MockCaptureMode) {
-        *self.capture_mode.lock().unwrap() = mode;
+        *self.capture_mode.lock().expect("Capture mode mutex poisoned") = mode;
     }
 
     /// Set error mode
@@ -79,7 +84,7 @@ impl MockCameraSystem {
     ///
     /// Panics if the internal mutex is poisoned.
     pub fn set_error_mode(&self, error: Option<CameraError>) {
-        *self.error_mode.lock().unwrap() = error;
+        *self.error_mode.lock().expect("Error mode mutex poisoned") = error;
     }
 }
 
@@ -138,9 +143,10 @@ pub fn create_mock_frame(device_id: &str) -> CameraFrame {
 }
 
 /// Setup test environment
+#[allow(clippy::unused_async)]
 pub async fn setup_test_environment() -> MockCameraSystem {
     let mock_system = MockCameraSystem::new();
-    mock_system.add_mock_devices(Platform::current()).await;
+    mock_system.add_mock_devices(Platform::current());
     mock_system
 }
 
@@ -161,7 +167,9 @@ lazy_static::lazy_static! {
 ///
 /// Panics if the internal mutex is poisoned.
 pub fn set_mock_camera_mode(device_id: &str, mode: MockCaptureMode) {
-    let mut modes = MOCK_CAMERA_MODES.lock().unwrap();
+    let mut modes = MOCK_CAMERA_MODES
+        .lock()
+        .expect("MOCK_CAMERA_MODES mutex poisoned");
     modes.insert(device_id.to_string(), mode);
 }
 
@@ -170,8 +178,11 @@ pub fn set_mock_camera_mode(device_id: &str, mode: MockCaptureMode) {
 /// # Panics
 ///
 /// Panics if the internal mutex is poisoned.
+#[allow(clippy::unwrap_used)] // Default fallback is intentional
 pub fn get_mock_camera_mode(device_id: &str) -> MockCaptureMode {
-    let modes = MOCK_CAMERA_MODES.lock().unwrap();
+    let modes = MOCK_CAMERA_MODES
+        .lock()
+        .expect("MOCK_CAMERA_MODES mutex poisoned");
     modes
         .get(device_id)
         .cloned()
