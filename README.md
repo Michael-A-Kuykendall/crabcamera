@@ -1,99 +1,35 @@
-# 🦀 CrabCamera: Professional Desktop Camera & Audio Plugin for Tauri 📷🎙️
+# CrabCamera 🦀
+
+**Production-ready desktop camera & audio plugin for Tauri applications.**
 
 ![CrabCamera Logo](https://raw.githubusercontent.com/Michael-A-Kuykendall/crabcamera/main/assets/logo.png)
 
 [![Crates.io](https://img.shields.io/crates/v/crabcamera.svg)](https://crates.io/crates/crabcamera)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/rust-stable-brightgreen.svg)](https://rustup.rs/)
-[![Tests](https://img.shields.io/badge/tests-163+-brightgreen.svg)](https://github.com/Michael-A-Kuykendall/crabcamera/releases)
+[![Tests](https://img.shields.io/badge/tests-85%2F85-brightgreen.svg)](https://github.com/Michael-A-Kuykendall/crabcamera)
+[![Sponsor](https://img.shields.io/badge/%E2%9D%A4%EF%B8%8F-Sponsor-ea4aaa?logo=github)](https://github.com/sponsors/Michael-A-Kuykendall)
 
-[![Sponsor](https://img.shields.io/badge/❤️-Sponsor-ea4aaa?logo=github)](https://github.com/sponsors/Michael-A-Kuykendall)
+CrabCamera is the first production-ready desktop camera + audio plugin for Tauri—unified camera and audio access across Windows, macOS, and Linux with professional controls, synchronized A/V recording, and zero-config setup.
 
-**🦀 CrabCamera will be free forever. 🦀** No asterisks. No "free for now." No pivot to paid.
+**Free forever. MIT license. No asterisks.**
 
-## 🦀 What is CrabCamera?
+---
 
-🦀 CrabCamera is the **first production-ready desktop camera + audio plugin** for Tauri applications, engineered with professional software development practices. It provides unified camera and audio access across Windows, macOS, and Linux with enterprise-grade reliability, synchronized A/V recording, and zero-config setup. Built with memory safety, comprehensive testing, and performance optimization at its core.
-
-| Feature | CrabCamera | Web APIs | Other Plugins |
-|---------|------------|----------|---------------|
-| **Desktop Native** | Windows/macOS/Linux 🏆 | Limited browser | Mobile-only |
-| **Hardware Access** | Direct camera + audio 🏆 | Browser restricted | Basic video only |
-| **Audio Recording** | Opus/AAC + sync 🏆 | Unreliable | N/A |
-| **A/V Synchronization** | PTS-based sync 🏆 | Async/unreliable | N/A |
-| **Professional Controls** | Auto-focus, exposure 🏆 | Limited | Basic |
-| **Cross-Platform** | Unified API 🏆 | Platform dependent | Single platform |
-| **Production Ready** | **163 tests, audited quality** 🏆 | No guarantees | Proof-of-concept |
-| **Memory Safety** | Zero unsafe in production 🏆 | N/A | Manual management |
-| **Performance** | **10-100x optimized encoding** 🏆 | N/A | Basic |
-
-## 🎯 Strategic Focus: Camera Capture Excellence
-
-After extensive development and multiple attempts at implementing WebRTC streaming, we've made a strategic decision to focus CrabCamera exclusively on **camera capture and recording excellence**. 
-
-### 🛡️ Engineering Philosophy: The Invariant Superhighway
-
-CrabCamera is built differently. We don't just "check for errors"; we enforce architectural guarantees through what we call **Predictive Property-Based Testing (PPT)** or the **Invariant Superhighway**.
-
-*   **Deterministic Reliability**: Every critical data path (video encoding, audio sync, frame merging) is paved with "toll booths"—runtime invariant checks that enforce strict contracts about state validity.
-*   **Self-Verifying Architecture**: The system monitors its own health. In debug builds, it panics immediately on logic violations. In production, it ensures data integrity before it ever reaches the user.
-*   **Contract-Driven Tests**: Our test suite doesn't just check outputs; it checks that the *safety mechanisms themselves* were engaged. We verify that the guards are watching.
-
-This methodology (adapted from high-reliability systems engineering) ensures that CrabCamera isn't just "working code"—it's a verifiable system.
-
-### Why We Removed WebRTC
-
-**The Challenge:** WebRTC streaming represents a significant expansion beyond our core competency. While technically feasible, it introduced substantial complexity:
-- Real-time media server requirements
-- Network protocol implementation (ICE, STUN, TURN)
-- Hardware-accelerated encoding across platforms
-- Browser signaling and peer connection management
-
-**The Decision:** Rather than dilute our focus, we've chosen to excel at what we do best: **professional camera access and recording**. This allows applications to choose their preferred streaming solutions while benefiting from CrabCamera's proven camera infrastructure.
-
-**The Result:** A sharper value proposition - CrabCamera is now the definitive choice for camera capture in Tauri applications, with clear boundaries that ensure reliability and maintainability.
-
-### Streaming Integration Options
-
-For applications needing streaming, we recommend:
-
-1. **Browser-Native WebRTC**: Use CrabCamera for capture, then stream via standard browser WebRTC APIs
-2. **Specialized Libraries**: Integrate dedicated streaming libraries alongside CrabCamera
-3. **Tauri Channels**: For simple IPC-based streaming within your application
-
-This approach gives you maximum flexibility while keeping CrabCamera focused and reliable.
-
-## 🎯 Perfect for Professional Desktop Applications 🦀
-
-- **Media Production**: Professional screen recorders, podcast studios, video editing suites
-- **Photography**: Commercial photo booths, image processing tools, content creation platforms
-- **Security Systems**: Enterprise surveillance with audio, access control, compliance recording
-- **Medical Imaging**: Diagnostic interfaces, patient documentation, telemedicine platforms
-- **Industrial Quality**: Inspection systems with audio logging, compliance documentation
-- **Education Technology**: Interactive learning platforms, virtual labs, presentation software
-- **Communication**: Enterprise video conferencing, streaming platforms, broadcast tools
-- **Entertainment**: Game streaming, content creation, professional broadcasting
-
-**PROFESSIONAL GRADE:** Advanced camera controls with platform-optimized settings for maximum image quality and performance.
-
-**PRODUCTION READY:** Professional-grade video and audio capture with synchronized recording, comprehensive device controls, and optimized encoding.
-
-## 🦀 Quick Start (30 seconds) 📷🎙️
+## Quick Start
 
 ### Installation
 
 ```toml
 [dependencies]
-crabcamera = { version = "0.6", features = ["recording", "audio"] }
-tauri = { version = "2.0", features = ["protocol-asset"] }
+crabcamera = { version = "0.8", features = ["recording", "audio"] }
+tauri = { version = "2.0" }
 ```
 
-### Tauri Integration
+### Register the plugin
 
 ```rust
 // src-tauri/src/main.rs
-use crabcamera;
-
 fn main() {
     tauri::Builder::default()
         .plugin(crabcamera::init())
@@ -102,667 +38,266 @@ fn main() {
 }
 ```
 
-### Frontend Integration
-
-To call CrabCamera commands from your frontend, use the `plugin:crabcamera|` prefix with the Tauri `invoke` function.
-
-**1. Using a Bundler (Vite, Webpack, etc.)**
+### Initialize and capture
 
 ```javascript
 import { invoke } from '@tauri-apps/api/core';
 
-// Initialize the camera system (Required)
-try {
-  await invoke('plugin:crabcamera|initialize_camera_system', {
-    params: {
-        camera_index: 0,
-        resolution: "1920x1080",
-        fps: 30,
-        format: "MJPEG"
-    }
-  });
-  console.log('Camera System Initialized');
-} catch (e) {
-  console.error('Init failed:', e);
-}
+// Initialize
+await invoke('plugin:crabcamera|initialize_camera_system', {
+  params: { camera_index: 0, resolution: "1920x1080", fps: 30, format: "MJPEG" }
+});
 
 // Capture a photo
-async function takePhoto() {
-  const path = await invoke('plugin:crabcamera|capture_single_photo', {
-      path: "capture.jpg"
-  });
-  console.log('Saved to:', path);
-}
-```
-
-**2. Using Vanilla JS (No Bundler)**
-
-Enable `withGlobalTauri: true` in `src-tauri/tauri.conf.json`:
-```json
-{
-  "app": {
-    "withGlobalTauri": true
-  }
-}
-```
-
-Then access via `window.__TAURI__`:
-```javascript
-const { invoke } = window.__TAURI__.core;
-await invoke('plugin:crabcamera|initialize_camera_system');
-```
-
-**Important**: All CrabCamera commands must be invoked with the `plugin:crabcamera|` prefix.
-
-### Frontend: Professional Photo Capture
-
-```javascript
-import { invoke } from '@tauri-apps/api/core';
-
-// Get cameras with quality analysis
-const cameras = await invoke('plugin:crabcamera|get_available_cameras');
-const format = await invoke('plugin:crabcamera|get_recommended_format');
-
-// Capture with quality validation
-const photo = await invoke('plugin:crabcamera|capture_single_photo', {
-  deviceId: cameras[0].id,
-  format: format,
-  quality: { min_score: 0.8 }  // Professional quality threshold
+const frame = await invoke('plugin:crabcamera|capture_single_photo', {
+  path: "photo.jpg"
 });
 ```
 
-### Frontend: Synchronized A/V Recording
+> All commands use the `plugin:crabcamera|` prefix when called via `invoke`.
 
-```javascript
-import { invoke } from '@tauri-apps/api/core';
+For vanilla JS (no bundler), enable `withGlobalTauri: true` in `tauri.conf.json` and use `window.__TAURI__.core.invoke`.
 
-// Professional A/V setup
-await invoke('plugin:crabcamera|initialize_camera_system');
-const audioDevices = await invoke('plugin:crabcamera|list_audio_devices');
-const audioDevice = audioDevices.find(d => d.is_default);
+---
 
-// Enterprise-grade recording with perfect sync
-await invoke('plugin:crabcamera|start_recording', {
-  outputPath: 'professional_recording.mp4',
-  videoConfig: {
-    deviceId: cameras[0].id,
-    codec: 'h264',
-    width: 1920,
-    height: 1080,
-    fps: 30.0
-  },
-  audioConfig: {
-    deviceId: audioDevice.id,
-    codec: 'opus',
-    sampleRate: 48000,
-    channels: 2
-  }
-});
+## Using CrabCamera from Rust
 
-// Automatic PTS-based synchronization
-await invoke('plugin:crabcamera|stop_recording');
-console.log('🎬 Professional recording complete with perfect A/V sync');
-```
+CrabCamera is not Tauri-only. Three additional entry points exist for direct Rust usage:
 
-## 📦 Enterprise Media Features 🦀
-
-### 🎥 Professional Video Capture
-- **Device Intelligence**: Automatic discovery and quality assessment of all cameras
-- **Format Optimization**: Resolution, FPS, and codec selection for professional workflows
-- **Camera Controls**: Auto-focus, exposure, white balance with platform-specific optimizations
-- **Multi-camera Orchestration**: Seamless switching between multiple professional cameras
-- **H.264 Encoding**: Industry-standard video codec with performance-optimized encoding
-
-### 🎙️ Audio Recording (NEW in v0.5.0!)
-- **Audio Device Enumeration**: Discover all audio input devices with capabilities
-- **Opus Codec**: State-of-the-art compression (40-256 kbps, adaptive bitrate)
-- **AAC Support**: Alternative codec for compatibility
-- **Multi-Channel**: Mono, stereo, and future multi-channel support
-- **Sample Rate Control**: 8kHz-48kHz configurable capture
-
-### 🔄 Audio/Video Synchronization
-- **PTS Clock**: Shared monotonic timebase for all timestamps
-- **Bounded Drift**: ±40ms max sync error (proven in tests)
-- **Automatic Interleaving**: No manual timing configuration needed
-- **Keyframe Alignment**: Proper sample-to-frame mapping
-- **Muxide Integration**: Custom MP4 muxer for precise timing
-
-### 🖥️ Cross-Platform Native 🦀
-- **Windows**: DirectShow/MediaFoundation with advanced camera controls
-- **macOS**: AVFoundation for both capture and controls
-- **Linux**: V4L2/ALSA with comprehensive device support
-- **Unified API**: Same code works across all platforms
-- **Professional Controls**: Focus, exposure, white balance on all platforms
-
-### ⚡ Performance & Memory 🦀
-- **Zero-Copy Operations**: Minimal memory allocations where possible
-- **Async/Await**: Non-blocking operations throughout
-- **Resource Management**: Automatic cleanup and device release
-- **Memory Safety**: Built with Rust's memory safety guarantees
-- **Thread Safety**: Concurrent access with proper synchronization
-
-## 🔧 Available Commands 🦀
-
-### Initialization & Discovery
 ```rust
-// Initialize the camera system
-initialize_camera_system() -> Result<String>
+// Direct platform camera (no Tauri required)
+use crabcamera::platform::PlatformCamera;
+let camera = PlatformCamera::new(0)?;
+let frame = camera.capture_frame()?;
 
-// Get all available cameras with capabilities
+// Headless session (server / CLI context)
+use crabcamera::headless::HeadlessSession;
+let session = HeadlessSession::new(config)?;
+
+// CLI binary
+// cargo run --bin crabcamera-cli -- --help
+```
+
+See [`examples/quick_test.rs`](examples/quick_test.rs) to verify your hardware works before building anything else.
+
+---
+
+## Examples
+
+Every example runs with `cargo run --example <name>`.
+
+### Verify hardware
+
+| Example | What it does |
+|---------|-------------|
+| [`quick_test`](examples/quick_test.rs) | List cameras, warm up, take a photo—start here |
+| [`hardware_audit`](examples/hardware_audit.rs) | Tests every CrabCamera command against real hardware |
+| [`functional_test`](examples/functional_test.rs) | Full capture + recording flow with proper warm-up |
+| [`visual_camera_test`](examples/visual_camera_test.rs) | Saves actual frames so you can see what the camera sees |
+
+```bash
+cargo run --example quick_test
+cargo run --example hardware_audit
+cargo run --example functional_test --features recording --release
+cargo run --example visual_camera_test
+```
+
+### Recording
+
+| Example | What it does |
+|---------|-------------|
+| [`record_video`](examples/record_video.rs) | Records 5 seconds of video to MP4 |
+| [`live_av_recording`](examples/live_av_recording.rs) | Full A/V recording with microphone sync |
+| [`live_audio_test`](examples/live_audio_test.rs) | Audio pipeline: enumerate device, capture PCM, encode Opus |
+| [`save_test_output`](examples/save_test_output.rs) | Saves a raw frame, a CrabCamera frame, and a 3-second MP4 |
+
+```bash
+cargo run --example record_video --features recording
+cargo run --example live_av_recording --features "recording,audio"
+cargo run --example live_audio_test --features audio
+```
+
+### Advanced capture
+
+| Example | What it does |
+|---------|-------------|
+| [`smart_capture_demo`](examples/smart_capture_demo.rs) | Smart Trigger—auto-captures when image quality is stable |
+| [`camera_preview`](examples/camera_preview.rs) | Start/stop preview stream and capture a frame |
+| [`camera_warmup_analysis`](examples/camera_warmup_analysis.rs) | How long does your camera need before frames are valid? |
+
+```bash
+cargo run --example smart_capture_demo
+cargo run --example camera_preview
+cargo run --example camera_warmup_analysis --release
+```
+
+### Low-level debugging
+
+| Example | What it does |
+|---------|-------------|
+| [`direct_capture`](examples/direct_capture.rs) | Raw nokhwa capture at native resolution (bypasses CrabCamera) |
+| [`raw_nokhwa_test`](examples/raw_nokhwa_test.rs) | Tests the nokhwa layer directly |
+| [`format_debug`](examples/format_debug.rs) | Inspects camera format negotiation |
+| [`reuse_debug`](examples/reuse_debug.rs) | Debugs camera handle reuse behavior |
+| [`audit_flow_debug`](examples/audit_flow_debug.rs) | Step-through trace of what hardware_audit does |
+| [`test_encoder_output`](examples/test_encoder_output.rs) | Tests openh264 output format |
+
+---
+
+## Features
+
+### Camera capture
+- **Device discovery**—automatic enumeration with capability detection
+- **Format selection**—resolution, FPS, and pixel format control
+- **Professional controls**—auto/manual focus, exposure, white balance
+- **Quality retry**—blur and exposure scoring; retries until threshold is met
+- **Smart Trigger**—waits for quality to stabilize before capturing
+
+### A/V recording
+- **H.264 video** via openh264
+- **Opus audio** (primary) and AAC (fallback) via CPAL
+- **PTS-based sync**—shared monotonic timebase, ±40ms max drift over a 60-minute recording
+- **MP4 container** via Muxide
+
+### Focus stacking and HDR
+- **Focus stacking**—capture focus-bracketed sequences, merge via Laplacian pyramid blending
+- **HDR sequences**—exposure-bracketed burst capture
+
+### Reliability
+- **Invariant Superhighway**— 40+ runtime correctness checks across all critical paths
+- **Feature Registry**—every capability declared as `Implemented`, `Beta`, `Stub`, or `Planned`
+- **85/85 lib tests** passing; property-based tests for encoder and sync invariants
+- **Honest errors**—platform-unimplemented paths return `Err`, never silent defaults
+
+---
+
+## Command Reference
+
+### Initialization
+
+```rust
+initialize_camera_system(params: CameraInitParams) -> Result<String>
 get_available_cameras() -> Result<Vec<CameraDeviceInfo>>
-
-// Get platform-specific information
 get_platform_info() -> Result<PlatformInfo>
-
-// Test camera system functionality
 test_camera_system() -> Result<SystemTestResult>
+release_camera() -> Result<()>
 ```
 
-### Audio Devices (NEW in v0.5.0!)
+### Capture
+
 ```rust
-// Enumerate all audio input devices
-list_audio_devices() -> Result<Vec<AudioDeviceInfo>>
-
-// Get info about specific audio device
-get_audio_device_info(device_id: String) -> Result<AudioDeviceInfo>
-
-// Audio device includes:
-pub struct AudioDeviceInfo {
-    pub id: String,
-    pub name: String,
-    pub sample_rate: u32,        // 48000 Hz typical
-    pub channels: u16,            // 1 (mono) or 2 (stereo)
-    pub is_default: bool,
-}
+capture_single_photo(device_id: String, format: CameraFormat) -> Result<CameraFrame>
+capture_with_quality_retry(params: QualityRetryParams) -> Result<CameraFrame>
+capture_photo_sequence(params: SequenceParams) -> Result<Vec<CameraFrame>>
+capture_burst_sequence(params: BurstParams) -> Result<Vec<CameraFrame>>
+save_frame_to_disk(frame: CameraFrame, path: String) -> Result<()>
+save_frame_compressed(frame: CameraFrame, path: String, quality: u8) -> Result<()>
 ```
 
-### Camera Operations
+### Camera controls
+
 ```rust
-// Check if specific camera is available
-check_camera_availability(device_id: String) -> Result<bool>
-
-// Get supported formats for a camera
-get_camera_formats(device_id: String) -> Result<Vec<CameraFormat>>
-
-// Get recommended settings for quality photography
-get_recommended_format() -> Result<CameraFormat>
-get_optimal_settings() -> Result<CameraInitParams>
+get_camera_controls(device_id: String) -> Result<CameraControls>
+set_camera_controls(device_id: String, controls: CameraControls) -> Result<()>
+set_manual_focus(device_id: String, value: f32) -> Result<()>
+set_manual_exposure(device_id: String, value: f32) -> Result<()>
+set_white_balance(device_id: String, wb: WhiteBalance) -> Result<()>
+test_camera_capabilities(device_id: String) -> Result<CameraCapabilities>
 ```
 
-### Recording (NEW Audio Support!)
+### Recording (`recording` feature)
+
 ```rust
-// Start recording with video + optional audio
-start_recording(RecordingConfig) -> Result<RecordingId>
-
-// Recording config includes audio:
-pub struct RecordingConfig {
-    pub output_path: String,
-    pub video_config: VideoConfig,
-    pub audio_config: Option<AudioConfig>,  // NEW!
-}
-
-pub struct AudioConfig {
-    pub device_id: String,
-    pub codec: AudioCodec,  // Opus or AAC
-    pub sample_rate: u32,
-    pub channels: u16,
-    pub bitrate: u32,       // bits per second
-}
-
-// Stop and finalize recording (auto A/V sync!)
+start_recording(
+    output_path: String,
+    device_id: String,
+    width: u32, height: u32, fps: f64,
+    audio_device_id: Option<String>,
+    // ...codec options
+) -> Result<String>
 stop_recording() -> Result<RecordingStatus>
-
-// Get recording status with sync info
 get_recording_status() -> Result<RecordingStatus>
 ```
 
-### Capture & Streaming
+### Quality analysis
+
 ```rust
-// Single photo capture
-capture_single_photo(device_id: String, format: CameraFormat) -> Result<CameraFrame>
-
-// Photo sequence for burst mode
-capture_photo_sequence(params: SequenceParams) -> Result<Vec<CameraFrame>>
-
-// Real-time streaming
-start_camera_preview(device_id: String) -> Result<()>
-stop_camera_preview() -> Result<()>
-
-// Save frames to disk
-save_frame_to_disk(frame: CameraFrame, path: String) -> Result<()>
+analyze_frame_blur(frame: CameraFrame) -> Result<BlurMetrics>
+analyze_frame_exposure(frame: CameraFrame) -> Result<ExposureMetrics>
+validate_frame_quality(frame: CameraFrame) -> Result<QualityScore>
 ```
 
-### Professional Camera Controls
+### Advanced / focus stacking
+
 ```rust
-// Apply camera controls (focus, exposure, white balance, etc.)
-apply_camera_controls(device_id: String, controls: CameraControls) -> Result<()>
-
-// Get current camera control values
-get_camera_controls(device_id: String) -> Result<CameraControls>
-
-// Test what controls are supported by camera
-test_camera_capabilities(device_id: String) -> Result<CameraCapabilities>
-
-// Get performance metrics
-get_camera_performance(device_id: String) -> Result<CameraPerformanceMetrics>
+capture_focus_brackets_command(params: FocusBracketParams) -> Result<Vec<CameraFrame>>
+capture_focus_stack(params: FocusStackParams) -> Result<CameraFrame>
+capture_hdr_sequence(params: HdrParams) -> Result<Vec<CameraFrame>>
 ```
 
-### Permissions & Security
+### Permissions
+
 ```rust
-// Handle camera permissions properly
 request_camera_permission() -> Result<bool>
 check_camera_permission_status() -> Result<PermissionStatus>
 ```
 
-## 🦀 Why CrabCamera Will Always Be Free 📷
+---
 
-I built CrabCamera because desktop applications deserve native camera access without the limitations of web APIs or mobile-only plugins.
+## Platform support
 
-**This is my commitment**: CrabCamera stays MIT licensed, forever. If you want to support development, [sponsor it](https://github.com/sponsors/Michael-A-Kuykendall). If you don't, just build something incredible with it.
-
-> 🦀 CrabCamera saves developers weeks of cross-platform camera integration. If it's useful, consider sponsoring for $5/month — less than a coffee, infinitely more valuable than web API limitations. 🦀
-
-## 📊 Performance Comparison 🦀
-
-| Metric | CrabCamera | Web APIs | Mobile Plugins |
-|--------|------------|----------|----------------|
-| **Desktop Support** | **Full native** | Browser dependent | None |
-| **Video Capture** | **Direct hardware** | getUserMedia limited | N/A |
-| **Audio Capture** | **Direct hardware + sync** | Unreliable | N/A |
-| **A/V Synchronization** | **PTS-based (±40ms)** | Async/broken | N/A |
-| **Image Quality** | **Professional controls** | Basic settings | Basic |
-| **Cross-Platform** | **Windows/macOS/Linux** | Browser variation | iOS/Android only |
-| **Test Coverage** | **239 unit tests + comprehensive** | None | None |
-| **Performance** | **Native speed** | Browser overhead | N/A |
-| **Reliability** | **Production proven** | No guarantees | Varies |
-
-### Benchmark Results (v0.5.0)
-```
-Video Encoding (H.264):
-  1920x1080 @ 30fps: ~45ms per frame (native speed)
-  
-Audio Encoding (Opus):
-  48kHz stereo: Real-time (no buffering needed)
-  
-A/V Synchronization:
-  Drift over 60-minute recording: ±35ms (within 40ms guarantee)
-  
-Memory (per recording):
-  1080p30 + 48kHz stereo: ~50MB buffer
-```
-
-## 🏗️ Technical Architecture 🦀
-
-### Complete Media Pipeline Architecture
-```
-┌──────────────────────────────────────────────────────────────┐
-│                    CrabCamera v0.5.0                          │
-├──────────────────────────────────────────────────────────────┤
-│                                                                │
-│  VIDEO                            AUDIO                       │
-│  ┌─────────────────┐             ┌──────────────────┐        │
-│  │ Camera Capture  │             │ Microphone       │        │
-│  │ (nokhwa/native) │             │ Capture (CPAL)   │        │
-│  └────────┬────────┘             └────────┬─────────┘        │
-│           │                                │                  │
-│           ▼                                ▼                  │
-│  ┌─────────────────┐             ┌──────────────────┐        │
-│  │ H.264 Encoder   │             │ Opus Encoder     │        │
-│  │ (openh264)      │             │ (libopus_sys)    │        │
-│  └────────┬────────┘             └────────┬─────────┘        │
-│           │                                │                  │
-│           └────────────┬────────────────────┘                 │
-│                        │                                      │
-│                        ▼                                      │
-│         ┌──────────────────────────┐                          │
-│         │   PTS Clock              │                          │
-│         │ (Shared Timebase)        │                          │
-│         └──────────────┬───────────┘                          │
-│                        │                                      │
-│                        ▼                                      │
-│         ┌──────────────────────────┐                          │
-│         │ Muxide MP4 Muxer         │                          │
-│         │ (A/V Interleaving)       │                          │
-│         └──────────────┬───────────┘                          │
-│                        │                                      │
-│                        ▼                                      │
-│              output.mp4 (PERFECT SYNC!)                       │
-│                                                                │
-└──────────────────────────────────────────────────────────────┘
-```
-
-### Hybrid Capture + Controls Architecture
-```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Capture       │    │ Platform Controls│    │  CrabCamera     │
-│   (Best Source) │    │ (Advanced)       │    │  (Unified API)  │
-├─────────────────┤    ├──────────────────┤    ├─────────────────┤
-│ • nokhwa (video)│    │ • Focus control  │    │ • Generic types │
-│ • CPAL (audio)  │    │ • Exposure       │    │ • Error handling│
-│ • Resolution    │    │ • White balance  │    │ • Cross-platform│
-│ • Format        │    │ • Brightness     │    │ • Thread safety │
-│ • Start/Stop    │    │ • Saturation     │    │ • Async/await   │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-```
-
-### Platform-Specific Implementations
-- **Windows**: nokhwa capture + MediaFoundation controls | WASAPI audio
-- **macOS**: AVFoundation for both capture and controls | AVFoundation audio
-- **Linux**: nokhwa capture + V4L2 controls | ALSA audio
-- **Unified API**: Same interface across all platforms
-
-### Key Technologies
-- **Rust + Tokio**: Memory-safe, async performance
-- **Tauri 2.0 Plugin**: Modern plugin architecture  
-- **Platform Backends**: MediaFoundation, AVFoundation, V4L2, WASAPI, ALSA
-- **Audio Codecs**: Opus (libopus_sys), AAC support
-- **Video Codec**: H.264 (openh264 v0.9)
-- **Muxing**: Custom Muxide library (Rust-native MP4 writer)
-- **COM Interface Management**: Thread-safe Windows interfaces
-- **Memory safety**: Guaranteed in core logic (FFI bindings for encoding)
-
-## 📚 API Reference 🦀
-
-### Core Types
-```rust
-pub struct CameraDeviceInfo {
-    pub id: String,
-    pub name: String,
-    pub description: String,
-    pub is_available: bool,
-    pub supports_formats: Vec<CameraFormat>,
-}
-
-pub struct CameraFormat {
-    pub width: u32,
-    pub height: u32,
-    pub fps: f32,
-    pub format_type: String, // "RGB8", "JPEG", etc.
-}
-
-pub struct CameraFrame {
-    pub data: Vec<u8>,
-    pub width: u32,
-    pub height: u32,
-    pub format: String,
-    pub timestamp: DateTime<Utc>,
-}
-
-pub struct CameraControls {
-    pub auto_focus: Option<bool>,
-    pub focus_distance: Option<f32>,     // 0.0 = infinity, 1.0 = closest
-    pub auto_exposure: Option<bool>,
-    pub exposure_time: Option<f32>,      // seconds
-    pub white_balance: Option<WhiteBalance>,
-    pub brightness: Option<f32>,         // -1.0 to 1.0
-    pub contrast: Option<f32>,           // -1.0 to 1.0
-    pub saturation: Option<f32>,         // -1.0 to 1.0
-}
-
-pub struct CameraCapabilities {
-    pub supports_auto_focus: bool,
-    pub supports_manual_focus: bool,
-    pub supports_auto_exposure: bool,
-    pub supports_manual_exposure: bool,
-    pub supports_white_balance: bool,
-    pub focus_range: Option<(f32, f32)>,
-    pub exposure_range: Option<(f32, f32)>,
-}
-```
-
-### Platform Detection
-```rust
-pub enum Platform {
-    Windows,
-    MacOS,
-    Linux,
-    Unknown,
-}
-
-// Automatic platform detection
-let platform = Platform::current();
-```
-
-## 🦀 Community & Support 📷
-
-- **🐛 Bug Reports**: [GitHub Issues](https://github.com/Michael-A-Kuykendall/crabcamera/issues)
-- **💬 Discussions**: [GitHub Discussions](https://github.com/Michael-A-Kuykendall/crabcamera/discussions)
-- **📖 Documentation**: [docs.rs/crabcamera](https://docs.rs/crabcamera)
-- **💝 Sponsorship**: [GitHub Sponsors](https://github.com/sponsors/Michael-A-Kuykendall)
-
-### Governance
-
-CrabCamera is **open source, not open contribution**. The code is freely available under the MIT license, but pull requests are not accepted by default. See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
-
-This model ensures consistent quality across all platforms and clear project direction.
-
-### Sponsors
-
-**🎉 Huge thank you to our amazing sponsors who make 🦀 CrabCamera possible! 🙏**
-
-**Current Sponsors:**
-- **$100/month Corporate Backer** (joined December 25th, 2025) - Thank you for your generous support!
-- **$25/month Developer Supporter** - Your support helps drive feature development!
-- **$5/month Coffee Hero** - Every contribution counts, thank you!
-
-See our complete [sponsors list](SPONSORS.md) for more details.
-
-**Sponsorship Tiers:**
-- **$5/month**: Coffee tier - My eternal gratitude + sponsor badge
-- **$25/month**: Developer supporter - Priority support + name in SPONSORS.md  
-- **$100/month**: Corporate backer - Logo on README + monthly office hours
-- **$500/month**: Enterprise partner - Direct support + feature requests
-
-**Companies**: Need invoicing? Email [michaelallenkuykendall@gmail.com](mailto:michaelallenkuykendall@gmail.com)
-
-## 🚀 Production Usage 🦀
-
-**✅ Ready for production (v0.5.0):**
-- Memory-safe Rust implementation
-- **239+ comprehensive tests passing** (comprehensive code coverage)
-- Memory safe in public API (FFI bindings internal)
-- Comprehensive error handling with graceful degradation
-- Async/await throughout for non-blocking operations
-- Cross-platform compatibility verified (Windows/macOS/Linux)
-- Real hardware validation (OBSBOT Tiny 4K + USB microphones)
-- Audio/video sync tested (±40ms max drift guarantee)
-- Security audits passing (openh264 v0.9, no vulnerabilities)
-
-**✅ Use cases in production:**
-- Desktop photography and image editing applications
-- Security and surveillance systems with audio logging
-- Medical imaging and patient documentation systems
-- Industrial inspection tools with audio annotation
-- Educational software platforms with screen recording
-- Professional communication and streaming applications
-- Podcast and content creation studios
-- Conference recording and transcription tools
-
-## 💡 Examples & Integration 🦀
-
-### Photo Booth Application
-```javascript
-// Simple photo booth with camera selection
-const cameras = await invoke('plugin:crabcamera|get_available_cameras');
-const selectedCamera = cameras[0];
-const format = await invoke('plugin:crabcamera|get_recommended_format');
-
-// Take photo when user clicks
-document.getElementById('capture').onclick = async () => {
-    const photo = await invoke('plugin:crabcamera|capture_single_photo', {
-        deviceId: selectedCamera.id,
-        format: format
-    });
-    // Display photo in UI
-    displayPhoto(photo);
-};
-```
-
-### Professional Video Recorder
-```javascript
-// Video + audio recording with sync
-const cameras = await invoke('plugin:crabcamera|get_available_cameras');
-const audioDevices = await invoke('plugin:crabcamera|list_audio_devices');
-const defaultAudio = audioDevices.find(d => d.is_default);
-
-// Start recording with A/V sync
-await invoke('plugin:crabcamera|start_recording', {
-    outputPath: 'recording.mp4',
-    videoConfig: {
-        deviceId: cameras[0].id,
-        codec: 'h264',
-        width: 1920,
-        height: 1080,
-        fps: 30.0
-    },
-    audioConfig: {
-        deviceId: defaultAudio.id,
-        codec: 'opus',
-        sampleRate: 48000,
-        channels: 2
-    }
-});
-
-// No sync configuration needed - automatic!
-setTimeout(async () => {
-    await invoke('plugin:crabcamera|stop_recording');
-    console.log('✅ Recording with perfect A/V sync saved');
-}, 30000); // 30 second recording
-```
-
-### Multi-Camera Security System
-```javascript
-// Monitor multiple cameras
-const cameras = await invoke('plugin:crabcamera|get_available_cameras');
-for (const camera of cameras) {
-    await invoke('plugin:crabcamera|start_camera_preview', { deviceId: camera.id });
-    // Set up streaming handlers for each camera
-    setupCameraStream(camera);
-}
-```
-
-### Podcast Studio
-```javascript
-// Record podcast with high-quality audio + optional video
-const audioDevices = await invoke('plugin:crabcamera|list_audio_devices');
-
-// Find a professional USB microphone
-const usbMic = audioDevices.find(d => 
-    d.name.includes('USB') && d.channels === 2
-);
-
-await invoke('plugin:crabcamera|start_recording', {
-    outputPath: 'podcast_episode_42.mp4',
-    audioConfig: {
-        deviceId: usbMic.id,
-        codec: 'opus',           // Best compression
-        sampleRate: 48000,       // Professional standard
-        channels: 2,
-        bitrate: 128000          // 128kbps (transparent quality)
-    }
-    // Video optional for podcast
-});
-```
-
-## 📜 License & Philosophy 🦀
-
-MIT License - forever and always.
-
-**Philosophy**: Desktop applications deserve native camera access. 🦀 CrabCamera is camera infrastructure. 📷
-
-## 🚀 What's New in v0.5.0 — THE BIG ONE 📢
-
-### 🎉 **v0.5.0: Full Audio Recording with Perfect A/V Sync** (December 2025)
-
-This is the **game-changing release**. We added professional-grade audio recording with automatic synchronization.
-
-#### ✨ Audio Pipeline (10 Components)
-- ✅ **Device Enumeration**: `list_audio_devices()` discovers all audio inputs with sample rate, channels, default status
-- ✅ **Audio Capture**: CPAL integration for platform-native audio (Windows WASAPI, macOS AVFoundation, Linux ALSA)
-- ✅ **Opus Encoding**: Industry-standard codec at 48kHz (40-256 kbps adaptive bitrate)
-- ✅ **AAC Alternative**: Fallback codec for compatibility
-- ✅ **PTS Clock**: Shared monotonic timebase (±40ms drift guarantee)
-- ✅ **A/V Sync**: Automatic interleaving, no configuration needed
-- ✅ **Error Recovery**: Video continues if audio fails (graceful degradation)
-- ✅ **Muxide Integration**: Custom MP4 muxer for precise frame timing
-- ✅ **Feature Gating**: Audio is optional; core video unaffected
-- ✅ **Comprehensive Testing**: 163 unit tests + property-based validation
-
-#### 📊 Enterprise Testing Infrastructure
-- **163 unit tests**: Core functionality, audio/video integration, camera controls
-- **Property-based testing**: Proptest invariants for encoders and synchronization
-- **Contract testing**: Behavioral validation with synthetic camera data
-- **Cross-platform validation**: Windows/macOS/Linux CI matrix
-- **Real hardware validation**: Professional cameras and audio devices
-
-#### 🎬 Professional Codec Support
-- **Video**: H.264 (industry standard, optimized encoding with 10-100x performance)
-- **Audio**: Opus (primary, best quality/compression) + AAC (fallback)
-- **WebRTC**: Complete H.264/Opus streaming with RTP packetization
-- **Container**: MP4 with precise synchronization
-- **Future**: Enhanced codecs and formats
-
-#### 🏗️ Architecture Excellence
-```
-Professional Pipeline:
-  Camera/Microphone → Direct Hardware Access → Quality Validation
-                        ↓
-  Encoding Pipeline: H.264/Opus → MP4 Output
-                        ↓
-  Synchronization: PTS-based A/V sync with sub-frame accuracy
-```
-
-#### 💻 Enterprise Platform Support
-- ✅ **Windows**: WASAPI audio + MediaFoundation video + MP4 recording
-- ✅ **macOS**: AVFoundation audio/video + MP4 recording
-- ✅ **Linux**: ALSA audio + V4L2 video + WebRTC streaming
-
-#### 🔒 Security & Production Readiness
-- ✅ **Memory Safety**: Zero unsafe code in production paths
-- ✅ **Comprehensive Auditing**: Systematic code review eliminating all critical issues
-- ✅ **Performance Optimization**: Encoder caching and resource management
-- ✅ **Error Resilience**: Structured error handling with actionable messages
-- ✅ **Cross-platform CI/CD**: Automated testing and deployment pipeline
-
-#### 📈 Engineering Metrics
-- **Test Coverage**: 163 automated tests with property-based validation
-- **Performance**: 10-100x encoding improvement through intelligent caching
-- **Code Quality**: Clean compilation, single benign deprecation
-- **Media Processing**: Professional H.264/Opus encoding with A/V synchronization
-- **Test Coverage**: 80%+
-- **Compilation Time**: 45s (release), 15s (debug)
-- **Binary Size**: +2.1MB (audio libs) vs v0.4.1
+| Platform | Camera capture | Controls | Audio | Recording |
+|----------|---------------|----------|-------|-----------|
+| Windows | DirectShow / MediaFoundation | IAMCameraControl / IAMVideoProcAmp | WASAPI | ✅ |
+| macOS | AVFoundation | AVFoundation | AVFoundation | ✅ |
+| Linux | V4L2 | V4L2 | ALSA | ✅ |
 
 ---
 
-### 🎉 **v0.4.1: Bug Fixes, Performance & DX**
-- **Critical Fix**: Mock camera was incorrectly used during `cargo run`
-  - Mock camera selection is now explicit via `CRABCAMERA_USE_MOCK=1`
-- **PNG Save Fixed**: `save_frame_to_disk()` now properly encodes PNG/JPEG
-- **Performance**: Camera warmup reduced from 10 frames to 5 frames
-- **macOS Fixed**: Objective-C block syntax and nokhwa API compatibility
+## Architecture
 
-### 🎉 **v0.4.0: Quality Intelligence & Configuration**
-- **Quality Validation**: Automatic blur/exposure detection with retry
-- **TOML Configuration**: Full runtime config with hot-reload
-- **Focus Stacking**: Computational photography for macro shots
-- **Device Monitoring**: Hot-plug detection for camera connect/disconnect
+```
+crabcamera/
+├── src/commands/        Tauri command handlers (capture, recording, advanced, init)
+├── src/platform/        Platform-specific camera backends (Windows, macOS, Linux)
+├── src/quality/         Blur, exposure, and composition scoring; Smart Trigger
+├── src/recording/       H.264 + Opus encoding; MP4 mux via Muxide
+├── src/audio/           CPAL-based audio capture and encoding
+├── src/focus_stack/     Laplacian pyramid blend for focus stacking
+├── src/headless/        Non-Tauri HeadlessSession API
+├── src/bin/             crabcamera-cli binary
+├── src/invariant_ppt.rs Runtime invariant assertion framework
+└── src/registry.rs      Feature status registry
+```
 
-### 🎉 **v0.3.0: Windows MediaFoundation Camera Controls**
-- **Professional Windows Controls**: Full focus, exposure, white balance control
-- **Hybrid Architecture**: nokhwa capture + MediaFoundation controls
-- **Thread-Safe COM**: Proper Windows COM interface management
+Cargo features:
+- `recording`—enables MP4 recording commands (openh264 + Muxide)
+- `audio`—enables audio capture constants and device enumeration
+- `headless`—enables HeadlessSession API for server/CLI usage
 
 ---
 
-**Forever maintainer**: Michael A. Kuykendall  
-**Promise**: This will never become a paid product  
-**Mission**: Making desktop camera development effortless
+## Testing
 
-*"🦀 Native performance. Cross-platform compatibility. Zero hassle. 📷"*
+```bash
+# Core library (72 tests)
+cargo test --lib
 
+# With recording feature (85 tests)
+cargo test --lib --features recording
+
+# Compile check, all features
+cargo check --all-features
 ```
-       🦀🦀🦀 Happy Coding! 🦀🦀🦀
-          Made with ❤️ and Rust
-           📷 Capture the moment 📷
-```
+
+---
+
+## License
+
+[MIT](LICENSE-MIT)—forever.
+
+If CrabCamera saves you time, [sponsoring](https://github.com/sponsors/Michael-A-Kuykendall) keeps it moving forward.
+
+---
+
+*Made with Rust 🦀*
