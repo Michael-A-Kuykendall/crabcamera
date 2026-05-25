@@ -1,5 +1,7 @@
 use crate::platform::PlatformCamera;
 use crate::types::{CameraFormat, CameraFrame, CameraInitParams};
+use crate::errors::CameraError;
+use crate::constants::*;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex as SyncMutex};
 use tokio::sync::RwLock;
@@ -16,7 +18,7 @@ pub async fn get_existing_camera(device_id: &str) -> Option<Arc<SyncMutex<Platfo
 }
 
 /// Release a camera (stop and remove from registry)
-pub async fn release_camera(device_id: &str) -> Result<String, String> {
+pub async fn release_camera(device_id: &str) -> Result<String, CameraError> {
     log::info!("Releasing camera: {}", device_id);
 
     let mut registry = CAMERA_REGISTRY.write().await;
@@ -44,7 +46,7 @@ pub async fn release_camera(device_id: &str) -> Result<String, String> {
 pub async fn get_or_create_camera(
     device_id: String,
     format: CameraFormat,
-) -> Result<Arc<SyncMutex<PlatformCamera>>, String> {
+) -> Result<Arc<SyncMutex<PlatformCamera>>, CameraError> {
     // First, try to get existing camera with read lock
     {
         let registry = CAMERA_REGISTRY.read().await;
@@ -75,17 +77,20 @@ pub async fn get_or_create_camera(
         }
         Err(e) => {
             log::error!("Failed to create camera: {}", e);
-            Err(format!("Failed to create camera: {}", e))
+            Err(e)
         }
     }
 }
 
 /// Attempt to reconnect a camera with retries
+///
+/// # Errors
+/// Returns error if camera cannot be reconnected after max retries
 pub async fn reconnect_camera(
     device_id: String,
     format: CameraFormat,
     max_retries: u32,
-) -> Result<Arc<SyncMutex<PlatformCamera>>, String> {
+) -> Result<Arc<SyncMutex<PlatformCamera>>, CameraError> {
     log::info!(
         "Attempting to reconnect camera: {} (max retries: {})",
         device_id,
@@ -123,19 +128,18 @@ pub async fn reconnect_camera(
                 return Ok(camera);
             }
             Err(e) => {
-                log::warn!("Reconnection attempt {} failed: {}", attempt, e);
+                log::warn!("Reconnection attempt {attempt} failed: {e}");
                 if attempt < max_retries {
-                    let backoff_ms = (100 * 2_u64.pow(attempt - 1)).min(2000);
+                    let backoff_ms = (CONNECTION_BACKOFF_INITIAL_MS * 2_u64.pow(attempt - 1)).min(CONNECTION_BACKOFF_MAX_MS);
                     tokio::time::sleep(tokio::time::Duration::from_millis(backoff_ms)).await;
                 }
             }
         }
     }
 
-    Err(format!(
-        "Failed to reconnect camera after {} attempts",
-        max_retries
-    ))
+    Err(CameraError::ConnectionError(format!(
+        "Failed to reconnect camera after {max_retries} attempts"
+    )))
 }
 
 /// Capture with automatic reconnection on failure
@@ -143,15 +147,16 @@ pub async fn capture_with_reconnect(
     device_id: String,
     format: CameraFormat,
     max_reconnect_attempts: u32,
-) -> Result<CameraFrame, String> {
+) -> Result<CameraFrame, CameraError> {
     log::debug!(
         "Attempting capture with reconnect for device: {}",
         device_id
     );
 
-    let camera = match get_or_create_camera(device_id.clone(), format.clone()).await {
+    let camera_result = get_or_create_camera(device_id.clone(), format.clone()).await;
+    let camera = match camera_result {
         Ok(cam) => cam,
-        Err(e) => return Err(format!("Failed to get camera: {}", e)),
+        Err(e) => return Err(e),
     };
 
     // Try normal capture first
@@ -159,7 +164,7 @@ pub async fn capture_with_reconnect(
     let capture_result = tokio::task::spawn_blocking(move || {
         let mut camera_guard = camera_clone
             .lock()
-            .map_err(|_| "Mutex poisoned".to_string())?;
+            .map_err(|_| CameraError::AccessError("Mutex poisoned".to_string()))?;
 
         // Ensure stream is started
         if let Err(e) = camera_guard.start_stream() {
@@ -169,10 +174,10 @@ pub async fn capture_with_reconnect(
         // Discard warmup frames - cameras need time to stabilize exposure/focus
         // This is especially important for USB cameras that power up on stream start
         // Using 5 frames with 30ms delay for reasonable warmup without excessive latency
-        for i in 0..5 {
+        for i in 0..CAPTURE_WARMUP_FRAMES {
             match camera_guard.capture_frame() {
                 Ok(_) => {
-                    log::debug!("Warmup frame {} captured", i + 1);
+                    log::debug!("Warmup frame {}Captured", i + 1);
                 }
                 Err(e) => {
                     log::debug!(
@@ -183,42 +188,45 @@ pub async fn capture_with_reconnect(
                 }
             }
             // Small delay between warmup frames
-            std::thread::sleep(std::time::Duration::from_millis(30));
+            std::thread::sleep(std::time::Duration::from_millis(CAPTURE_WARMUP_DELAY_MS));
         }
 
         // Now capture the real frame
         camera_guard
             .capture_frame()
-            .map_err(|e| format!("Initial capture failed: {}, attempting reconnect", e))
+            .map_err(|e| CameraError::CaptureError(format!("Initial capture failed: {}, attempting reconnect", e)))
     })
     .await
-    .map_err(|e| format!("Task join error: {}", e))?;
+    .map_err(|e| CameraError::SystemError(format!("Task join error: {}", e)))?;
 
     if let Ok(frame) = capture_result {
         return Ok(frame);
     }
 
     // Initial capture failed, try reconnecting
-    let camera = reconnect_camera(device_id.clone(), format, max_reconnect_attempts).await?;
+    let camera_arc = reconnect_camera(device_id, format, max_reconnect_attempts).await?;
 
+    let camera_clone = camera_arc.clone();
     // Try capture after reconnect with warmup
     tokio::task::spawn_blocking(move || {
-        let mut camera_guard = camera.lock().map_err(|_| "Mutex poisoned".to_string())?;
+        let mut camera_guard = camera_clone
+            .lock()
+            .map_err(|_| CameraError::AccessError("Mutex poisoned".to_string()))?;
 
         if let Err(e) = camera_guard.start_stream() {
             log::warn!("Failed to start stream after reconnect: {}", e);
         }
 
         // Warmup after reconnect too
-        for _ in 0..10 {
+        for _ in 0..CAPTURE_RECONNECT_WARMUP_FRAMES {
             let _ = camera_guard.capture_frame();
-            std::thread::sleep(std::time::Duration::from_millis(50));
+            std::thread::sleep(std::time::Duration::from_millis(CAPTURE_RECONNECT_WARMUP_DELAY_MS));
         }
 
         camera_guard
             .capture_frame()
-            .map_err(|e| format!("Capture failed after reconnection: {}", e))
+            .map_err(|e| CameraError::CaptureError(format!("Capture failed after reconnection: {}", e)))
     })
     .await
-    .map_err(|e| format!("Task join error: {}", e))?
+    .map_err(|e| CameraError::SystemError(format!("Task join error: {}", e)))?
 }

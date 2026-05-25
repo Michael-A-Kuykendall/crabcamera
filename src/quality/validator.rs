@@ -1,3 +1,4 @@
+use crate::constants::*;
 use crate::quality::{BlurDetector, BlurMetrics, ExposureAnalyzer, ExposureMetrics};
 use crate::types::CameraFrame;
 use serde::{Deserialize, Serialize};
@@ -169,7 +170,7 @@ impl Default for ValidationConfig {
             blur_threshold: 0.6,        // Minimum blur quality
             exposure_threshold: 0.6,    // Minimum exposure quality
             overall_threshold: 0.7,     // Minimum overall quality
-            min_resolution: (640, 480), // Minimum resolution (VGA)
+            min_resolution: (MIN_RESOLUTION_WIDTH, MIN_RESOLUTION_HEIGHT), // Minimum resolution (VGA)
             max_noise_level: 0.3,       // Maximum acceptable noise
         }
     }

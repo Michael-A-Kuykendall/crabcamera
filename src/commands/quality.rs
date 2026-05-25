@@ -1,4 +1,6 @@
 use crate::commands::capture::capture_single_photo;
+#[cfg(test)]
+use crate::constants::*;
 use crate::quality::{BlurDetector, BlurMetrics, ExposureAnalyzer, ExposureMetrics};
 use crate::quality::{QualityReport, QualityValidator, ValidationConfig};
 use crate::types::CameraFrame;
@@ -389,8 +391,8 @@ mod tests {
             blur_threshold: 0.8,
             exposure_threshold: 0.8,
             overall_threshold: 0.9,
-            min_width: 1920,
-            min_height: 1080,
+            min_width: DEFAULT_RESOLUTION_WIDTH,
+            min_height: DEFAULT_RESOLUTION_HEIGHT,
             max_noise_level: 0.2,
         };
 
@@ -402,8 +404,8 @@ mod tests {
         assert!((retrieved_config.blur_threshold - 0.8).abs() < 0.001);
         assert!((retrieved_config.exposure_threshold - 0.8).abs() < 0.001);
         assert!((retrieved_config.overall_threshold - 0.9).abs() < 0.001);
-        assert_eq!(retrieved_config.min_width, 1920);
-        assert_eq!(retrieved_config.min_height, 1080);
+        assert_eq!(retrieved_config.min_width, DEFAULT_RESOLUTION_WIDTH);
+        assert_eq!(retrieved_config.min_height, DEFAULT_RESOLUTION_HEIGHT);
         assert!((retrieved_config.max_noise_level - 0.2).abs() < 0.001);
     }
 

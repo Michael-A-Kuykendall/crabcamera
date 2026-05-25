@@ -1,4 +1,5 @@
 
+use crabcamera::constants::{DEMO_DEFAULT_FPS, DEMO_DEFAULT_HEIGHT, DEMO_DEFAULT_WIDTH};
 use crabcamera::platform::{CameraSystem, PlatformCamera};
 use crabcamera::types::{CameraInitParams, CameraFormat};
 use slint::{Image, SharedPixelBuffer, Rgb8Pixel, ComponentHandle};
@@ -20,7 +21,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Initializing camera: {}", info.name);
         
         let params = CameraInitParams::new(info.id.clone())
-            .with_format(CameraFormat::new(640, 480, 30.0));
+            .with_format(CameraFormat::new(DEMO_DEFAULT_WIDTH, DEMO_DEFAULT_HEIGHT, DEMO_DEFAULT_FPS));
 
         match PlatformCamera::new(params) {
             Ok(mut cam) => {

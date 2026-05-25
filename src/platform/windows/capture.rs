@@ -1,3 +1,4 @@
+use crate::constants::*;
 use crate::errors::CameraError;
 use crate::types::{CameraDeviceInfo, CameraFormat, CameraFrame};
 use nokhwa::{
@@ -62,9 +63,9 @@ pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
 
         // Add common Windows camera formats
         let formats = vec![
-            CameraFormat::new(1920, 1080, 30.0),
-            CameraFormat::new(1280, 720, 30.0),
-            CameraFormat::new(640, 480, 30.0),
+            CameraFormat::new(DEFAULT_RESOLUTION_WIDTH, DEFAULT_RESOLUTION_HEIGHT, DEFAULT_FPS),
+            CameraFormat::new(FALLBACK_RESOLUTION_WIDTH, FALLBACK_RESOLUTION_HEIGHT, DEFAULT_FPS),
+            CameraFormat::new(MIN_RESOLUTION_WIDTH, MIN_RESOLUTION_HEIGHT, DEFAULT_FPS),
         ];
         device = device.with_formats(formats);
 
@@ -128,11 +129,9 @@ pub fn capture_frame(camera: &mut Camera, device_id: &str) -> Result<CameraFrame
         raw_bytes.get(0..3).unwrap_or(&[])
     );
 
-    // Check if the data is MJPEG (starts with FFD8FF) and needs decoding
-    let rgb_data = if raw_bytes.len() >= 3
-        && raw_bytes[0] == 0xFF
-        && raw_bytes[1] == 0xD8
-        && raw_bytes[2] == 0xFF
+    // Check if the data is MJPEG
+    let rgb_data = if raw_bytes.len() >= MJPEG_SIGNATURE.len()
+        && raw_bytes.starts_with(&MJPEG_SIGNATURE)
     {
         // Data is MJPEG - decode to RGB
         log::debug!("Decoding MJPEG frame ({} bytes) to RGB", raw_bytes.len());
@@ -149,8 +148,8 @@ pub fn capture_frame(camera: &mut Camera, device_id: &str) -> Result<CameraFrame
         let pct_nonzero = (non_zero_count as f64 / total as f64) * 100.0;
         log::debug!("RGB frame: {:.1}% non-zero pixels", pct_nonzero);
 
-        if pct_nonzero < 1.0 {
-            log::warn!("Frame appears to be mostly zeros - camera may not be ready");
+        if pct_nonzero < VALID_FRAME_NONZERO_PERCENT {
+            log::warn!("Frame appears to be mostly zeros ({:.1}%) - camera may not be ready", pct_nonzero);
         }
 
         raw_bytes.to_vec()

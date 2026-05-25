@@ -4,6 +4,7 @@
 //! quality thresholds, storage preferences, and other runtime options.
 
 use crate::errors::CameraError;
+use crate::constants::*;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -87,33 +88,33 @@ impl Default for CrabCameraConfig {
     fn default() -> Self {
         Self {
             camera: CameraConfig {
-                default_resolution: [1920, 1080],
-                default_fps: 30,
+                default_resolution: [DEFAULT_RESOLUTION_WIDTH, DEFAULT_RESOLUTION_HEIGHT],
+                default_fps: DEFAULT_FPS as u32,
                 auto_reconnect: true,
-                reconnect_attempts: 3,
-                reconnect_delay_ms: 1000,
+                reconnect_attempts: DEFAULT_RECONNECT_ATTEMPTS,
+                reconnect_delay_ms: DEFAULT_RECONNECT_DELAY_MS,
             },
             quality: QualityConfig {
                 auto_retry_enabled: true,
-                max_retry_attempts: 10,
-                min_blur_threshold: 0.7,
-                min_exposure_score: 0.6,
-                min_overall_score: 0.7,
-                retry_delay_ms: 100,
+                max_retry_attempts: DEFAULT_MAX_RETRY_ATTEMPTS,
+                min_blur_threshold: DEFAULT_BLUR_THRESHOLD,
+                min_exposure_score: DEFAULT_EXPOSURE_THRESHOLD,
+                min_overall_score: DEFAULT_OVERALL_THRESHOLD,
+                retry_delay_ms: DEFAULT_RETRY_DELAY_MS,
             },
             storage: StorageConfig {
-                output_directory: "./captures".to_string(),
+                output_directory: DEFAULT_OUTPUT_DIRECTORY.to_string(),
                 auto_organize_by_date: true,
-                date_format: "YYYY-MM-DD".to_string(),
-                default_format: "jpeg".to_string(),
-                jpeg_quality: 95,
+                date_format: DEFAULT_DATE_FORMAT.to_string(),
+                default_format: DEFAULT_IMAGE_FORMAT.to_string(),
+                jpeg_quality: DEFAULT_JPEG_QUALITY,
                 auto_delete_low_quality: false,
             },
             advanced: AdvancedConfig {
                 focus_stacking_enabled: false,
-                focus_stack_steps: 10,
+                focus_stack_steps: DEFAULT_FOCUS_STACK_STEPS,
                 hdr_enabled: false,
-                hdr_brackets: 3,
+                hdr_brackets: DEFAULT_HDR_BRACKETS,
             },
         }
     }

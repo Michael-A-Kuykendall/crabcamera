@@ -1,4 +1,5 @@
 use super::FocusStackError;
+use crate::constants::*;
 /// Image merging module for focus stacking
 ///
 /// Merges aligned images by selecting sharp regions from each frame.
@@ -239,9 +240,9 @@ fn compute_sharpness_map(frame: &CameraFrame) -> SharpnessMap {
     }
 }
 
-/// Convert RGB to luminance
+/// Convert RGB to luminance (Rec. 601)
 fn luminance(rgb: &[u8]) -> f32 {
-    0.299 * rgb[0] as f32 + 0.587 * rgb[1] as f32 + 0.114 * rgb[2] as f32
+    LUMA_R * rgb[0] as f32 + LUMA_G * rgb[1] as f32 + LUMA_B * rgb[2] as f32
 }
 
 /// Create normalized weight maps from sharpness maps
@@ -300,20 +301,20 @@ fn build_gaussian_pyramid(data: &[u8], width: usize, height: usize, levels: u32)
 
 /// Downsample image by 2x using average pooling
 fn downsample(data: &[u8], width: usize, height: usize) -> (Vec<u8>, usize, usize) {
-    let new_width = width / 2;
-    let new_height = height / 2;
+    let new_width = width / PYRAMID_POOLING_SIZE;
+    let new_height = height / PYRAMID_POOLING_SIZE;
     let mut downsampled = vec![0u8; new_width * new_height * 3];
 
     for y in 0..new_height {
         for x in 0..new_width {
             let dst_idx = (y * new_width + x) * 3;
 
-            // Average 2x2 block
+            // Average block
             let mut sum = [0u32; 3];
-            for dy in 0..2 {
-                for dx in 0..2 {
-                    let src_x = x * 2 + dx;
-                    let src_y = y * 2 + dy;
+            for dy in 0..PYRAMID_POOLING_SIZE {
+                for dx in 0..PYRAMID_POOLING_SIZE {
+                    let src_x = x * PYRAMID_POOLING_SIZE + dx;
+                    let src_y = y * PYRAMID_POOLING_SIZE + dy;
                     let src_idx = (src_y * width + src_x) * 3;
 
                     if src_idx + 2 < data.len() {
@@ -324,9 +325,9 @@ fn downsample(data: &[u8], width: usize, height: usize) -> (Vec<u8>, usize, usiz
                 }
             }
 
-            downsampled[dst_idx] = (sum[0] / 4) as u8;
-            downsampled[dst_idx + 1] = (sum[1] / 4) as u8;
-            downsampled[dst_idx + 2] = (sum[2] / 4) as u8;
+            downsampled[dst_idx] = (sum[0] / PYRAMID_POOLING_AREA) as u8;
+            downsampled[dst_idx + 1] = (sum[1] / PYRAMID_POOLING_AREA) as u8;
+            downsampled[dst_idx + 2] = (sum[2] / PYRAMID_POOLING_AREA) as u8;
         }
     }
 
@@ -379,8 +380,8 @@ fn build_weight_pyramid(
 
 /// Downsample weight map
 fn downsample_weights(weights: &[f32], width: usize, height: usize) -> (Vec<f32>, usize, usize) {
-    let new_width = width / 2;
-    let new_height = height / 2;
+    let new_width = width / PYRAMID_POOLING_SIZE;
+    let new_height = height / PYRAMID_POOLING_SIZE;
     let mut downsampled = vec![0.0; new_width * new_height];
 
     for y in 0..new_height {
@@ -388,16 +389,16 @@ fn downsample_weights(weights: &[f32], width: usize, height: usize) -> (Vec<f32>
             let dst_idx = y * new_width + x;
             let mut sum = 0.0;
 
-            for dy in 0..2 {
-                for dx in 0..2 {
-                    let src_idx = (y * 2 + dy) * width + (x * 2 + dx);
+            for dy in 0..PYRAMID_POOLING_SIZE {
+                for dx in 0..PYRAMID_POOLING_SIZE {
+                    let src_idx = (y * PYRAMID_POOLING_SIZE + dy) * width + (x * PYRAMID_POOLING_SIZE + dx);
                     if src_idx < weights.len() {
                         sum += weights[src_idx];
                     }
                 }
             }
 
-            downsampled[dst_idx] = sum / 4.0;
+            downsampled[dst_idx] = sum / (PYRAMID_POOLING_AREA as f32);
         }
     }
 

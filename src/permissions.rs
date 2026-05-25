@@ -155,17 +155,18 @@ fn check_permission_macos() -> PermissionInfo {
 fn check_permission_linux() -> PermissionInfo {
     use std::fs;
     use std::path::Path;
+    use crate::constants::LINUX_VIDEO_DEVICE_PREFIX;
 
     // Check if any video devices exist
     let video_devices: Vec<_> = (0..10)
-        .map(|i| format!("/dev/video{}", i))
+        .map(|i| format!("{}{}", LINUX_VIDEO_DEVICE_PREFIX, i))
         .filter(|path| Path::new(path).exists())
         .collect();
 
     if video_devices.is_empty() {
         return PermissionInfo {
             status: PermissionStatus::NotDetermined,
-            message: "No video devices found at /dev/video*".to_string(),
+            message: format!("No video devices found at {}*", LINUX_VIDEO_DEVICE_PREFIX),
             can_request: false,
         };
     }

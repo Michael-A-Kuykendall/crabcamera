@@ -2,6 +2,14 @@ use crate::platform::{CameraSystem, PlatformInfo, SystemTestResult};
 use crate::types::{CameraDeviceInfo, CameraFormat, Platform};
 use tauri::command;
 
+use crate::registry::{FeatureManifest, SystemRegistry};
+
+/// Get the official system capabilities manifest
+#[command]
+pub async fn get_system_manifest() -> Vec<FeatureManifest> {
+    SystemRegistry::get_manifest()
+}
+
 /// Initialize the camera system for the current platform
 #[command]
 pub async fn initialize_camera_system() -> Result<String, String> {

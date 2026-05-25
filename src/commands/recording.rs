@@ -7,6 +7,12 @@ use std::sync::{Arc, Mutex as SyncMutex};
 use tauri::command;
 use tokio::sync::RwLock;
 
+use crate::constants::{
+    AUDIO_BITRATE, AUDIO_CHANNELS, AUDIO_DEVICE_DEFAULT, AUDIO_SAMPLE_RATE, DEFAULT_CAMERA_ID,
+    RECORDING_QUALITY_PRESET_1080P, RECORDING_QUALITY_PRESET_4K, RECORDING_QUALITY_PRESET_720P,
+    RECORDING_QUALITY_PRESET_HIGH, RECORDING_QUALITY_PRESET_LOW, RECORDING_QUALITY_PRESET_MEDIUM,
+    RECORDING_SESSION_PREFIX,
+};
 use crate::platform::PlatformCamera;
 use crate::recording::{Recorder, RecordingConfig, RecordingQuality, RecordingStats};
 use crate::types::CameraFormat;
@@ -50,7 +56,7 @@ pub async fn start_recording(
     title: Option<String>,
     #[cfg(feature = "audio")] audio_device_id: Option<String>,
 ) -> Result<String, String> {
-    let camera_id = device_id.unwrap_or_else(|| "0".to_string());
+    let camera_id = device_id.unwrap_or_else(|| DEFAULT_CAMERA_ID.to_string());
 
     #[cfg(feature = "audio")]
     {
@@ -78,9 +84,15 @@ pub async fn start_recording(
 
     // Parse quality preset
     let recording_quality = match quality.as_deref() {
-        Some("low" | "720p") => Some(RecordingQuality::Low),
-        Some("medium" | "1080p") => Some(RecordingQuality::Medium),
-        Some("high" | "4k") => Some(RecordingQuality::High),
+        Some(q) if q == RECORDING_QUALITY_PRESET_LOW || q == RECORDING_QUALITY_PRESET_720P => {
+            Some(RecordingQuality::Low)
+        }
+        Some(q) if q == RECORDING_QUALITY_PRESET_MEDIUM || q == RECORDING_QUALITY_PRESET_1080P => {
+            Some(RecordingQuality::Medium)
+        }
+        Some(q) if q == RECORDING_QUALITY_PRESET_HIGH || q == RECORDING_QUALITY_PRESET_4K => {
+            Some(RecordingQuality::High)
+        }
         _ => None,
     };
 
@@ -100,14 +112,14 @@ pub async fn start_recording(
     #[cfg(feature = "audio")]
     if let Some(audio_id) = audio_device_id {
         config = config.with_audio(crate::recording::AudioConfig {
-            device_id: if audio_id == "default" {
+            device_id: if audio_id == AUDIO_DEVICE_DEFAULT {
                 None
             } else {
                 Some(audio_id)
             },
-            sample_rate: 48000,
-            channels: 2,
-            bitrate: 128_000,
+            sample_rate: AUDIO_SAMPLE_RATE,
+            channels: AUDIO_CHANNELS,
+            bitrate: AUDIO_BITRATE,
         });
     }
 
@@ -133,7 +145,11 @@ pub async fn start_recording(
         .map_err(|e| format!("Failed to create recorder: {}", e))?;
 
     // Generate session ID
-    let session_id = format!("rec_{}", chrono::Utc::now().timestamp_millis());
+    let session_id = format!(
+        "{}{}",
+        RECORDING_SESSION_PREFIX,
+        chrono::Utc::now().timestamp_millis()
+    );
 
     // Store session
     let session = RecordingSession {

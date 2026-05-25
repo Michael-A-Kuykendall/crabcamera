@@ -1,3 +1,6 @@
+use crate::constants::{
+    FOCUS_STACK_MAX_DIST, FOCUS_STACK_MAX_STEPS, FOCUS_STACK_MIN_DIST, FOCUS_STACK_MIN_STEPS,
+};
 use crate::focus_stack::align::align_frames;
 use crate::focus_stack::capture::{capture_focus_brackets, capture_focus_sequence};
 use crate::focus_stack::merge::merge_frames;
@@ -128,20 +131,32 @@ pub fn get_default_focus_config() -> FocusStackConfig {
 /// Validate focus stack configuration
 #[command]
 pub fn validate_focus_config(config: FocusStackConfig) -> Result<String, String> {
-    if config.num_steps < 2 {
-        return Err("num_steps must be at least 2".to_string());
+    if config.num_steps < FOCUS_STACK_MIN_STEPS {
+        return Err(format!(
+            "num_steps must be at least {}",
+            FOCUS_STACK_MIN_STEPS
+        ));
     }
 
-    if config.num_steps > 100 {
-        return Err("num_steps must be at most 100".to_string());
+    if config.num_steps > FOCUS_STACK_MAX_STEPS {
+        return Err(format!(
+            "num_steps must be at most {}",
+            FOCUS_STACK_MAX_STEPS
+        ));
     }
 
-    if config.focus_start < 0.0 || config.focus_start > 1.0 {
-        return Err("focus_start must be between 0.0 and 1.0".to_string());
+    if config.focus_start < FOCUS_STACK_MIN_DIST || config.focus_start > FOCUS_STACK_MAX_DIST {
+        return Err(format!(
+            "focus_start must be between {:.1} and {:.1}",
+            FOCUS_STACK_MIN_DIST, FOCUS_STACK_MAX_DIST
+        ));
     }
 
-    if config.focus_end < 0.0 || config.focus_end > 1.0 {
-        return Err("focus_end must be between 0.0 and 1.0".to_string());
+    if config.focus_end < FOCUS_STACK_MIN_DIST || config.focus_end > FOCUS_STACK_MAX_DIST {
+        return Err(format!(
+            "focus_end must be between {:.1} and {:.1}",
+            FOCUS_STACK_MIN_DIST, FOCUS_STACK_MAX_DIST
+        ));
     }
 
     if config.sharpness_threshold < 0.0 || config.sharpness_threshold > 1.0 {

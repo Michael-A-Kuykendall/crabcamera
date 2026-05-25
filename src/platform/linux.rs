@@ -1,5 +1,6 @@
 use crate::errors::CameraError;
 use crate::types::{CameraDeviceInfo, CameraFormat, CameraFrame, CameraInitParams};
+use crate::constants::*;
 use nokhwa::{
     pixel_format::RgbFormat,
     query,
@@ -28,7 +29,7 @@ pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
         // Use v4l crate to get real supported formats
         let mut formats = Vec::new();
         let device_index = camera_info.index().as_index().unwrap_or(0);
-        let path = format!("/dev/video{}", device_index);
+        let path = format!("{}{}", LINUX_VIDEO_DEVICE_PREFIX, device_index);
         
         if let Ok(dev) = Device::with_path(&path) {
             if let Ok(format_iter) = dev.enum_formats() {
@@ -45,7 +46,7 @@ pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
                                         let fps = if interval.interval.numerator != 0 {
                                              interval.interval.denominator as f32 / interval.interval.numerator as f32
                                         } else {
-                                            30.0 // Default fallback
+                                            DEFAULT_FPS // Default fallback
                                         };
 
                                         // Try to map FourCC to format string
@@ -76,9 +77,9 @@ pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
         if formats.is_empty() {
              log::warn!("Could not enumerate formats for {}, using defaults", path);
              formats = vec![
-                CameraFormat::new(1920, 1080, 30.0).with_format_type("YUYV".to_string()),
-                CameraFormat::new(1280, 720, 30.0).with_format_type("YUYV".to_string()),
-                CameraFormat::new(640, 480, 30.0).with_format_type("YUYV".to_string()),
+                CameraFormat::new(DEFAULT_RESOLUTION_WIDTH, DEFAULT_RESOLUTION_HEIGHT, DEFAULT_FPS).with_format_type(DEFAULT_FORMAT_TYPE.to_string()),
+                CameraFormat::new(FALLBACK_RESOLUTION_WIDTH, FALLBACK_RESOLUTION_HEIGHT, DEFAULT_FPS).with_format_type(DEFAULT_FORMAT_TYPE.to_string()),
+                CameraFormat::new(MIN_RESOLUTION_WIDTH, MIN_RESOLUTION_HEIGHT, DEFAULT_FPS).with_format_type(DEFAULT_FORMAT_TYPE.to_string()),
             ];
         }
 

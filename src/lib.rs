@@ -54,6 +54,9 @@
 /// Tauri command handlers.
 pub mod commands;
 
+/// Global constants.
+pub mod constants;
+
 /// Configuration management.
 pub mod config;
 
@@ -75,6 +78,9 @@ pub mod permissions;
 
 /// Platform abstraction layer.
 pub mod platform;
+
+/// System capabilities registry and manifest (Source of Truth).
+pub mod registry;
 
 /// Image quality analysis.
 pub mod quality;
@@ -122,6 +128,7 @@ use tauri::{
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
     Builder::new("crabcamera")
         .invoke_handler(tauri::generate_handler![
+            commands::init::get_system_manifest,
             // Initialization commands
             commands::init::initialize_camera_system,
             commands::init::get_available_cameras,

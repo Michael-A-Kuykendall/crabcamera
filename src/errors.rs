@@ -27,6 +27,14 @@ pub enum CameraError {
     #[cfg(feature = "audio")]
     /// Audio device or capture error.
     AudioError(String),
+    /// System resource or access error.
+    AccessError(String),
+    /// Connection implementation error.
+    ConnectionError(String),
+    /// Internal system error.
+    SystemError(String),
+    /// Invalid configuration.
+    ConfigError(String),
 }
 
 impl fmt::Display for CameraError {
@@ -48,7 +56,17 @@ impl fmt::Display for CameraError {
             CameraError::IoError(msg) => write!(f, "IO error: {}", msg),
             #[cfg(feature = "audio")]
             CameraError::AudioError(msg) => write!(f, "Audio error: {}", msg),
+            CameraError::AccessError(msg) => write!(f, "Access error: {}", msg),
+            CameraError::ConnectionError(msg) => write!(f, "Connection error: {}", msg),
+            CameraError::SystemError(msg) => write!(f, "System error: {}", msg),
+            CameraError::ConfigError(msg) => write!(f, "Configuration error: {}", msg),
         }
+    }
+}
+
+impl From<CameraError> for String {
+    fn from(err: CameraError) -> Self {
+        err.to_string()
     }
 }
 

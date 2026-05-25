@@ -1,3 +1,6 @@
+use crabcamera::constants::{
+    CLI_DEFAULT_FRAME_COUNT, CLI_DEFAULT_TIMEOUT_MS, CLI_EXIT_CODE_ERROR, CLI_FILE_SOURCE_ID,
+};
 use crabcamera::headless::*;
 use crabcamera::quality::blur::BlurDetector;
 use crabcamera::quality::exposure::ExposureAnalyzer;
@@ -10,7 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
         eprintln!("Usage: crabcamera-cli <command> [args]");
-        std::process::exit(1);
+        std::process::exit(CLI_EXIT_CODE_ERROR);
     }
 
     let command = &args[1];
@@ -23,7 +26,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "analyze-image" => cmd_analyze_image(&args),
         _ => {
             eprintln!("Unknown command: {}", command);
-            std::process::exit(1);
+            std::process::exit(CLI_EXIT_CODE_ERROR);
         }
     }
 }
@@ -31,7 +34,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 fn cmd_analyze_image(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     if args.len() < 3 {
         eprintln!("Usage: crabcamera-cli analyze-image <path/to/image.jpg>");
-        std::process::exit(1);
+        std::process::exit(CLI_EXIT_CODE_ERROR);
     }
     let path = &args[2];
 
@@ -41,7 +44,7 @@ fn cmd_analyze_image(args: &[String]) -> Result<(), Box<dyn std::error::Error>> 
     let data = img.to_rgb8().into_raw();
 
     // Create frame
-    let frame = CameraFrame::new(data, width, height, "cli-file-source".to_string());
+    let frame = CameraFrame::new(data, width, height, CLI_FILE_SOURCE_ID.to_string());
 
     // Analyze
     let blur_detector = BlurDetector::default();
@@ -76,7 +79,7 @@ fn cmd_list_devices(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
 fn cmd_list_formats(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     if args.len() < 3 {
         eprintln!("Usage: crabcamera-cli list-formats <device_id>");
-        std::process::exit(1);
+        std::process::exit(CLI_EXIT_CODE_ERROR);
     }
     let device_id = &args[2];
     let formats = list_formats(device_id)?;
@@ -94,8 +97,8 @@ fn cmd_capture(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     // Parse args: capture <device_id> <format> [--frames <n>] [--timeout <ms>] [--json]
     let mut device_id = None;
     let mut format = None;
-    let mut frames = 1;
-    let mut timeout_ms = 1000;
+    let mut frames = CLI_DEFAULT_FRAME_COUNT;
+    let mut timeout_ms = CLI_DEFAULT_TIMEOUT_MS;
     let mut json = false;
 
     let mut i = 2;

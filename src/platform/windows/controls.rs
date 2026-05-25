@@ -1,6 +1,7 @@
 // MediaFoundation camera controls for advanced functionality
 use crate::errors::CameraError;
 use crate::types::{CameraCapabilities, CameraControls, WhiteBalance};
+use crate::constants::*;
 use windows::core::Interface;
 use windows::Win32::Media::DirectShow::{
     CameraControl_Exposure, CameraControl_Focus, CameraControl_Zoom,
@@ -281,8 +282,8 @@ impl MediaFoundationControls {
             supports_flash: false,
             supports_burst_mode: true, // Supported by capture mechanism
             supports_hdr: false,
-            max_resolution: (3840, 2160), // 4K resolution - common modern camera capability
-            max_fps: 60.0,                // 60 FPS - reasonable modern camera capability
+            max_resolution: (MAX_RESOLUTION_WIDTH, MAX_RESOLUTION_HEIGHT), // Max resolution
+            max_fps: HIGH_FPS,                // Max FPS
             exposure_range: None,
             iso_range: None,
             focus_range: None,
@@ -322,7 +323,7 @@ impl MediaFoundationControls {
 
         // Test video processing capabilities
         if let Some(ref _video_proc_amp) = self.video_proc_amp {
-            if self.test_video_proc_support(4) {
+            if self.test_video_proc_support(VideoProcAmp_WhiteBalance.0) {
                 // White balance property
                 capabilities.supports_white_balance = true;
             }

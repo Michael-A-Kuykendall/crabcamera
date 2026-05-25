@@ -1,3 +1,7 @@
+#[cfg(target_os = "macos")]
+use crate::constants::PERMISSION_REQUEST_TIMEOUT_SECS;
+#[cfg(target_os = "macos")]
+use crate::constants::AV_MEDIA_TYPE_VIDEO;
 use crate::permissions::{check_permission_detailed, PermissionInfo, PermissionStatus};
 use tauri::command;
 
@@ -68,7 +72,7 @@ async fn request_permission_macos() -> Result<PermissionInfo, String> {
         let av_capture_device_class =
             Class::get("AVCaptureDevice").ok_or("AVFoundation not available")?;
 
-        let av_media_type_video = CString::new("vide").unwrap();
+        let av_media_type_video = CString::new(AV_MEDIA_TYPE_VIDEO).unwrap();
         let media_type: *mut Object =
             msg_send![av_capture_device_class, mediaTypeForString: av_media_type_video.as_ptr()];
 
@@ -85,7 +89,7 @@ async fn request_permission_macos() -> Result<PermissionInfo, String> {
 
         // Request access (this will show system dialog)
         let _: () = msg_send![av_capture_device_class, requestAccessForMediaType:media_type completionHandler:&*handler]; // Wait for user response (with timeout)
-        match rx.recv_timeout(Duration::from_secs(60)) {
+        match rx.recv_timeout(Duration::from_secs(PERMISSION_REQUEST_TIMEOUT_SECS)) {
             Ok(granted) if granted => {
                 log::info!("Camera permission granted");
                 Ok(PermissionInfo {
