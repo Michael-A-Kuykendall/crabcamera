@@ -2,11 +2,9 @@ pub use crate::platform::{
     capture_with_reconnect, get_existing_camera, get_or_create_camera, reconnect_camera,
     PlatformCamera,
 };
-use crate::constants::*;
 use crate::quality::QualityValidator;
 use crate::types::{CameraFormat, CameraFrame};
 use std::fs::File;
-use std::sync::{Arc, Mutex as SyncMutex};
 use tauri::command;
 
 /// Capture a single photo from the specified camera with automatic reconnection
@@ -176,7 +174,7 @@ pub async fn capture_with_quality_retry(
         );
 
         // Update best frame if this one is better
-        if best_frame.is_none() || score > best_frame.as_ref().unwrap().1 {
+        if best_frame.as_ref().map_or(true, |b| score > b.1) {
             best_frame = Some((frame.clone(), score));
         }
 
@@ -456,76 +454,6 @@ pub async fn save_frame_compressed(
 
 
 
-
-
-
-/// Zero-copy frame capture with memory pool
-pub struct FramePool {
-    pool: Arc<SyncMutex<Vec<Vec<u8>>>>,
-    max_frames: usize,
-    frame_size: usize,
-}
-
-impl FramePool {
-    /// Creates a new frame pool with pre-allocated buffers.
-    ///
-    /// # Arguments
-    ///
-    /// * `max_frames` - Maximum number of buffers to keep in the pool.
-    /// * `frame_size` - Size in bytes of each pre-allocated buffer.
-    pub fn new(max_frames: usize, frame_size: usize) -> Self {
-        let mut pool = Vec::with_capacity(max_frames);
-        for _ in 0..max_frames {
-            pool.push(Vec::with_capacity(frame_size));
-        }
-
-        Self {
-            pool: Arc::new(SyncMutex::new(pool)),
-            max_frames,
-            frame_size,
-        }
-    }
-
-    /// Retrieves a buffer from the pool, or creates a new one if pool is empty.
-    ///
-    /// This operation is async to allow offloading allocation if necessary, though
-    /// currently uses `spawn_blocking` to avoid blocking the async executor with mutex contention.
-    pub async fn get_buffer(&self) -> Vec<u8> {
-        let pool = self.pool.clone();
-        let frame_size = self.frame_size;
-        tokio::task::spawn_blocking(move || {
-            let mut pool_guard = pool.lock().unwrap();
-            pool_guard
-                .pop()
-                .unwrap_or_else(|| Vec::with_capacity(frame_size))
-        })
-        .await
-        .unwrap()
-    }
-
-    /// Returns a used buffer to the pool for reuse.
-    ///
-    /// The buffer is cleared before being added back to the pool.
-    /// If the pool is full, the buffer is dropped.
-    pub async fn return_buffer(&self, mut buffer: Vec<u8>) {
-        let pool = self.pool.clone();
-        let max_frames = self.max_frames;
-        tokio::task::spawn_blocking(move || {
-            buffer.clear();
-            let mut pool_guard = pool.lock().unwrap();
-            if pool_guard.len() < max_frames {
-                pool_guard.push(buffer);
-            }
-        })
-        .await
-        .ok();
-    }
-}
-
-lazy_static::lazy_static! {
-    static ref FRAME_POOL: FramePool = FramePool::new(DEFAULT_POOL_SIZE, (DEFAULT_RESOLUTION_WIDTH * DEFAULT_RESOLUTION_HEIGHT * BYTES_PER_PIXEL_RGB) as usize); // Default pool size * HD RGB frame size
-}
-
 /// Capture statistics structure
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CaptureStats {
@@ -576,5 +504,28 @@ mod tests {
 
         let attempts = 10_u32;
         assert_eq!(attempts, 10);
+    }
+
+    #[test]
+    fn test_best_frame_selection_map_or() {
+        // Verify the map_or idiom for best-frame tracking behaves correctly:
+        // None best → always store; Some best → only replace when score is higher.
+        let mut best: Option<(String, f32)> = None;
+
+        // First frame: best is None → map_or yields true → should store
+        let score_a = 0.5_f32;
+        assert!(best.as_ref().map_or(true, |b| score_a > b.1));
+        best = Some(("frame_a".to_string(), score_a));
+
+        // Lower score: map_or yields false → should NOT replace
+        let score_lower = 0.3_f32;
+        assert!(!best.as_ref().map_or(true, |b| score_lower > b.1));
+
+        // Higher score: map_or yields true → should replace
+        let score_higher = 0.8_f32;
+        assert!(best.as_ref().map_or(true, |b| score_higher > b.1));
+
+        // Equal score: strictly-greater comparison → should NOT replace
+        assert!(!best.as_ref().map_or(true, |b| score_a > b.1));
     }
 }

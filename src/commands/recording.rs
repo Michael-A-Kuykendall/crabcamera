@@ -8,11 +8,12 @@ use tauri::command;
 use tokio::sync::RwLock;
 
 use crate::constants::{
-    AUDIO_BITRATE, AUDIO_CHANNELS, AUDIO_DEVICE_DEFAULT, AUDIO_SAMPLE_RATE, DEFAULT_CAMERA_ID,
-    RECORDING_QUALITY_PRESET_1080P, RECORDING_QUALITY_PRESET_4K, RECORDING_QUALITY_PRESET_720P,
-    RECORDING_QUALITY_PRESET_HIGH, RECORDING_QUALITY_PRESET_LOW, RECORDING_QUALITY_PRESET_MEDIUM,
-    RECORDING_SESSION_PREFIX,
+    DEFAULT_CAMERA_ID, RECORDING_QUALITY_PRESET_1080P, RECORDING_QUALITY_PRESET_4K,
+    RECORDING_QUALITY_PRESET_720P, RECORDING_QUALITY_PRESET_HIGH, RECORDING_QUALITY_PRESET_LOW,
+    RECORDING_QUALITY_PRESET_MEDIUM, RECORDING_SESSION_PREFIX,
 };
+#[cfg(feature = "audio")]
+use crate::constants::{AUDIO_BITRATE, AUDIO_CHANNELS, AUDIO_DEVICE_DEFAULT, AUDIO_SAMPLE_RATE};
 use crate::platform::PlatformCamera;
 use crate::recording::{Recorder, RecordingConfig, RecordingQuality, RecordingStats};
 use crate::types::CameraFormat;
@@ -37,6 +38,14 @@ struct RecordingSession {
 /// * `output_path` - Path to save the MP4 file
 /// * `width` - Video width in pixels
 /// * `height` - Video height in pixels
+///
+/// # Note on argument count
+/// This command has more arguments than clippy's default threshold because Tauri `#[command]`
+/// functions must receive all parameters as flat primitives — Tauri's JS-to-Rust invoke bridge
+/// does not support deserializing a wrapper struct from `invoke()` without an explicit
+/// `serde` workaround. Until a `RecordingRequest` newtype is threaded through both the Rust
+/// command signature and the frontend `invoke` call (changing the public JS API surface),
+/// the flat signature is intentional. The suppression is scoped to this one function.
 /// * `fps` - Target frame rate
 /// * `quality` - Recording quality preset (optional)
 /// * `title` - Metadata title (optional)
@@ -201,14 +210,15 @@ pub async fn record_frame(session_id: String) -> Result<u64, String> {
     };
 
     // Write to recorder
-    session
+    let recorder = session
         .recorder
         .as_mut()
-        .ok_or_else(|| "Recorder not available".to_string())?
+        .ok_or_else(|| "Recorder not available".to_string())?;
+    recorder
         .write_frame(&frame)
         .map_err(|e| format!("Failed to write frame: {}", e))?;
 
-    Ok(session.recorder.as_ref().unwrap().frame_count())
+    Ok(recorder.frame_count())
 }
 
 /// Stop recording and finalize the file
@@ -365,5 +375,38 @@ mod tests {
         {
             assert!(json.contains("audioStatus"));
         }
+    }
+
+    #[tokio::test]
+    async fn test_write_frame_to_missing_session_returns_error() {
+        let result = record_frame("nonexistent_session_xyz".to_string()).await;
+        assert!(result.is_err());
+        let msg = result.unwrap_err();
+        assert!(
+            msg.contains("nonexistent_session_xyz"),
+            "error should identify the missing session, got: {msg}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_get_recording_status_missing_session_returns_error() {
+        let result = get_recording_status("no_such_session_abc".to_string()).await;
+        assert!(result.is_err());
+        let msg = result.unwrap_err();
+        assert!(
+            msg.contains("no_such_session_abc"),
+            "error should identify the missing session, got: {msg}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_stop_recording_missing_session_returns_error() {
+        let result = stop_recording("ghost_session_999".to_string()).await;
+        assert!(result.is_err());
+        let msg = result.unwrap_err();
+        assert!(
+            msg.contains("ghost_session_999"),
+            "error should identify the missing session, got: {msg}"
+        );
     }
 }

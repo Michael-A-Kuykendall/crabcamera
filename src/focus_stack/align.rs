@@ -93,8 +93,12 @@ pub fn apply_alignment(
     frame: &CameraFrame,
     alignment: &AlignmentResult,
 ) -> Result<CameraFrame, FocusStackError> {
-    // For identity transform, just clone
-    if alignment.translation == (0.0, 0.0) && alignment.rotation == 0.0 && alignment.scale == 1.0 {
+    // For identity transform, just clone (epsilon comparison: transforms below this magnitude are visually indistinguishable)
+    let is_identity = alignment.translation.0.abs() < f32::EPSILON
+        && alignment.translation.1.abs() < f32::EPSILON
+        && alignment.rotation.abs() < f32::EPSILON
+        && (alignment.scale - 1.0).abs() < f32::EPSILON;
+    if is_identity {
         return Ok(frame.clone());
     }
 
@@ -195,7 +199,10 @@ fn apply_translation(frame: &mut CameraFrame, tx: i32, ty: i32) {
         return;
     }
 
+    // Safe: camera dimensions never exceed i32::MAX (max realistic dimension is ~16K pixels)
+    #[allow(clippy::cast_possible_wrap)]
     let width = frame.width as i32;
+    #[allow(clippy::cast_possible_wrap)]
     let height = frame.height as i32;
 
     // Create new buffer for shifted data
@@ -229,7 +236,10 @@ fn apply_rotation(frame: &mut CameraFrame, rotation: f32) {
         return;
     }
 
+    // Safe: camera dimensions never exceed i32::MAX
+    #[allow(clippy::cast_possible_wrap)]
     let width = frame.width as i32;
+    #[allow(clippy::cast_possible_wrap)]
     let height = frame.height as i32;
     let cx = width as f32 / 2.0;
     let cy = height as f32 / 2.0;
@@ -265,11 +275,14 @@ fn apply_rotation(frame: &mut CameraFrame, rotation: f32) {
 
 /// Apply scale to frame (simple nearest-neighbor)
 fn apply_scale(frame: &mut CameraFrame, scale: f32) {
-    if scale == 1.0 {
+    if (scale - 1.0).abs() < f32::EPSILON {
         return;
     }
 
+    // Safe: camera dimensions never exceed i32::MAX
+    #[allow(clippy::cast_possible_wrap)]
     let width = frame.width as i32;
+    #[allow(clippy::cast_possible_wrap)]
     let height = frame.height as i32;
     let inv_scale = 1.0 / scale;
 

@@ -342,7 +342,7 @@ impl MediaFoundationControls {
         Ok(capabilities)
     }
 
-    // Individual control implementation methods (stubs for now)
+    // Individual control implementation methods
 
     fn set_auto_focus(&mut self, enabled: bool) -> Result<(), CameraError> {
         if let Some(ref camera_control) = self.camera_control {
@@ -623,15 +623,10 @@ impl MediaFoundationControls {
 
     // Helper methods for MediaFoundation device discovery and interface management
 
-    /// Find MediaFoundation media source for the specified device index
+    /// Find MediaFoundation media source for the specified device index.
     ///
-    /// NOTE: This is currently a stub implementation. Full MediaFoundation device enumeration
-    /// requires COM initialization and proper error handling. The current architecture uses
-    /// nokhwa for camera capture, which handles device enumeration and frame acquisition.
-    /// Advanced camera controls (focus, exposure, etc.) requires:
-    /// 1. MFEnumDeviceSources with MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_GUID
-    /// 2. IMFActivate interface to create IMFMediaSource
-    /// 3. Query for IAMCameraControl and IAMVideoProcAmp interfaces
+    /// Uses `MFEnumDeviceSources` with `MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_GUID`
+    /// and `IMFActivate` to obtain an `IMFMediaSource` for the device.
     fn find_media_source(device_index: u32) -> Result<IMFMediaSource, CameraError> {
         unsafe {
             // Ensure MediaFoundation is started
@@ -642,7 +637,11 @@ impl MediaFoundationControls {
                 CameraError::InitializationError(format!("Failed to create attributes: {}", e))
             })?;
 
-            let attributes = attributes.unwrap();
+            let attributes = attributes.ok_or_else(|| {
+                CameraError::InitializationError(
+                    "MFCreateAttributes returned None unexpectedly".to_string(),
+                )
+            })?;
             attributes
                 .SetGUID(
                     &MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE,
@@ -895,6 +894,8 @@ fn white_balance_to_kelvin(wb: &WhiteBalance) -> i32 {
         WhiteBalance::Flash => 5500,
         WhiteBalance::Cloudy => 6500,
         WhiteBalance::Shade => 7500,
+        // Safe: valid color temperatures (1000–10000K) are well within i32 range
+        #[allow(clippy::cast_possible_wrap)]
         WhiteBalance::Custom(temp) => *temp as i32,
     }
 }

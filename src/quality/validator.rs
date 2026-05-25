@@ -208,7 +208,7 @@ impl QualityValidator {
         let exposure_metrics = self.exposure_analyzer.analyze_frame(frame);
 
         // Analyze composition and technical aspects
-        let technical_details = self.analyze_technical_aspects(frame);
+        let technical_details = Self::analyze_technical_aspects(frame);
         let composition_score = self.analyze_composition(frame, &technical_details);
 
         // Calculate overall quality score
@@ -240,16 +240,16 @@ impl QualityValidator {
     }
 
     /// Analyze technical aspects of the frame
-    fn analyze_technical_aspects(&self, frame: &CameraFrame) -> TechnicalDetails {
+    fn analyze_technical_aspects(frame: &CameraFrame) -> TechnicalDetails {
         let resolution = (frame.width, frame.height);
         let pixel_count = frame.width * frame.height;
         let aspect_ratio = frame.width as f32 / frame.height as f32;
 
         // Estimate noise level
-        let noise_estimate = self.estimate_noise_level(&frame.data);
+        let noise_estimate = Self::estimate_noise_level(&frame.data);
 
         // Analyze color distribution
-        let color_distribution = self.analyze_color_distribution(&frame.data);
+        let color_distribution = Self::analyze_color_distribution(&frame.data);
 
         TechnicalDetails {
             resolution,
@@ -261,7 +261,7 @@ impl QualityValidator {
     }
 
     /// Estimate noise level in the image
-    fn estimate_noise_level(&self, rgb_data: &[u8]) -> f32 {
+    fn estimate_noise_level(rgb_data: &[u8]) -> f32 {
         if rgb_data.len() < 9 {
             return 1.0; // High noise for very small images
         }
@@ -308,7 +308,7 @@ impl QualityValidator {
     }
 
     /// Analyze color distribution in the image
-    fn analyze_color_distribution(&self, rgb_data: &[u8]) -> ColorDistribution {
+    fn analyze_color_distribution(rgb_data: &[u8]) -> ColorDistribution {
         if rgb_data.is_empty() {
             return ColorDistribution {
                 red_mean: 0.0,
@@ -561,7 +561,7 @@ mod tests {
     fn test_noise_estimation() {
         let validator = QualityValidator::default();
         let noisy_data = vec![0, 255, 0, 255, 0, 255, 0, 255, 0]; // High noise pattern
-        let noise_level = validator.estimate_noise_level(&noisy_data);
+        let noise_level = QualityValidator::estimate_noise_level(&noisy_data);
 
         assert!(noise_level > 0.0 && noise_level <= 1.0);
     }
@@ -570,7 +570,7 @@ mod tests {
     fn test_color_distribution_analysis() {
         let validator = QualityValidator::default();
         let rgb_data = vec![255, 0, 0, 0, 255, 0, 0, 0, 255]; // Red, Green, Blue
-        let color_dist = validator.analyze_color_distribution(&rgb_data);
+        let color_dist = QualityValidator::analyze_color_distribution(&rgb_data);
 
         assert!(color_dist.red_mean > 0.0);
         assert!(color_dist.green_mean > 0.0);

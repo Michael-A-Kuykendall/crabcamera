@@ -95,10 +95,8 @@ pub fn __assert_invariant_impl(
         h.push_back(record);
     });
 
-    if !condition {
-        // In the future: Dump history here
-        panic!("INVARIANT VIOLATION [{}]: {}", ctx, message);
-    }
+    // In the future: Dump history here
+    assert!(condition, "INVARIANT VIOLATION [{}]: {}", ctx, message);
 }
 
 /// Check that specific invariants were verified during test execution.
@@ -120,13 +118,12 @@ pub fn contract_test(test_name: &str, required_invariants: &[&str]) {
         }
     }
 
-    if !missing.is_empty() {
-        panic!(
-            "CONTRACT FAILURE [{}]: The following invariants were not checked:\n  - {}",
-            test_name,
-            missing.join("\n  - ")
-        );
-    }
+    assert!(
+        missing.is_empty(),
+        "CONTRACT FAILURE [{}]: The following invariants were not checked:\n  - {}",
+        test_name,
+        missing.join("\n  - ")
+    );
 }
 
 /// Clear the invariant log (call between test runs if needed)

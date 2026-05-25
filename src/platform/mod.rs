@@ -41,9 +41,6 @@ use std::sync::{Arc, Mutex};
 /// without physical hardware.
 pub struct MockCamera {
     device_id: String,
-    #[allow(dead_code)]
-    format: CameraFormat,
-    #[allow(dead_code)]
     controls: Arc<Mutex<crate::types::CameraControls>>,
     is_streaming: Arc<Mutex<bool>>,
     capture_mode: Arc<Mutex<crate::tests::MockCaptureMode>>,
@@ -52,10 +49,9 @@ pub struct MockCamera {
 
 impl MockCamera {
     /// Create a new mock camera instance.
-    pub fn new(device_id: String, format: CameraFormat) -> Self {
+    pub fn new(device_id: String, _format: CameraFormat) -> Self {
         Self {
             device_id,
-            format,
             controls: Arc::new(Mutex::new(crate::types::CameraControls::default())),
             is_streaming: Arc::new(Mutex::new(false)),
             capture_mode: Arc::new(Mutex::new(crate::tests::MockCaptureMode::Success)),
@@ -469,8 +465,9 @@ impl PlatformCamera {
         match self {
             #[cfg(target_os = "windows")]
             PlatformCamera::Windows(_camera) => {
-                // Return basic metrics for Windows (WindowsCamera doesn't implement this yet)
-                Ok(crate::types::CameraPerformanceMetrics::default())
+                Err(CameraError::UnsupportedOperation(
+                    "Performance metrics not yet implemented on Windows".to_string(),
+                ))
             }
 
             #[cfg(target_os = "macos")]

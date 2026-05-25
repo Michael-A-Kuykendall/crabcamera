@@ -5,6 +5,48 @@ All notable changes to CrabCamera will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.5] - 2026-05-25
+
+### Fixed
+- **Windows `get_performance_metrics` returned silent zeros** instead of an error. Windows was
+  returning `Ok(Default::default())` (all-zero metrics) while Linux and macOS already returned
+  `Err(UnsupportedOperation)`. Now consistently returns `Err` on all unimplemented platforms —
+  callers can no longer silently receive fabricated data.
+- **f32 strict equality comparisons in focus stack** (`src/focus_stack/align.rs`): two identity
+  checks (`alignment.scale == 1.0`, `scale == 1.0`) were comparing floating-point values with `==`,
+  which is unreliable for values computed via arithmetic. Replaced with epsilon-based checks using
+  `f32::EPSILON`.
+- **Stale "stubs for now" comment on fully-implemented Windows COM controls**: the comment
+  `// Individual control implementation methods (stubs for now)` in `windows/controls.rs` dated
+  from an early planning pass; all methods below it were fully implemented via
+  `IAMCameraControl`/`IAMVideoProcAmp`. Removed.
+- **Stale `find_media_source` doc block** claiming stub status: the NOTE paragraph listed three
+  implementation steps that were all already complete. Replaced with an accurate description.
+- **`pyramid.last().unwrap()` without context** in `src/focus_stack/merge.rs` (3 sites): changed
+  to `expect()` with invariant rationale — the pyramid is guaranteed non-empty by construction
+  immediately above each call site, so these are `expect`-appropriate rather than `unwrap`.
+- **Test call sites broken by static-method refactor**: three test functions in `blur.rs` and
+  `validator.rs` were still calling `self.rgb_to_grayscale`, `self.estimate_noise_level`, and
+  `self.analyze_color_distribution` after those methods were made static. Updated all call sites.
+
+### Internal
+- Three quality analysis helpers (`rgb_to_grayscale`, `estimate_noise_level`,
+  `analyze_color_distribution`) do not reference `self`; changed to associated functions and
+  updated all call sites to `Self::` and `Type::` form.
+- `analyze_technical_aspects` in `QualityValidator` also made static; updated its single call site.
+- `__assert_invariant_impl` and `contract_test` in `invariant_ppt.rs`: replaced
+  `if !cond { panic!() }` with idiomatic `assert!(cond, ...)` to eliminate clippy's
+  `if_then_panic` lint.
+- Added targeted `#[allow(clippy::cast_possible_wrap)]` with safety comments at all
+  `u32`→`i32` casts for camera pixel dimensions and Laplacian kernel coordinate arithmetic
+  (camera frames will never have dimensions exceeding `i32::MAX`).
+- Documented why `start_recording` carries `#[allow(clippy::too_many_arguments)]`: Tauri
+  `#[command]` requires flat primitive parameters; a struct wrapper would change the public
+  JavaScript `invoke()` API surface.
+- Deleted 4,628 accumulated test image files from `focus_stack/`, `hdr_captures/`,
+  `test_outputs/`, and the repository root. All output directories are already covered by
+  `.gitignore` patterns.
+
 ## [0.8.4] - 2026-05-25
 
 ### Added
