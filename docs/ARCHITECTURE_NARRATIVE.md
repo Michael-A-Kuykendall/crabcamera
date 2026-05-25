@@ -14,7 +14,7 @@ The first release was deliberately thin:
 - `capture_single_photo` — grab a frame
 - `start_camera_preview` / `stop_camera_preview` — manage stream lifecycle
 
-The foundation was set up for correctness from the start: async/await throughout, zero unsafe code, memory-safe Rust, MIT/Apache-2.0 dual license. A mock system was included so tests could run without hardware.
+The foundation was set up for correctness from the start: async/await throughout, memory-safe Rust, MIT/Apache-2.0 dual license. A mock system was included so tests could run without hardware. Unsafe code is scoped to platform FFI boundaries (AVFoundation, Windows COM, libopus).
 
 ---
 

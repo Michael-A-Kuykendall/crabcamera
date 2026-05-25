@@ -136,6 +136,12 @@ impl CameraFormat {
     }
 }
 
+impl Default for CameraFormat {
+    fn default() -> Self {
+        Self::standard()
+    }
+}
+
 /// Camera frame data with metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CameraFrame {
@@ -452,6 +458,12 @@ pub struct CameraInitParams {
     pub format: CameraFormat,
     /// Initial camera controls.
     pub controls: CameraControls,
+}
+
+impl Default for CameraInitParams {
+    fn default() -> Self {
+        Self::new("0".to_string())
+    }
 }
 
 impl CameraInitParams {

@@ -198,11 +198,23 @@ pub async fn get_system_diagnostics() -> Result<SystemDiagnostics, String> {
     let platform = Platform::current();
     let crate_version = crate::VERSION.to_string();
 
-    // Get platform info
-    let platform_info = CameraSystem::get_platform_info().ok();
+    // Get platform info — preserve error so callers can distinguish failure from absent backend
+    let (platform_info, platform_info_error) = match CameraSystem::get_platform_info() {
+        Ok(info) => (Some(info), None),
+        Err(e) => {
+            log::warn!("Platform info unavailable: {}", e);
+            (None, Some(e.to_string()))
+        }
+    };
 
-    // Get available cameras
-    let cameras = CameraSystem::list_cameras().unwrap_or_default();
+    // Get available cameras — preserve enumeration error
+    let (cameras, camera_enumeration_error) = match CameraSystem::list_cameras() {
+        Ok(cams) => (cams, None),
+        Err(e) => {
+            log::warn!("Camera enumeration failed: {}", e);
+            (vec![], Some(e.to_string()))
+        }
+    };
     let camera_count = cameras.len();
 
     // Build camera summaries
@@ -221,11 +233,12 @@ pub async fn get_system_diagnostics() -> Result<SystemDiagnostics, String> {
         })
         .collect();
 
-    // Check permission status
-    let permission_status = crate::commands::permissions::check_camera_permission_status()
-        .await
-        .map(|p| p.status.to_string())
-        .unwrap_or_else(|_| "unknown".to_string());
+    // Check permission status — preserve error
+    let (permission_status, permission_error) =
+        match crate::commands::permissions::check_camera_permission_status().await {
+            Ok(p) => (p.status.to_string(), None),
+            Err(e) => ("unknown".to_string(), Some(e)),
+        };
 
     let diagnostics = SystemDiagnostics {
         crate_version,
@@ -239,6 +252,9 @@ pub async fn get_system_diagnostics() -> Result<SystemDiagnostics, String> {
         permission_status,
         features_enabled: get_enabled_features(),
         timestamp: chrono::Utc::now().to_rfc3339(),
+        platform_info_error,
+        camera_enumeration_error,
+        permission_error,
     };
 
     log::info!(
@@ -266,10 +282,16 @@ pub struct SystemDiagnostics {
     pub cameras: Vec<CameraSummary>,
     /// Status of camera permissions ("granted", "denied", "unknown").
     pub permission_status: String,
-    /// List of enabled cargo features (e.g., "audio", "recording").
+    /// List of enabled cargo features compiled into this build.
     pub features_enabled: Vec<String>,
     /// ISO 8601 timestamp of the diagnostics report.
     pub timestamp: String,
+    /// Error from platform info query, if any.
+    pub platform_info_error: Option<String>,
+    /// Error from camera enumeration, if any.
+    pub camera_enumeration_error: Option<String>,
+    /// Error from permission check, if any.
+    pub permission_error: Option<String>,
 }
 
 /// Summary of a camera device
@@ -287,12 +309,16 @@ pub struct CameraSummary {
     pub max_resolution: Option<(u32, u32)>,
 }
 
-/// Get list of enabled features
+/// Get list of Cargo features compiled into this build.
 fn get_enabled_features() -> Vec<String> {
-    vec![
-        "camera_capture".to_string(),
-        "quality_validation".to_string(),
-        "device_monitoring".to_string(),
-        "focus_stacking".to_string(),
-    ]
+    let mut features = Vec::new();
+    #[cfg(feature = "recording")]
+    features.push("recording".to_string());
+    #[cfg(feature = "audio")]
+    features.push("audio".to_string());
+    #[cfg(feature = "headless")]
+    features.push("headless".to_string());
+    #[cfg(feature = "contextlite")]
+    features.push("contextlite".to_string());
+    features
 }

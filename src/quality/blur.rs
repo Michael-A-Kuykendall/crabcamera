@@ -343,7 +343,6 @@ mod tests {
 
     #[test]
     fn test_rgb_to_grayscale() {
-        let detector = BlurDetector::default();
         let rgb_data = vec![255, 0, 0, 0, 255, 0, 0, 0, 255]; // Red, Green, Blue
         let grayscale = BlurDetector::rgb_to_grayscale(&rgb_data, 3, 1);
 

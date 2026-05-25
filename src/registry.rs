@@ -155,6 +155,22 @@ impl SystemRegistry {
                 path: "src/platform/linux.rs",
                 description: "Native Linux V4L2 camera implementation",
             },
+            FeatureManifest {
+                id: "platform.linux.formats",
+                name: "Linux V4L2 Format Enumeration",
+                status: FeatureStatus::Beta,
+                category: FeatureCategory::Core,
+                path: "src/platform/linux.rs",
+                description: "Real format enumeration via dev.enum_formats() with hardcoded fallback",
+            },
+            FeatureManifest {
+                id: "platform.windows.availability",
+                name: "Windows Camera Availability Check",
+                status: FeatureStatus::Beta,
+                category: FeatureCategory::Core,
+                path: "src/platform/windows/mod.rs",
+                description: "Availability based on is_stream_open(); deeper hardware probe deferred",
+            },
         ]
     }
 
@@ -199,11 +215,12 @@ mod tests {
     fn test_no_stubs_in_production() {
         let manifest = SystemRegistry::get_manifest();
         for feature in manifest {
-            if feature.status == FeatureStatus::Stub {
-                println!("WARNING: Feature '{}' is marked as Stub", feature.name);
-                // In a stricter environment, we might want to fail here
-                // assert_ne!(feature.status, FeatureStatus::Stub, "Production builds should not have Stubs");
-            }
+            assert_ne!(
+                feature.status,
+                FeatureStatus::Stub,
+                "Feature '{}' is marked as Stub — either implement it or remove it from the manifest",
+                feature.name
+            );
         }
     }
 }

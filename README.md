@@ -43,14 +43,13 @@ fn main() {
 ```javascript
 import { invoke } from '@tauri-apps/api/core';
 
-// Initialize
-await invoke('plugin:crabcamera|initialize_camera_system', {
-  params: { camera_index: 0, resolution: "1920x1080", fps: 30, format: "MJPEG" }
-});
+// Initialize (no parameters needed—CrabCamera discovers cameras automatically)
+await invoke('plugin:crabcamera|initialize_camera_system');
 
-// Capture a photo
+// Capture a photo (device_id and format are optional; defaults to camera 0)
 const frame = await invoke('plugin:crabcamera|capture_single_photo', {
-  path: "photo.jpg"
+  deviceId: "0",
+  format: null
 });
 ```
 
@@ -66,8 +65,8 @@ CrabCamera is not Tauri-only. Three additional entry points exist for direct Rus
 
 ```rust
 // Direct platform camera (no Tauri required)
-use crabcamera::platform::PlatformCamera;
-let camera = PlatformCamera::new(0)?;
+use crabcamera::platform::{PlatformCamera, CameraInitParams};
+let camera = PlatformCamera::new(CameraInitParams::default())?;
 let frame = camera.capture_frame()?;
 
 // Headless session (server / CLI context)
@@ -167,7 +166,7 @@ cargo run --example camera_warmup_analysis --release
 - **Invariant Superhighway**— 40+ runtime correctness checks across all critical paths
 - **Feature Registry**—every capability declared as `Implemented`, `Beta`, `Stub`, or `Planned`
 - **85/85 lib tests** passing; property-based tests for encoder and sync invariants
-- **Honest errors**—platform-unimplemented paths return `Err`, never silent defaults
+- **Platform transparency**—hardware-unsupported controls log warnings; structural errors return `Err`
 
 ---
 
@@ -186,7 +185,7 @@ release_camera() -> Result<()>
 ### Capture
 
 ```rust
-capture_single_photo(device_id: String, format: CameraFormat) -> Result<CameraFrame>
+capture_single_photo(device_id: Option<String>, format: Option<CameraFormat>) -> Result<CameraFrame>
 capture_with_quality_retry(params: QualityRetryParams) -> Result<CameraFrame>
 capture_photo_sequence(params: SequenceParams) -> Result<Vec<CameraFrame>>
 capture_burst_sequence(params: BurstParams) -> Result<Vec<CameraFrame>>
@@ -198,7 +197,7 @@ save_frame_compressed(frame: CameraFrame, path: String, quality: u8) -> Result<(
 
 ```rust
 get_camera_controls(device_id: String) -> Result<CameraControls>
-set_camera_controls(device_id: String, controls: CameraControls) -> Result<()>
+set_camera_controls(device_id: String, controls: CameraControls) -> Result<String>
 set_manual_focus(device_id: String, value: f32) -> Result<()>
 set_manual_exposure(device_id: String, value: f32) -> Result<()>
 set_white_balance(device_id: String, wb: WhiteBalance) -> Result<()>
