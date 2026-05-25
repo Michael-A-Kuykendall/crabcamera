@@ -559,7 +559,6 @@ mod tests {
 
     #[test]
     fn test_noise_estimation() {
-        let validator = QualityValidator::default();
         let noisy_data = vec![0, 255, 0, 255, 0, 255, 0, 255, 0]; // High noise pattern
         let noise_level = QualityValidator::estimate_noise_level(&noisy_data);
 
@@ -568,7 +567,6 @@ mod tests {
 
     #[test]
     fn test_color_distribution_analysis() {
-        let validator = QualityValidator::default();
         let rgb_data = vec![255, 0, 0, 0, 255, 0, 0, 0, 255]; // Red, Green, Blue
         let color_dist = QualityValidator::analyze_color_distribution(&rgb_data);
 

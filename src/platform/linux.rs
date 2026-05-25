@@ -199,15 +199,55 @@ impl LinuxCamera {
 
     /// Get supported V4L2 formats for this device
     pub fn get_supported_formats(&self) -> Result<Vec<CameraFormat>, CameraError> {
-        // This would typically query V4L2 for actual supported formats
-        // For now, return common formats
-        Ok(vec![
-            CameraFormat::new(1920, 1080, 30.0).with_format_type("YUYV".to_string()),
-            CameraFormat::new(1280, 720, 30.0).with_format_type("YUYV".to_string()),
-            CameraFormat::new(640, 480, 30.0).with_format_type("YUYV".to_string()),
-            CameraFormat::new(1920, 1080, 15.0).with_format_type("MJPEG".to_string()),
-            CameraFormat::new(1280, 720, 30.0).with_format_type("MJPEG".to_string()),
-        ])
+        let device_index = self.device_id.parse::<usize>().unwrap_or(0);
+        let path = format!("{}{}", crate::constants::LINUX_VIDEO_DEVICE_PREFIX, device_index);
+        let dev = Device::with_path(&path)
+            .map_err(|e| CameraError::InitializationError(format!("Failed to open device: {}", e)))?;
+
+        let mut formats = Vec::new();
+        if let Ok(format_iter) = dev.enum_formats() {
+            for fmt_desc in format_iter {
+                if let Ok(frames) = dev.enum_framesize(fmt_desc.fourcc) {
+                    for frame in frames {
+                        for stepwise in frame.size.to_stepwise() {
+                            if let Ok(intervals) = dev.enum_frameintervals(fmt_desc.fourcc, stepwise.max_width, stepwise.max_height) {
+                                for interval in intervals {
+                                    let fps = if interval.interval.numerator != 0 {
+                                        interval.interval.denominator as f32 / interval.interval.numerator as f32
+                                    } else {
+                                        crate::constants::DEFAULT_FPS
+                                    };
+                                    let format_str = match &fmt_desc.fourcc.repr {
+                                        b"YUYV" => "YUYV",
+                                        b"MJPG" => "MJPEG",
+                                        b"RGB3" => "RGB",
+                                        other => std::str::from_utf8(other).unwrap_or("UNKNOWN"),
+                                    }.to_string();
+                                    formats.push(
+                                        CameraFormat::new(stepwise.max_width, stepwise.max_height, fps)
+                                            .with_format_type(format_str),
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Fall back to common defaults if enumeration returned nothing
+        if formats.is_empty() {
+            log::warn!("Could not enumerate formats for {}, using defaults", path);
+            formats = vec![
+                CameraFormat::new(1920, 1080, 30.0).with_format_type("YUYV".to_string()),
+                CameraFormat::new(1280, 720, 30.0).with_format_type("YUYV".to_string()),
+                CameraFormat::new(640, 480, 30.0).with_format_type("YUYV".to_string()),
+                CameraFormat::new(1920, 1080, 15.0).with_format_type("MJPEG".to_string()),
+                CameraFormat::new(1280, 720, 30.0).with_format_type("MJPEG".to_string()),
+            ];
+        }
+
+        Ok(formats)
     }
 
     /// Set camera controls (Linux V4L2 specific)
@@ -354,7 +394,11 @@ impl LinuxCamera {
                         id,
                         value: v4l::control::Value::Integer(actual),
                     };
-                    let _ = dev.set_control(ctrl);
+                    if let Err(e) = dev.set_control(ctrl) {
+                        log::warn!("V4L2 set_control(id=0x{:08x}) failed: {}", id, e);
+                    }
+                } else {
+                    log::warn!("V4L2 control id=0x{:08x} not found on device", id);
                 }
             }
         };
@@ -370,7 +414,9 @@ impl LinuxCamera {
                 id: V4L2_CID_FOCUS_AUTO,
                 value: v4l::control::Value::Boolean(af),
             };
-             let _ = dev.set_control(ctrl);
+             if let Err(e) = dev.set_control(ctrl) {
+                 log::warn!("V4L2 set auto_focus failed: {}", e);
+             }
         }
         
         // Manual Focus
@@ -390,7 +436,9 @@ impl LinuxCamera {
                 id: V4L2_CID_EXPOSURE_AUTO,
                 value: v4l::control::Value::Integer(val),
             };
-             let _ = dev.set_control(ctrl);
+             if let Err(e) = dev.set_control(ctrl) {
+                 log::warn!("V4L2 set auto_exposure failed: {}", e);
+             }
         }
 
         // Manual Exposure

@@ -105,12 +105,9 @@ impl WindowsCamera {
         self.nokhwa_camera.is_stream_open()
     }
 
-    /// Check if camera is available
+    /// Check if camera is available (stream is currently open)
     pub fn is_available(&self) -> bool {
-        // Camera availability is determined by successful initialization
-        // Since the Camera object was created successfully, it's available
-        // For more robust checking, we could attempt a test frame capture
-        true
+        self.nokhwa_camera.is_stream_open()
     }
 
     /// Get device ID

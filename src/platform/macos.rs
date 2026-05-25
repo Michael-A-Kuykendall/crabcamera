@@ -309,17 +309,23 @@ impl MacOSCamera {
         // Focus
         if let Some(af) = controls.auto_focus {
             let mode = if af { AV_CAPTURE_FOCUS_MODE_CONTINUOUS_AUTO } else { AV_CAPTURE_FOCUS_MODE_LOCKED };
-            let _ = wrapper.set_focus_mode(mode);
+            if let Err(e) = wrapper.set_focus_mode(mode) {
+                log::warn!("AVFoundation set_focus_mode failed: {}", e);
+            }
         }
 
         if let Some(dist) = controls.focus_distance {
-             let _ = wrapper.set_lens_position(dist);
+             if let Err(e) = wrapper.set_lens_position(dist) {
+                 log::warn!("AVFoundation set_lens_position failed: {}", e);
+             }
         }
 
         // Exposure
         if let Some(ae) = controls.auto_exposure {
              let mode = if ae { AV_CAPTURE_EXPOSURE_MODE_CONTINUOUS_AUTO } else { AV_CAPTURE_EXPOSURE_MODE_LOCKED };
-             let _ = wrapper.set_exposure_mode(mode);
+             if let Err(e) = wrapper.set_exposure_mode(mode) {
+                 log::warn!("AVFoundation set_exposure_mode failed: {}", e);
+             }
         }
 
         wrapper.unlock_for_configuration();

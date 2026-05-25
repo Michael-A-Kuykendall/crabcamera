@@ -85,6 +85,23 @@ pub async fn capture_burst_sequence(
         return Err("Invalid burst count (must be 1-50)".to_string());
     }
 
+    if config.focus_stacking && config.count < 2 {
+        return Err("Focus stacking requires at least 2 frames (count >= 2)".to_string());
+    }
+
+    if let Some(ref bracketing) = config.bracketing {
+        if bracketing.stops.is_empty() {
+            return Err(
+                "Exposure bracketing requires at least one stop value".to_string(),
+            );
+        }
+        if bracketing.base_exposure <= 0.0 {
+            return Err(
+                "Exposure bracketing base_exposure must be greater than zero".to_string(),
+            );
+        }
+    }
+
     let camera_arc =
         get_or_create_camera(device_id.clone(), crate::types::CameraFormat::hd()).await?;
 

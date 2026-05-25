@@ -57,7 +57,7 @@ If a contribution is discussed and approved:
 ## CrabCamera Philosophy
 
 Any accepted work must align with:
-- **Memory Safety First**: Zero unsafe code in critical paths
+- **Memory Safety First**: Unsafe code is used only at platform FFI boundaries (AVFoundation, libopus, Windows COM, Linux V4L2); all application logic is safe Rust
 - **Performance by Design**: Efficient frame handling and minimal latency
 - **Cross-Platform**: Windows, macOS, and Linux support
 - **Production Ready**: Comprehensive error handling and testing
