@@ -21,6 +21,7 @@ use muxide::api::{Metadata, MuxerBuilder, VideoCodec};
 #[cfg(feature = "audio")]
 use muxide::api::AudioCodec;
 
+use crate::constants::*;
 use super::config::{RecordingConfig, RecordingStats};
 use super::encoder::H264Encoder;
 use crate::errors::CameraError;
@@ -172,7 +173,7 @@ impl Recorder {
         };
 
         // Channel for encoded audio packets
-        let (sender, receiver) = crossbeam_channel::bounded::<EncodedAudio>(256);
+        let (sender, receiver) = crossbeam_channel::bounded::<EncodedAudio>(RECORDING_AUDIO_CHANNEL_CAPACITY);
         let stop_flag = Arc::new(AtomicBool::new(false));
         // Per #`AudioErrorRecovery`: ! `session_status_reflects_audio_state`
         let error_flag = Arc::new(AtomicBool::new(false));
@@ -230,7 +231,7 @@ impl Recorder {
                     }
                 } else {
                     // No audio available, brief sleep to avoid busy-wait
-                    std::thread::sleep(std::time::Duration::from_millis(1));
+                    std::thread::sleep(std::time::Duration::from_millis(RECORDING_AUDIO_SLEEP_MS));
                 }
             }
 
@@ -276,16 +277,16 @@ impl Recorder {
         // The 0.8 factor allows some jitter tolerance (frames up to 20% early are accepted)
         if let Some(last_time) = self.last_frame_time {
             let elapsed = now.duration_since(last_time).as_secs_f64();
-            if elapsed < self.frame_duration_secs * 0.8 {
+            if elapsed < self.frame_duration_secs * RECORDING_JITTER_TOLERANCE {
                 // Frame came too fast, skip it
                 self.dropped_frames += 1;
-                if self.dropped_frames % 10 == 1 {
+                if self.dropped_frames % RECORDING_DROP_LOG_INTERVAL == 1 {
                     // Log every 10th dropped frame to avoid spam
                     log::debug!(
                         "Frame rate limiting: dropped {} frames (interval {:.1}ms < {:.1}ms threshold)",
                         self.dropped_frames,
                         elapsed * 1000.0,
-                        self.frame_duration_secs * 0.8 * 1000.0
+                        self.frame_duration_secs * RECORDING_JITTER_TOLERANCE * 1000.0
                     );
                 }
                 return Ok(());

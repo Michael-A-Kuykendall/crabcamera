@@ -1,4 +1,5 @@
 use crate::commands::capture::get_or_create_camera;
+use crate::constants::*;
 use crate::types::{BurstConfig, CameraControls, CameraFrame, WhiteBalance};
 use std::time::Instant;
 use tauri::command;
@@ -225,8 +226,8 @@ pub async fn set_manual_exposure(
         return Err("Exposure time must be between 0.0 and 10.0 seconds".to_string());
     }
 
-    if !(50..=12800).contains(&iso_sensitivity) {
-        return Err("ISO sensitivity must be between 50 and 12800".to_string());
+    if !(MIN_ISO..=MAX_ISO).contains(&iso_sensitivity) {
+        return Err(format!("ISO sensitivity must be between {} and {}", MIN_ISO, MAX_ISO));
     }
 
     let controls = CameraControls {

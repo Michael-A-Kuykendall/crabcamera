@@ -21,12 +21,13 @@ use cpal::{Stream, StreamConfig};
 use crate::timing::PTSClock;
 use super::device::find_audio_device;
 use crate::errors::CameraError;
+use crate::constants::*;
 
 /// Maximum number of audio frames to buffer before dropping oldest.
 /// At 48kHz with 20ms frames (960 samples), this allows ~5 seconds of buffering.
 /// 256 frames × 20ms = 5120ms = 5.12 seconds
 /// This prevents unbounded memory growth if the consumer is slow.
-const MAX_BUFFER_FRAMES: usize = 256;
+const MAX_BUFFER_FRAMES: usize = AUDIO_BUFFER_FRAMES;
 
 /// A single audio frame with PCM samples and timestamp
 #[derive(Debug, Clone)]
@@ -69,11 +70,11 @@ impl AudioCapture {
         channels: u16,
         clock: PTSClock,
     ) -> Result<Self, CameraError> {
-        let device_id_str = device_id.unwrap_or("default");
+        let device_id_str = device_id.unwrap_or(AUDIO_DEVICE_DEFAULT);
         let device_info = find_audio_device(device_id_str)?;
 
         let host = cpal::default_host();
-        let device = if device_id_str.is_empty() || device_id_str == "default" {
+        let device = if device_id_str.is_empty() || device_id_str == AUDIO_DEVICE_DEFAULT {
             host.default_input_device()
                 .ok_or_else(|| CameraError::AudioError("No default audio device".to_string()))?
         } else {
@@ -92,7 +93,7 @@ impl AudioCapture {
             .default_input_config()
             .map_err(|e| CameraError::AudioError(format!("No supported config: {e}")))?;
 
-        let actual_sample_rate = if sample_rate == 48000 || sample_rate == 44100 {
+        let actual_sample_rate = if sample_rate == AUDIO_SAMPLE_RATE_48K || sample_rate == AUDIO_SAMPLE_RATE_44K {
             sample_rate
         } else {
             supported_config.sample_rate().0

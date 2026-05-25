@@ -1,5 +1,6 @@
 //! Recording configuration types
 
+use crate::constants::*;
 use serde::{Deserialize, Serialize};
 
 /// Audio configuration for recording
@@ -22,9 +23,9 @@ impl Default for AudioConfig {
     fn default() -> Self {
         Self {
             device_id: None,
-            sample_rate: 48000, // Opus requirement
-            channels: 2,
-            bitrate: 128_000,
+            sample_rate: AUDIO_SAMPLE_RATE, // Opus requirement
+            channels: AUDIO_CHANNELS,
+            bitrate: AUDIO_BITRATE,
         }
     }
 }
@@ -135,7 +136,7 @@ impl RecordingConfig {
             width,
             height,
             fps,
-            bitrate: 5_000_000,
+            bitrate: VIDEO_BITRATE_HD,
             quality: RecordingQuality::Custom,
             fast_start: true,
             title: None,

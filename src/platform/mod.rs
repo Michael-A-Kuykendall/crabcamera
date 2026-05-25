@@ -5,6 +5,7 @@
 //! optimizations and features.
 
 use crate::errors::CameraError;
+use crate::constants::*;
 use crate::types::{CameraDeviceInfo, CameraFormat, CameraFrame, CameraInitParams, Platform};
 
 // Type alias for frame callback to reduce complexity
@@ -83,7 +84,7 @@ impl MockCamera {
                 "Mock capture failure".to_string(),
             )),
             crate::tests::MockCaptureMode::SlowCapture => {
-                std::thread::sleep(std::time::Duration::from_millis(100));
+                std::thread::sleep(std::time::Duration::from_millis(MOCK_SLOW_CAPTURE_DELAY_MS));
                 Ok(crate::tests::create_mock_frame(&self.device_id))
             }
         };
@@ -170,10 +171,10 @@ impl MockCamera {
             supports_flash: false,
             supports_burst_mode: true,
             supports_hdr: true,
-            max_resolution: (1920, 1080),
-            max_fps: 60.0,
+            max_resolution: (DEFAULT_RESOLUTION_WIDTH, DEFAULT_RESOLUTION_HEIGHT),
+            max_fps: HIGH_FPS,
             exposure_range: Some((0.001, 10.0)),
-            iso_range: Some((50, 12800)),
+            iso_range: Some((MIN_ISO, MAX_ISO)),
             focus_range: Some((0.0, 1.0)),
         })
     }
@@ -183,13 +184,13 @@ impl MockCamera {
         &self,
     ) -> Result<crate::types::CameraPerformanceMetrics, CameraError> {
         Ok(crate::types::CameraPerformanceMetrics {
-            capture_latency_ms: 16.7, // 60 FPS
-            processing_time_ms: 5.0,
-            memory_usage_mb: 32.0,
-            fps_actual: 60.0,
+            capture_latency_ms: MOCK_CAPTURE_LATENCY_MS,
+            processing_time_ms: MOCK_PROCESSING_TIME_MS,
+            memory_usage_mb: MOCK_MEMORY_USAGE_MB,
+            fps_actual: MOCK_FPS,
             dropped_frames: 0,
             buffer_overruns: 0,
-            quality_score: 0.95,
+            quality_score: MOCK_QUALITY_SCORE,
         })
     }
 }

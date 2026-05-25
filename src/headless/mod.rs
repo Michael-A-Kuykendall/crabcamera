@@ -1,6 +1,5 @@
 /// Camera controls and capabilities
 pub mod controls;
-// pub(crate) mod concurrency; // TODO: Implement concurrency utilities if needed
 /// Headless-specific errors
 pub mod errors;
 /// Core session management

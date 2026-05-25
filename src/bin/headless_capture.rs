@@ -2,6 +2,11 @@
 // Demonstrates headless camera capture using the new headless API
 
 use crabcamera::audio::list_audio_devices;
+use crabcamera::constants::{
+    HEADLESS_AUDIO_FILENAME, HEADLESS_AUDIO_POLL_TIMEOUT_MS, HEADLESS_BUFFER_CAPACITY,
+    HEADLESS_CAPTURE_COUNT, HEADLESS_FRAME_FILENAME, HEADLESS_POLL_TIMEOUT_MS,
+    HEADLESS_STOP_TIMEOUT_MS, HEADLESS_TIMEOUT_SECS,
+};
 use crabcamera::headless::{
     list_devices, list_formats, AudioMode, BufferPolicy, CaptureConfig, HeadlessSession,
 };
@@ -74,6 +79,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         format.width, format.height, format.fps, format.format_type
     );
 
+    // Pick first available audio device
+    let audio_device = list_audio_devices().ok().and_then(|devs| devs.first().cloned());
+    let audio_device_id = audio_device.map(|d| d.id);
+
     // Step 3: Create capture config
     let config = CaptureConfig {
         device_id: device.id.clone(),
@@ -83,9 +92,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             fps: format.fps,
             format_type: format.format_type.clone(),
         },
-        buffer_policy: BufferPolicy::DropOldest { capacity: 10 },
+        buffer_policy: BufferPolicy::DropOldest {
+            capacity: HEADLESS_BUFFER_CAPACITY,
+        },
         audio_mode: AudioMode::Enabled,
-        audio_device_id: Some("audio_0_87a48c3e".to_string()),
+        audio_device_id,
     };
 
     // Step 4: Open session
@@ -104,8 +115,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut audio_count = 0;
     let mut frame_saved = false;
 
-    while frame_count < 10 && start_time.elapsed() < Duration::from_secs(10) {
-        match session.get_frame(Duration::from_millis(1000)) {
+    while frame_count < HEADLESS_CAPTURE_COUNT
+        && start_time.elapsed() < Duration::from_secs(HEADLESS_TIMEOUT_SECS)
+    {
+        match session.get_frame(Duration::from_millis(HEADLESS_POLL_TIMEOUT_MS)) {
             Ok(Some(frame)) => {
                 frame_count += 1;
                 println!(
@@ -119,8 +132,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 );
 
                 if !frame_saved {
-                    fs::write("captured_frame.raw", &frame.data)?;
-                    println!("    💾 Saved frame to captured_frame.raw");
+                    fs::write(HEADLESS_FRAME_FILENAME, &frame.data)?;
+                    println!("    💾 Saved frame to {}", HEADLESS_FRAME_FILENAME);
                     frame_saved = true;
                 }
             }
@@ -134,7 +147,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         // Try to get audio packet
-        match session.get_audio_packet(Duration::from_millis(100)) {
+        match session.get_audio_packet(Duration::from_millis(HEADLESS_AUDIO_POLL_TIMEOUT_MS)) {
             Ok(Some(packet)) => {
                 audio_count += 1;
                 println!(
@@ -152,9 +165,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let mut file = OpenOptions::new()
                     .create(true)
                     .append(true)
-                    .open("captured_audio.raw")?;
+                    .open(HEADLESS_AUDIO_FILENAME)?;
                 file.write_all(&packet.data)?;
-                println!("    🎵 Appended audio to captured_audio.raw");
+                println!("    🎵 Appended audio to {}", HEADLESS_AUDIO_FILENAME);
             }
             Ok(None) => {
                 // No audio packet available, continue
@@ -173,7 +186,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Step 7: Stop capture
     println!("⏹️  Stopping capture...");
-    match session.stop(Duration::from_millis(10000)) {
+    match session.stop(Duration::from_millis(HEADLESS_STOP_TIMEOUT_MS)) {
         Ok(()) => {}
         Err(e) => {
             eprintln!(

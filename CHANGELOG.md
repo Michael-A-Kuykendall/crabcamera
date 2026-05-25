@@ -5,6 +5,38 @@ All notable changes to CrabCamera will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.4] - 2026-05-25
+
+### Added
+- **Constants module** (`src/constants.rs`): Eliminates all magic numbers and string literals from
+  the library. Every hardcoded value — default resolutions (1920×1080, 1280×720, 640×480, 4K),
+  frame rates, ISO range, format strings (YUYV/RGB8/MJPEG), audio parameters (48 kHz, 128 kbps,
+  stereo), quality preset names, recording session prefix, pool sizes — is now a named, documented
+  `pub const`. This is a prerequisite for making the codebase teachable and auditable.
+- **Feature Registry** (`src/registry.rs`): Compile-time and runtime manifest that records every
+  capability as `Implemented`, `Beta`, `Stub`, `Planned`, or `Deprecated`. Prevents "ghost
+  features" (functionality that is claimed but unverified) by requiring each command to carry a
+  truthful status declaration. Two invariant tests (`test_registry_integrity`,
+  `test_no_stubs_in_production`) enforce registry accuracy on every CI run.
+- **Architecture documentation**: `docs/ARCHITECTURE_NARRATIVE.md` — full history and structural
+  map of CrabCamera from v0.1.0 through the current release; `docs/SYSTEM_MAP.md` — module
+  dependency map; `docs/audit/` and `docs/initiatives/BASE_AUDIT_CHECKLIST.md` — audit
+  scaffolding for ongoing code-quality work.
+
+### Changed
+- 35 source files updated to consume `constants.rs` (no logic changes — pure literal-to-constant
+  migration). Affected areas: `commands/`, `platform/`, `audio/`, `quality/`, `recording/`,
+  `focus_stack/`, `config.rs`, `errors.rs`, `types.rs`, `bin/`.
+- Quality preset matching in `start_recording` migrated from OR-pattern arm literals to named
+  constant comparisons for readability and single-source-of-truth.
+- Audio config construction in `start_recording` uses named constants for sample rate, channel
+  count, and bitrate.
+- Session ID prefix extracted to `RECORDING_SESSION_PREFIX` constant.
+
+### Internal
+- Refs crab-rwx epic: rigorous audit to make the codebase teachable, production-ready, and
+  idiomatic Rust.
+
 ## [0.8.3] - 2026-01-29
 
 ### Added

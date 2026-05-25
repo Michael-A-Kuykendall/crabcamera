@@ -1,5 +1,6 @@
 use crate::quality::{QualityReport, QualityScore, QualityValidator};
 use crate::types::CameraFrame;
+use crate::constants::*;
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
@@ -19,10 +20,10 @@ pub struct TriggerConfig {
 impl Default for TriggerConfig {
     fn default() -> Self {
         Self {
-            min_quality_score: 0.75,
-            min_stability_duration: Duration::from_millis(200),
-            timeout: Some(Duration::from_secs(5)),
-            required_consecutive_good_frames: 3,
+            min_quality_score: TRIGGER_MIN_QUALITY,
+            min_stability_duration: Duration::from_millis(TRIGGER_STABILITY_MS),
+            timeout: Some(Duration::from_secs(TRIGGER_TIMEOUT_SECS)),
+            required_consecutive_good_frames: TRIGGER_CONSECUTIVE_FRAMES,
         }
     }
 }
@@ -66,7 +67,7 @@ impl SmartTrigger {
             good_frame_streak: 0,
             last_good_frame_time: None,
             best_frame_so_far: None,
-            score_history: VecDeque::with_capacity(10),
+            score_history: VecDeque::with_capacity(TRIGGER_HISTORY_SIZE),
         }
     }
 
@@ -114,7 +115,7 @@ impl SmartTrigger {
         let score = report.score.overall;
 
         // Update history
-        if self.score_history.len() >= 10 {
+        if self.score_history.len() >= TRIGGER_HISTORY_SIZE {
             self.score_history.pop_front();
         }
         self.score_history.push_back(score);

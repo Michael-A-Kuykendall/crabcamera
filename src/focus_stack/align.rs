@@ -1,4 +1,5 @@
 use super::FocusStackError;
+use crate::constants::*;
 /// Image alignment module for focus stacking
 ///
 /// Aligns images to compensate for camera movement between captures.
@@ -117,13 +118,13 @@ pub fn apply_alignment(
         apply_translation(&mut aligned, tx, ty);
     }
 
-    // Apply rotation if significant (> 0.01 radians = ~0.57 degrees)
-    if alignment.rotation.abs() > 0.01 {
+    // Apply rotation if significant
+    if alignment.rotation.abs() > ALIGNMENT_SIGNIFICANT_ROTATION {
         apply_rotation(&mut aligned, alignment.rotation);
     }
 
     // Apply scale if different from 1.0
-    if (alignment.scale - 1.0).abs() > 0.01 {
+    if (alignment.scale - 1.0).abs() > ALIGNMENT_SIGNIFICANT_SCALE {
         apply_scale(&mut aligned, alignment.scale);
     }
 
@@ -162,9 +163,9 @@ fn compute_center_of_mass(frame: &CameraFrame) -> (f32, f32) {
     let mut sum_y = 0.0;
     let mut sum_weight = 0.0;
 
-    // Sample every 4th pixel for speed (RGB has 3 bytes per pixel)
-    for y in (0..height).step_by(4) {
-        for x in (0..width).step_by(4) {
+    // Sample pixels for speed (RGB has 3 bytes per pixel)
+    for y in (0..height).step_by(ALIGNMENT_SAMPLING_STEP) {
+        for x in (0..width).step_by(ALIGNMENT_SAMPLING_STEP) {
             let idx = (y * width + x) * 3;
 
             if idx + 2 < frame.data.len() {
@@ -172,7 +173,7 @@ fn compute_center_of_mass(frame: &CameraFrame) -> (f32, f32) {
                 let r = frame.data[idx] as f32;
                 let g = frame.data[idx + 1] as f32;
                 let b = frame.data[idx + 2] as f32;
-                let weight = 0.299 * r + 0.587 * g + 0.114 * b;
+                let weight = LUMA_R * r + LUMA_G * g + LUMA_B * b;
 
                 sum_x += x as f32 * weight;
                 sum_y += y as f32 * weight;

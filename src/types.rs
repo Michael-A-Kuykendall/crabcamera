@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use crate::constants::*;
 
 /// Platform enumeration
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -109,23 +110,23 @@ impl CameraFormat {
             width,
             height,
             fps,
-            format_type: "RGB8".to_string(),
+            format_type: FORMAT_RGB.to_string(),
         }
     }
 
     /// Create high resolution format
     pub fn hd() -> Self {
-        Self::new(1920, 1080, 30.0)
+        Self::new(DEFAULT_RESOLUTION_WIDTH, DEFAULT_RESOLUTION_HEIGHT, DEFAULT_FPS)
     }
 
     /// Create standard resolution format
     pub fn standard() -> Self {
-        Self::new(1280, 720, 30.0)
+        Self::new(FALLBACK_RESOLUTION_WIDTH, FALLBACK_RESOLUTION_HEIGHT, DEFAULT_FPS)
     }
 
     /// Create low resolution format
     pub fn low() -> Self {
-        Self::new(640, 480, 30.0)
+        Self::new(MIN_RESOLUTION_WIDTH, MIN_RESOLUTION_HEIGHT, DEFAULT_FPS)
     }
 
     /// Set format type
@@ -167,7 +168,7 @@ impl CameraFrame {
             data,
             width,
             height,
-            format: "RGB8".to_string(),
+            format: FORMAT_RGB.to_string(),
             timestamp: Utc::now(),
             device_id,
             size_bytes,

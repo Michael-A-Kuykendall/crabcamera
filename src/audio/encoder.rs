@@ -14,18 +14,7 @@
 
 use super::capture::AudioFrame;
 use crate::errors::CameraError;
-
-/// Opus frame size in samples at 48kHz.
-/// 20ms frame duration × 48000 Hz = 960 samples per channel.
-/// See RFC 6716 Section 2.1.4: "Opus supports frame sizes from 2.5ms to 60ms"
-/// 20ms is the default and most common choice for voice/music.
-const OPUS_FRAME_SAMPLES: usize = 960;
-
-/// Opus application type constant.
-/// Value 2049 = OPUS_APPLICATION_AUDIO (optimized for music/mixed content)
-/// Other options: 2048 = VOIP (speech), 2051 = LOW_DELAY
-/// See opus.h in libopus: https://opus-codec.org/docs/opus_api-1.3.1/group__opus__encoder.html
-const OPUS_APPLICATION_AUDIO: i32 = 2049;
+use crate::constants::*;
 
 /// Encoded Opus audio packet
 #[derive(Debug, Clone)]
@@ -79,9 +68,9 @@ impl OpusEncoder {
     /// * `channels` - 1 for mono, 2 for stereo
     /// * `bitrate` - Target bitrate in bits per second (e.g., 128000)
     pub fn new(sample_rate: u32, channels: u16, bitrate: u32) -> Result<Self, CameraError> {
-        if sample_rate != 48000 {
+        if sample_rate != OPUS_SAMPLE_RATE {
             return Err(CameraError::AudioError(
-                "Opus requires 48000 Hz sample rate".to_string(),
+                format!("Opus requires {} Hz sample rate", OPUS_SAMPLE_RATE),
             ));
         }
 

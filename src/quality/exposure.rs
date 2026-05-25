@@ -1,4 +1,5 @@
 use crate::types::CameraFrame;
+use crate::constants::*;
 use serde::{Deserialize, Serialize};
 
 /// Exposure analysis levels
@@ -20,13 +21,13 @@ impl ExposureLevel {
     /// Convert brightness to exposure level
     #[must_use]
     pub fn from_brightness(brightness: f32) -> Self {
-        if brightness < 0.2 {
+        if brightness < EXPOSURE_BRIGHTNESS_LOW {
             Self::Underexposed
-        } else if brightness < 0.35 {
+        } else if brightness < EXPOSURE_BRIGHTNESS_DARK {
             Self::SlightlyDark
-        } else if brightness < 0.65 {
+        } else if brightness < EXPOSURE_BRIGHTNESS_GOOD {
             Self::WellExposed
-        } else if brightness < 0.8 {
+        } else if brightness < EXPOSURE_BRIGHTNESS_HIGH {
             Self::SlightlyBright
         } else {
             Self::Overexposed
@@ -37,9 +38,9 @@ impl ExposureLevel {
     #[must_use]
     pub fn quality_score(self) -> f32 {
         match self {
-            Self::WellExposed => 1.0,
-            Self::SlightlyDark | Self::SlightlyBright => 0.8,
-            Self::Underexposed | Self::Overexposed => 0.3,
+            Self::WellExposed => QUALITY_SCORE_SHARP, // 1.0
+            Self::SlightlyDark | Self::SlightlyBright => QUALITY_SCORE_GOOD, // 0.8
+            Self::Underexposed | Self::Overexposed => QUALITY_SCORE_BLURRY, // 0.3
         }
     }
 }
@@ -78,8 +79,8 @@ pub struct ExposureAnalyzer {
 impl Default for ExposureAnalyzer {
     fn default() -> Self {
         Self {
-            dark_threshold: 30,    // Pixels below this are considered dark
-            bright_threshold: 225, // Pixels above this are considered bright
+            dark_threshold: EXPOSURE_PIXEL_DARK,    // Pixels below this are considered dark
+            bright_threshold: EXPOSURE_PIXEL_BRIGHT, // Pixels above this are considered bright
         }
     }
 }

@@ -5,6 +5,7 @@
 
 use crate::errors::CameraError;
 use crate::types::{CameraDeviceInfo, Platform};
+use crate::constants::DEVICE_MONITOR_POLL_INTERVAL_MS;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
@@ -157,7 +158,7 @@ impl DeviceMonitor {
 
         tokio::spawn(async move {
             while *is_monitoring.read().await {
-                tokio::time::sleep(Duration::from_secs(2)).await;
+                tokio::time::sleep(Duration::from_millis(DEVICE_MONITOR_POLL_INTERVAL_MS)).await;
 
                 if let Ok(devices) = DeviceMonitor::scan_devices_windows() {
                     let mut active = active_devices.write().await;
@@ -213,7 +214,7 @@ impl DeviceMonitor {
 
         tokio::spawn(async move {
             while *is_monitoring.read().await {
-                tokio::time::sleep(Duration::from_secs(2)).await;
+                tokio::time::sleep(Duration::from_millis(DEVICE_MONITOR_POLL_INTERVAL_MS)).await;
 
                 if let Ok(devices) = DeviceMonitor::scan_devices_macos() {
                     let mut active = active_devices.write().await;
@@ -267,7 +268,7 @@ impl DeviceMonitor {
 
         tokio::spawn(async move {
             while *is_monitoring.read().await {
-                tokio::time::sleep(Duration::from_secs(2)).await;
+                tokio::time::sleep(Duration::from_millis(DEVICE_MONITOR_POLL_INTERVAL_MS)).await;
 
                 if let Ok(devices) = DeviceMonitor::scan_devices_linux() {
                     let mut active = active_devices.write().await;

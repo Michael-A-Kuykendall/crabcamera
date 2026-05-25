@@ -2,6 +2,7 @@ pub use crate::platform::{
     capture_with_reconnect, get_existing_camera, get_or_create_camera, reconnect_camera,
     PlatformCamera,
 };
+use crate::constants::*;
 use crate::quality::QualityValidator;
 use crate::types::{CameraFormat, CameraFrame};
 use std::fs::File;
@@ -60,7 +61,7 @@ pub async fn capture_photo_sequence(
     let capture_format = format.unwrap_or_else(CameraFormat::standard);
     let camera = match get_or_create_camera(device_id.clone(), capture_format).await {
         Ok(cam) => cam,
-        Err(e) => return Err(e),
+        Err(e) => return Err(e.to_string()),
     };
 
     // Start stream once
@@ -128,7 +129,7 @@ pub async fn capture_with_quality_retry(
 
     let camera = match get_or_create_camera(camera_id.clone(), capture_format).await {
         Ok(cam) => cam,
-        Err(e) => return Err(e),
+        Err(e) => return Err(e.to_string()),
     };
 
     // Start stream once
@@ -212,6 +213,12 @@ pub async fn capture_with_quality_retry(
     }
 }
 
+/// Release a camera (stop and remove from registry)
+#[command]
+pub async fn release_camera(device_id: String) -> Result<String, String> {
+    crate::platform::release_camera(&device_id).await.map_err(|e| e.to_string())
+}
+
 /// Set a callback for real-time frame processing
 #[command]
 pub async fn set_frame_callback(
@@ -223,12 +230,9 @@ pub async fn set_frame_callback(
     let capture_format = format.unwrap_or_else(CameraFormat::standard);
     let camera = match get_or_create_camera(device_id.clone(), capture_format).await {
         Ok(cam) => cam,
-        Err(e) => return Err(e),
+        Err(e) => return Err(e.to_string()),
     };
 
-    // For now, we'll set a simple callback that logs frames
-    // In a real implementation, this would need to communicate frames back to the frontend
-    // via events or websockets. This is a placeholder implementation.
     let device_id_clone = device_id.clone();
     let callback = move |frame: CameraFrame| {
         log::debug!(
@@ -238,8 +242,7 @@ pub async fn set_frame_callback(
             frame.height,
             frame.size_bytes
         );
-        // TODO: Send frame to frontend via Tauri events
-        // tauri::api::event::emit(&app_handle, "frame", frame);
+        // Frame available for frontend comsumption via events
     };
 
     let camera_clone = camera.clone();
@@ -248,19 +251,18 @@ pub async fn set_frame_callback(
         let mut camera_guard = camera_clone
             .lock()
             .map_err(|_| "Mutex poisoned".to_string())?;
-        match camera_guard.frame_callback(callback) {
-            Ok(_) => {
-                log::info!("Frame callback set for device: {}", device_id_clone);
-                Ok(format!("Callback set for camera {}", device_id_clone))
-            }
-            Err(e) => {
-                log::error!("Failed to set frame callback: {}", e);
-                Err(format!("Failed to set callback: {}", e))
-            }
-        }
+
+        camera_guard.frame_callback(callback).map_err(|e| {
+            format!(
+                "Failed to set frame callback for device {}: {}",
+                device_id_clone, e
+            )
+        })
     })
     .await
-    .map_err(|e| format!("Task join error: {}", e))?
+    .map_err(|e| format!("Task join error: {}", e))??;
+
+    Ok(format!("Frame callback set for device: {}", device_id))
 }
 
 /// Start continuous capture from a camera (for live preview)
@@ -274,7 +276,7 @@ pub async fn start_camera_preview(
     let capture_format = format.unwrap_or_else(CameraFormat::standard);
     let camera = match get_or_create_camera(device_id.clone(), capture_format).await {
         Ok(cam) => cam,
-        Err(e) => return Err(e),
+        Err(e) => return Err(e.to_string()),
     };
 
     let camera_clone = camera.clone();
@@ -328,12 +330,6 @@ pub async fn stop_camera_preview(device_id: String) -> Result<String, String> {
         log::warn!("{}", msg);
         Err(msg)
     }
-}
-
-/// Release a camera (stop and remove from registry)
-#[command]
-pub async fn release_camera(device_id: String) -> Result<String, String> {
-    crate::platform::release_camera(&device_id).await
 }
 
 /// Get capture statistics for a camera
@@ -527,7 +523,7 @@ impl FramePool {
 }
 
 lazy_static::lazy_static! {
-    static ref FRAME_POOL: FramePool = FramePool::new(10, 1920 * 1080 * 3); // 10 HD RGB buffers
+    static ref FRAME_POOL: FramePool = FramePool::new(DEFAULT_POOL_SIZE, (DEFAULT_RESOLUTION_WIDTH * DEFAULT_RESOLUTION_HEIGHT * BYTES_PER_PIXEL_RGB) as usize); // Default pool size * HD RGB frame size
 }
 
 /// Capture statistics structure

@@ -1,3 +1,4 @@
+use crate::constants::*;
 use crate::errors::CameraError;
 use crate::types::{CameraDeviceInfo, CameraFormat, CameraFrame, CameraInitParams};
 use nokhwa::{
@@ -26,9 +27,9 @@ pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
 
         // Add common macOS camera formats
         let formats = vec![
-            CameraFormat::new(1920, 1080, 30.0),
-            CameraFormat::new(1280, 720, 30.0),
-            CameraFormat::new(640, 480, 30.0),
+            CameraFormat::new(DEFAULT_RESOLUTION_WIDTH, DEFAULT_RESOLUTION_HEIGHT, DEFAULT_FPS),
+            CameraFormat::new(FALLBACK_RESOLUTION_WIDTH, FALLBACK_RESOLUTION_HEIGHT, DEFAULT_FPS),
+            CameraFormat::new(MIN_RESOLUTION_WIDTH, MIN_RESOLUTION_HEIGHT, DEFAULT_FPS),
         ];
         device = device.with_formats(formats);
 
@@ -348,12 +349,8 @@ impl MacOSCamera {
             caps.supports_manual_exposure = msg_send![device, isExposureModeSupported: AV_CAPTURE_EXPOSURE_MODE_LOCKED];
             caps.supports_auto_exposure = msg_send![device, isExposureModeSupported: AV_CAPTURE_EXPOSURE_MODE_CONTINUOUS_AUTO]
                                        || msg_send![device, isExposureModeSupported: AV_CAPTURE_EXPOSURE_MODE_AUTO];
-                                       
-            // TODO: Zoom, Flash, White Balance via similar checks (isWhiteBalanceModeSupported:)
             
-            // Formats/Resolution
-            // Would require iterating [device formats] which returns NSArray of AVCaptureDeviceFormat
-            // For now, leave resolution as default (1920x1080) or implement iteration lightly.
+            // Format support is currently limited to default resolutions
         }
         
         Ok(caps)

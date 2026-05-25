@@ -1,5 +1,6 @@
 use super::{FocusStackConfig, FocusStackError};
 use crate::platform::capture_with_reconnect;
+use crate::constants::*;
 /// Focus stack capture module
 ///
 /// Handles capturing multiple images at different focus distances
@@ -17,19 +18,19 @@ pub async fn capture_focus_sequence(
     format: Option<CameraFormat>,
 ) -> Result<Vec<CameraFrame>, FocusStackError> {
     // Validate config
-    if config.num_steps < 2 {
+    if config.num_steps < FOCUS_STACK_MIN_STEPS as u32 {
         return Err(FocusStackError::InvalidConfig(
-            "num_steps must be at least 2".to_string(),
+            format!("num_steps must be at least {}", FOCUS_STACK_MIN_STEPS),
         ));
     }
 
-    if config.focus_start < 0.0
-        || config.focus_start > 1.0
-        || config.focus_end < 0.0
-        || config.focus_end > 1.0
+    if config.focus_start < FOCUS_STACK_MIN_DIST
+        || config.focus_start > FOCUS_STACK_MAX_DIST
+        || config.focus_end < FOCUS_STACK_MIN_DIST
+        || config.focus_end > FOCUS_STACK_MAX_DIST
     {
         return Err(FocusStackError::InvalidConfig(
-            "focus_start and focus_end must be between 0.0 and 1.0".to_string(),
+            format!("focus_start and focus_end must be between {:.1} and {:.1}", FOCUS_STACK_MIN_DIST, FOCUS_STACK_MAX_DIST),
         ));
     }
 
@@ -71,7 +72,7 @@ pub async fn capture_focus_sequence(
         // Use config.step_delay_ms to allow time for manual adjustment between captures.
 
         // Capture frame with reconnection support
-        match capture_with_reconnect(device_id.clone(), capture_format.clone(), 3).await {
+        match capture_with_reconnect(device_id.clone(), capture_format.clone(), CAPTURE_RETRY_COUNT).await {
             Ok(frame) => {
                 log::debug!(
                     "Captured frame: {}x{} ({} bytes)",
@@ -130,15 +131,15 @@ pub async fn capture_focus_brackets(
     shots_per_bracket: u32,
     format: Option<CameraFormat>,
 ) -> Result<Vec<CameraFrame>, FocusStackError> {
-    if !(2..=10).contains(&brackets) {
+    if !(FOCUS_STACK_MIN_BRACKETS..=FOCUS_STACK_MAX_BRACKETS).contains(&brackets) {
         return Err(FocusStackError::InvalidConfig(
-            "brackets must be between 2 and 10".to_string(),
+            format!("brackets must be between {} and {}", FOCUS_STACK_MIN_BRACKETS, FOCUS_STACK_MAX_BRACKETS),
         ));
     }
 
-    if !(1..=10).contains(&shots_per_bracket) {
+    if !(FOCUS_STACK_MIN_SHOTS..=FOCUS_STACK_MAX_SHOTS).contains(&shots_per_bracket) {
         return Err(FocusStackError::InvalidConfig(
-            "shots_per_bracket must be between 1 and 10".to_string(),
+            format!("shots_per_bracket must be between {} and {}", FOCUS_STACK_MIN_SHOTS, FOCUS_STACK_MAX_SHOTS),
         ));
     }
 

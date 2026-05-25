@@ -1,4 +1,5 @@
 use crate::types::CameraFrame;
+use crate::constants::*;
 use serde::{Deserialize, Serialize};
 
 /// Blur detection levels
@@ -20,13 +21,13 @@ impl BlurLevel {
     /// Convert blur variance to blur level
     #[must_use]
     pub fn from_variance(variance: f64) -> Self {
-        if variance > 1000.0 {
+        if variance > BLUR_VARIANCE_SHARP {
             Self::Sharp
-        } else if variance > 500.0 {
+        } else if variance > BLUR_VARIANCE_GOOD {
             Self::Good
-        } else if variance > 200.0 {
+        } else if variance > BLUR_VARIANCE_MODERATE {
             Self::Moderate
-        } else if variance > 50.0 {
+        } else if variance > BLUR_VARIANCE_BLURRY {
             Self::Blurry
         } else {
             Self::VeryBlurry
@@ -37,11 +38,11 @@ impl BlurLevel {
     #[must_use]
     pub fn quality_score(self) -> f32 {
         match self {
-            Self::Sharp => 1.0,
-            Self::Good => 0.8,
-            Self::Moderate => 0.6,
-            Self::Blurry => 0.3,
-            Self::VeryBlurry => 0.1,
+            Self::Sharp => QUALITY_SCORE_SHARP,
+            Self::Good => QUALITY_SCORE_GOOD,
+            Self::Moderate => QUALITY_SCORE_MODERATE,
+            Self::Blurry => QUALITY_SCORE_BLURRY,
+            Self::VeryBlurry => QUALITY_SCORE_VERY_BLURRY,
         }
     }
 }
@@ -78,8 +79,8 @@ pub struct BlurDetector {
 impl Default for BlurDetector {
     fn default() -> Self {
         Self {
-            threshold_variance: 200.0, // Threshold for variance-based detection
-            threshold_gradient: 50.0,  // Threshold for gradient-based detection
+            threshold_variance: DEFAULT_VARIANCE_THRESHOLD, // Threshold for variance-based detection
+            threshold_gradient: DEFAULT_GRADIENT_THRESHOLD,  // Threshold for gradient-based detection
         }
     }
 }
