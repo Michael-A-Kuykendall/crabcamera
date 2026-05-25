@@ -209,8 +209,12 @@ fn compute_sharpness_map(frame: &CameraFrame) -> SharpnessMap {
             let mut laplacian = 0.0;
             let mut neighbor_count = 0;
             for (dy, dx) in &[(-1, 0), (1, 0), (0, -1), (0, 1)] {
+                // Safe: pixel coordinates never reach usize/i32 boundary for real camera frames
+                #[allow(clippy::cast_possible_wrap)]
                 let ny = y as i32 + dy;
+                #[allow(clippy::cast_possible_wrap)]
                 let nx = x as i32 + dx;
+                #[allow(clippy::cast_possible_wrap)]
                 if ny >= 0 && ny < height as i32 && nx >= 0 && nx < width as i32 {
                     let ny = ny as usize;
                     let nx = nx as usize;
@@ -286,7 +290,7 @@ fn build_gaussian_pyramid(data: &[u8], width: usize, height: usize, levels: u32)
 
     for _ in 1..levels {
         let (downsampled, new_width, new_height) =
-            downsample(pyramid.last().unwrap(), current_width, current_height);
+            downsample(pyramid.last().expect("pyramid non-empty: initial element pushed above"), current_width, current_height);
         pyramid.push(downsampled);
         current_width = new_width;
         current_height = new_height;
@@ -345,7 +349,7 @@ fn build_laplacian_pyramid(gaussian: &[Vec<u8>]) -> Vec<Vec<u8>> {
     }
 
     // Last level is just the coarsest Gaussian
-    laplacian.push(gaussian.last().unwrap().clone());
+    laplacian.push(gaussian.last().expect("gaussian pyramid non-empty: built from non-empty data").clone());
 
     laplacian
 }
@@ -365,7 +369,7 @@ fn build_weight_pyramid(
 
     for _ in 1..levels {
         let (downsampled, new_width, new_height) =
-            downsample_weights(pyramid.last().unwrap(), current_width, current_height);
+            downsample_weights(pyramid.last().expect("pyramid non-empty: initial element pushed above"), current_width, current_height);
         pyramid.push(downsampled);
         current_width = new_width;
         current_height = new_height;

@@ -97,7 +97,7 @@ impl BlurDetector {
     /// Analyze frame for blur
     pub fn analyze_frame(&self, frame: &CameraFrame) -> BlurMetrics {
         // Convert to grayscale for analysis
-        let grayscale = self.rgb_to_grayscale(&frame.data, frame.width, frame.height);
+        let grayscale = Self::rgb_to_grayscale(&frame.data, frame.width, frame.height);
 
         // Calculate Laplacian variance (primary blur metric)
         let variance = Self::calculate_laplacian_variance(&grayscale, frame.width, frame.height);
@@ -123,7 +123,7 @@ impl BlurDetector {
     }
 
     /// Convert RGB to grayscale
-    fn rgb_to_grayscale(&self, rgb_data: &[u8], width: u32, height: u32) -> Vec<u8> {
+    fn rgb_to_grayscale(rgb_data: &[u8], width: u32, height: u32) -> Vec<u8> {
         let mut grayscale = Vec::with_capacity((width * height) as usize);
 
         for i in (0..rgb_data.len()).step_by(3) {
@@ -157,7 +157,10 @@ impl BlurDetector {
 
                 for ky in 0..3 {
                     for kx in 0..3 {
+                        // Safe: x/y are loop indices bounded by (1..width-1)/(1..height-1)
+                        #[allow(clippy::cast_possible_wrap)]
                         let pixel_y = (y as i32 + ky - 1) as usize;
+                        #[allow(clippy::cast_possible_wrap)]
                         let pixel_x = (x as i32 + kx - 1) as usize;
                         let pixel_index = pixel_y * width as usize + pixel_x;
                         
@@ -203,7 +206,10 @@ impl BlurDetector {
 
                 for ky in 0..3 {
                     for kx in 0..3 {
+                        // Safe: x/y are loop indices bounded by (1..width-1)/(1..height-1)
+                        #[allow(clippy::cast_possible_wrap)]
                         let pixel_y = (y as i32 + ky - 1) as usize;
+                        #[allow(clippy::cast_possible_wrap)]
                         let pixel_x = (x as i32 + kx - 1) as usize;
                         let pixel_index = pixel_y * width as usize + pixel_x;
 
@@ -339,7 +345,7 @@ mod tests {
     fn test_rgb_to_grayscale() {
         let detector = BlurDetector::default();
         let rgb_data = vec![255, 0, 0, 0, 255, 0, 0, 0, 255]; // Red, Green, Blue
-        let grayscale = detector.rgb_to_grayscale(&rgb_data, 3, 1);
+        let grayscale = BlurDetector::rgb_to_grayscale(&rgb_data, 3, 1);
 
         assert_eq!(grayscale.len(), 3);
         // Check luminance conversion is working (approximate values)
