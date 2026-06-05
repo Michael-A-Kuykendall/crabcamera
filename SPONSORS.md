@@ -14,7 +14,8 @@ Thank you to all our sponsors who help keep CrabCamera free forever!
 **[ZephyrCloudIO](https://github.com/ZephyrCloudIO)** - Corporate Backer (joined December 25th, 2025)
 
 ### Developer Supporters ($25+/month)
-- **Omar McIver**
+*Be the first!*
+
 
 ### Coffee Heroes ($5+/month)
 - alistairheath
@@ -38,6 +39,8 @@ Your sponsorship helps:
 - Name listed in this file
 
 ### Developer Supporters - $25/month
+*Be the first!*
+
 - Everything in Coffee Heroes
 - Priority response to bug reports
 - Name + link in SPONSORS.md
