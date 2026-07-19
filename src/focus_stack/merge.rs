@@ -148,14 +148,14 @@ fn merge_with_pyramid_blending(
 
     // Build Gaussian pyramids for each frame
     log::debug!("Building Gaussian pyramids");
-    let gaussian_pyramids: Vec<Vec<Vec<u8>>> = frames
+    let gaussian_pyramids: Vec<Vec<(Vec<u8>, usize, usize)>> = frames
         .iter()
         .map(|frame| build_gaussian_pyramid(&frame.data, width, height, levels))
         .collect();
 
-    // Build Laplacian pyramids
+    // Build Laplacian pyramids (signed detail layers)
     log::debug!("Building Laplacian pyramids");
-    let laplacian_pyramids: Vec<Vec<Vec<u8>>> = gaussian_pyramids
+    let laplacian_pyramids: Vec<Vec<(Vec<f32>, usize, usize)>> = gaussian_pyramids
         .iter()
         .map(|pyramid| build_laplacian_pyramid(pyramid))
         .collect();
@@ -167,13 +167,13 @@ fn merge_with_pyramid_blending(
         .map(|weights| build_weight_pyramid(weights, width, height, levels))
         .collect();
 
-    // Blend at each level
+    // Blend at each level using per-pixel normalized weights
     log::debug!("Blending pyramids");
     let blended_pyramid = blend_pyramids(&laplacian_pyramids, &weight_pyramids);
 
-    // Reconstruct from pyramid
+    // Reconstruct the merged image from the blended Laplacian pyramid
     log::debug!("Reconstructing from pyramid");
-    let merged = reconstruct_from_pyramid(&blended_pyramid, width, height);
+    let merged = reconstruct_from_pyramid(&blended_pyramid);
 
     Ok(merged)
 }
@@ -280,18 +280,29 @@ fn create_weight_maps(sharpness_maps: &[SharpnessMap]) -> Vec<Vec<f32>> {
     weight_maps
 }
 
-/// Build Gaussian pyramid (simple implementation using 2x2 average pooling)
-fn build_gaussian_pyramid(data: &[u8], width: usize, height: usize, levels: u32) -> Vec<Vec<u8>> {
+/// Build Gaussian pyramid (2x2 average pooling). Each entry is `(data, width, height)`.
+fn build_gaussian_pyramid(
+    data: &[u8],
+    width: usize,
+    height: usize,
+    levels: u32,
+) -> Vec<(Vec<u8>, usize, usize)> {
     let mut pyramid = Vec::with_capacity(levels as usize);
-    pyramid.push(data.to_vec());
+    pyramid.push((data.to_vec(), width, height));
 
     let mut current_width = width;
     let mut current_height = height;
 
     for _ in 1..levels {
-        let (downsampled, new_width, new_height) =
-            downsample(pyramid.last().expect("pyramid non-empty: initial element pushed above"), current_width, current_height);
-        pyramid.push(downsampled);
+        let (downsampled, new_width, new_height) = downsample(
+            &pyramid
+                .last()
+                .expect("pyramid non-empty: initial element pushed above")
+                .0,
+            current_width,
+            current_height,
+        );
+        pyramid.push((downsampled, new_width, new_height));
         current_width = new_width;
         current_height = new_height;
 
@@ -338,18 +349,88 @@ fn downsample(data: &[u8], width: usize, height: usize) -> (Vec<u8>, usize, usiz
     (downsampled, new_width, new_height)
 }
 
-/// Build Laplacian pyramid from Gaussian pyramid
-fn build_laplacian_pyramid(gaussian: &[Vec<u8>]) -> Vec<Vec<u8>> {
-    let mut laplacian = Vec::with_capacity(gaussian.len());
+/// Upsample an f32 RGB image from `(src_w, src_h)` to `(dst_w, dst_h)`
+/// using bilinear interpolation.
+fn upsample_f32(
+    data: &[f32],
+    src_w: usize,
+    src_h: usize,
+    dst_w: usize,
+    dst_h: usize,
+) -> Vec<f32> {
+    let mut out = vec![0.0f32; dst_w * dst_h * 3];
 
-    for (current, _next) in gaussian.iter().zip(gaussian.iter().skip(1)) {
-        // Laplacian = Gaussian[i] - upsample(Gaussian[i+1])
-        // For simplicity, just use Gaussian levels directly
-        laplacian.push(current.clone());
+    for y in 0..dst_h {
+        for x in 0..dst_w {
+            let sx = if dst_w > 1 {
+                x as f32 * (src_w as f32 - 1.0) / (dst_w as f32 - 1.0)
+            } else {
+                0.0
+            };
+            let sy = if dst_h > 1 {
+                y as f32 * (src_h as f32 - 1.0) / (dst_h as f32 - 1.0)
+            } else {
+                0.0
+            };
+
+            let x0 = sx.floor().clamp(0.0, (src_w - 1) as f32) as usize;
+            let y0 = sy.floor().clamp(0.0, (src_h - 1) as f32) as usize;
+            let x1 = (x0 + 1).min(src_w - 1);
+            let y1 = (y0 + 1).min(src_h - 1);
+
+            let fx = (sx - x0 as f32).clamp(0.0, 1.0);
+            let fy = (sy - y0 as f32).clamp(0.0, 1.0);
+
+            for c in 0..3 {
+                let v00 = data[(y0 * src_w + x0) * 3 + c];
+                let v01 = data[(y0 * src_w + x1) * 3 + c];
+                let v10 = data[(y1 * src_w + x0) * 3 + c];
+                let v11 = data[(y1 * src_w + x1) * 3 + c];
+
+                let top = v00 * (1.0 - fx) + v01 * fx;
+                let bottom = v10 * (1.0 - fx) + v11 * fx;
+                out[(y * dst_w + x) * 3 + c] = top * (1.0 - fy) + bottom * fy;
+            }
+        }
     }
 
-    // Last level is just the coarsest Gaussian
-    laplacian.push(gaussian.last().expect("gaussian pyramid non-empty: built from non-empty data").clone());
+    out
+}
+
+/// Build the Laplacian pyramid from a Gaussian pyramid.
+///
+/// Each level holds the detail lost when downsampling:
+/// `Laplacian[i] = Gaussian[i] - upsample(Gaussian[i+1])`. The coarsest
+/// level is the residual Gaussian. Stored as `(data, width, height)` with
+/// signed `f32` values so detail (including negative differences) is kept.
+fn build_laplacian_pyramid(
+    gaussian: &[(Vec<u8>, usize, usize)],
+) -> Vec<(Vec<f32>, usize, usize)> {
+    let levels = gaussian.len();
+    let mut laplacian = Vec::with_capacity(levels);
+
+    for i in 0..levels.saturating_sub(1) {
+        let cur: Vec<f32> = gaussian[i].0.iter().map(|b| *b as f32).collect();
+        let (next_f32, next_w, next_h) = (
+            gaussian[i + 1].0.iter().map(|b| *b as f32).collect::<Vec<f32>>(),
+            gaussian[i + 1].1,
+            gaussian[i + 1].2,
+        );
+        let upsampled = upsample_f32(&next_f32, next_w, next_h, gaussian[i].1, gaussian[i].2);
+
+        let mut level = vec![0.0f32; cur.len()];
+        for (j, c) in cur.iter().enumerate() {
+            level[j] = c - upsampled[j];
+        }
+        laplacian.push((level, gaussian[i].1, gaussian[i].2));
+    }
+
+    // Coarsest level: residual Gaussian (no finer level to subtract from)
+    laplacian.push((
+        gaussian[levels - 1].0.iter().map(|b| *b as f32).collect(),
+        gaussian[levels - 1].1,
+        gaussian[levels - 1].2,
+    ));
 
     laplacian
 }
@@ -409,43 +490,66 @@ fn downsample_weights(weights: &[f32], width: usize, height: usize) -> (Vec<f32>
     (downsampled, new_width, new_height)
 }
 
-/// Blend pyramids using weights
-fn blend_pyramids(laplacians: &[Vec<Vec<u8>>], weights: &[Vec<Vec<f32>>]) -> Vec<Vec<u8>> {
+/// Blend pyramids using normalized per-pixel weights.
+///
+/// Laplacian data is stored interleaved RGB (3 `f32` per pixel), so the
+/// pixel index into the per-pixel weight map is `pixel_idx / 3`.
+fn blend_pyramids(
+    laplacians: &[Vec<(Vec<f32>, usize, usize)>],
+    weights: &[Vec<Vec<f32>>],
+) -> Vec<(Vec<f32>, usize, usize)> {
     let num_levels = laplacians[0].len();
     let mut blended = Vec::with_capacity(num_levels);
 
     for level in 0..num_levels {
-        let level_size = laplacians[0][level].len();
-        let mut blended_level = vec![0u8; level_size];
+        let (ref level_data, w, h) = laplacians[0][level];
+        let level_size = level_data.len();
+        let mut blended_level = vec![0.0f32; level_size];
 
-        // Blend each pixel using weights
         for (pixel_idx, blended_pixel) in blended_level.iter_mut().enumerate() {
+            let weight_idx = pixel_idx / 3;
             let mut sum = 0.0;
-
             for frame_idx in 0..laplacians.len() {
-                let pixel_val = laplacians[frame_idx][level][pixel_idx] as f32;
-                let weight_idx = pixel_idx / 3; // Convert RGB index to pixel index
+                let pixel_val = laplacians[frame_idx][level].0[pixel_idx];
                 let weight = weights[frame_idx][level]
                     .get(weight_idx)
                     .copied()
                     .unwrap_or(0.0);
                 sum += pixel_val * weight;
             }
-
-            *blended_pixel = sum.round().clamp(0.0, 255.0) as u8;
+            *blended_pixel = sum;
         }
 
-        blended.push(blended_level);
+        blended.push((blended_level, w, h));
     }
 
     blended
 }
 
-/// Reconstruct image from Laplacian pyramid
-fn reconstruct_from_pyramid(pyramid: &[Vec<u8>], _width: usize, _height: usize) -> Vec<u8> {
-    // Simplified: just return highest resolution level
-    // Full implementation would upsample and add levels
-    pyramid[0].clone()
+/// Reconstruct the merged image from a blended Laplacian pyramid.
+///
+/// Collapses coarse-to-fine: each level is `upsample(reconstruction of the
+/// coarser level) + blended detail at that level`, then clamps to `u8`.
+fn reconstruct_from_pyramid(pyramid: &[(Vec<f32>, usize, usize)]) -> Vec<u8> {
+    let levels = pyramid.len();
+    let mut current = pyramid[levels - 1].0.clone();
+    let mut current_w = pyramid[levels - 1].1;
+    let mut current_h = pyramid[levels - 1].2;
+
+    for level in (0..levels.saturating_sub(1)).rev() {
+        let (target_w, target_h) = (pyramid[level].1, pyramid[level].2);
+        let upsampled = upsample_f32(&current, current_w, current_h, target_w, target_h);
+
+        let mut reconstructed = vec![0.0f32; target_w * target_h * 3];
+        for (j, recon) in reconstructed.iter_mut().enumerate() {
+            *recon = pyramid[level].0[j] + upsampled[j];
+        }
+        current = reconstructed;
+        current_w = target_w;
+        current_h = target_h;
+    }
+
+    current.iter().map(|v| v.clamp(0.0, 255.0) as u8).collect()
 }
 
 #[cfg(test)]
@@ -591,8 +695,8 @@ mod tests {
         let blended = blend_pyramids(std::slice::from_ref(&lp), std::slice::from_ref(&wp));
         assert!(!blended.is_empty());
 
-        let reconstructed = reconstruct_from_pyramid(&blended, width, height);
-        assert_eq!(reconstructed.len(), blended[0].len());
+        let reconstructed = reconstruct_from_pyramid(&blended);
+        assert_eq!(reconstructed.len(), blended[0].0.len());
     }
 
     #[test]
