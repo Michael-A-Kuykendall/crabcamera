@@ -93,6 +93,14 @@ impl SystemRegistry {
                 path: "src/commands/capture.rs",
                 description: "Continuous frame streaming for UI preview",
             },
+            FeatureManifest {
+                id: "capture.consolidated",
+                name: "Consolidated Capture",
+                status: FeatureStatus::Implemented,
+                category: FeatureCategory::Core,
+                path: "src/commands/capture.rs",
+                description: "Unified capture command routing to single/sequence/quality-retry modes",
+            },
             
             // Advanced Controls
             FeatureManifest {
@@ -110,6 +118,14 @@ impl SystemRegistry {
                 category: FeatureCategory::Controls,
                 path: "src/platform/mod.rs",
                 description: "Manual control of exposure time and ISO",
+            },
+            FeatureManifest {
+                id: "controls.batch",
+                name: "Batch Camera Settings",
+                status: FeatureStatus::Implemented,
+                category: FeatureCategory::Controls,
+                path: "src/commands/advanced.rs",
+                description: "Apply multiple camera settings (focus/exposure/ISO/WB) in a single call",
             },
             
             // Quality Engine
@@ -185,8 +201,12 @@ impl SystemRegistry {
         // Linking Core Commands
         let _ = commands::capture::capture_single_photo;
         let _ = commands::capture::capture_photo_sequence;
+        let _ = commands::capture::capture;
         let _ = commands::capture::start_camera_preview;
         let _ = commands::capture::stop_camera_preview;
+        
+        // Linking Advanced Commands
+        let _ = commands::advanced::apply_camera_settings;
         
         // Linking Quality
         let _ = crate::quality::BlurDetector::new;

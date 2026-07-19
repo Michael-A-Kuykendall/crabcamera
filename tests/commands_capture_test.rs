@@ -1,11 +1,12 @@
 #[cfg(test)]
 mod commands_capture_tests {
-    use crabcamera::commands::capture::{
-        capture_photo_sequence, capture_single_photo, capture_with_quality_retry,
-        capture_with_reconnect, get_capture_stats, get_or_create_camera, reconnect_camera,
-        release_camera, save_frame_compressed, save_frame_to_disk, start_camera_preview,
-        stop_camera_preview, CaptureStats, FramePool,
-    };
+use crabcamera::commands::capture::{
+    capture_photo_sequence, capture_single_photo, capture_with_quality_retry,
+    capture_with_reconnect, get_capture_stats, get_or_create_camera, reconnect_camera,
+    release_camera, save_frame_compressed, save_frame_to_disk, start_camera_preview,
+    stop_camera_preview, CaptureStats,
+    capture, CaptureOptions, CaptureMode,
+};
     use crabcamera::tests::{set_mock_camera_mode, MockCaptureMode};
     use crabcamera::types::{CameraFormat, CameraFrame};
     use std::sync::Arc;
@@ -383,32 +384,6 @@ mod commands_capture_tests {
     }
 
     #[tokio::test]
-    async fn test_frame_pool_operations() {
-        let pool = FramePool::new(3, 1024);
-
-        // Get buffers from pool
-        let buffer1 = pool.get_buffer().await;
-        let buffer2 = pool.get_buffer().await;
-        let buffer3 = pool.get_buffer().await;
-        let buffer4 = pool.get_buffer().await; // Should create new one
-
-        assert_eq!(buffer1.capacity(), 1024);
-        assert_eq!(buffer2.capacity(), 1024);
-        assert_eq!(buffer3.capacity(), 1024);
-        assert_eq!(buffer4.capacity(), 1024);
-
-        // Return buffers to pool
-        pool.return_buffer(buffer1).await;
-        pool.return_buffer(buffer2).await;
-        pool.return_buffer(buffer3).await;
-        pool.return_buffer(buffer4).await; // This one should be discarded (pool max is 3)
-
-        // Get buffer again - should reuse from pool
-        let buffer5 = pool.get_buffer().await;
-        assert_eq!(buffer5.capacity(), 1024);
-    }
-
-    #[tokio::test]
     async fn test_capture_stats_serialization() {
         let stats = CaptureStats {
             device_id: "test_device".to_string(),
@@ -758,44 +733,6 @@ mod commands_capture_tests {
     }
 
     #[tokio::test]
-    async fn test_frame_pool_stress() {
-        let pool = Arc::new(FramePool::new(5, 2048)); // Small pool, larger frames
-
-        let mut handles = Vec::new();
-
-        // Stress test the pool with many concurrent operations
-        for i in 0..50 {
-            let pool_clone = pool.clone(); // Clone the Arc for move into async block
-            let handle = tokio::spawn(async move {
-                // Get buffer
-                let buffer = pool_clone.get_buffer().await;
-                assert!(
-                    buffer.capacity() >= 2048,
-                    "Buffer should have correct capacity"
-                );
-
-                // Simulate some work
-                tokio::time::sleep(Duration::from_millis(1)).await;
-
-                // Return buffer
-                pool_clone.return_buffer(buffer).await;
-                i // Return for verification
-            });
-            handles.push(handle);
-        }
-
-        // All operations should complete
-        for handle in handles {
-            let operation_id = handle.await.unwrap();
-            assert!(
-                operation_id < 50,
-                "Operation {} should complete",
-                operation_id
-            );
-        }
-    }
-
-    #[tokio::test]
     async fn test_camera_hot_unplug_simulation() {
         let device_id = "hotplug_test".to_string();
 
@@ -1087,5 +1024,49 @@ mod commands_capture_tests {
         // 8. Release
         let result = release_camera(device_id).await;
         assert!(result.is_ok(), "Should release camera");
+    }
+
+    #[tokio::test]
+    async fn test_consolidated_capture_single() {
+        set_mock_camera_mode("0", MockCaptureMode::Success);
+
+        let result = capture(CaptureOptions {
+            device_id: None,
+            format: None,
+            mode: CaptureMode::Single,
+        })
+        .await;
+        assert!(result.is_ok(), "Consolidated single capture should succeed");
+        let res = result.unwrap();
+        assert_eq!(res.mode, "single");
+        assert_eq!(res.frames.len(), 1);
+        assert!(res.quality_score.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_consolidated_capture_sequence() {
+        set_mock_camera_mode("0", MockCaptureMode::Success);
+
+        let result = capture(CaptureOptions {
+            device_id: Some("0".to_string()),
+            format: None,
+            mode: CaptureMode::Sequence { count: 5, interval_ms: 0 },
+        })
+        .await;
+        assert!(result.is_ok(), "Consolidated sequence capture should succeed");
+        let res = result.unwrap();
+        assert_eq!(res.mode, "sequence");
+        assert_eq!(res.frames.len(), 5);
+    }
+
+    #[tokio::test]
+    async fn test_consolidated_capture_rejects_invalid_sequence() {
+        let result = capture(CaptureOptions {
+            device_id: Some("0".to_string()),
+            format: None,
+            mode: CaptureMode::Sequence { count: 0, interval_ms: 0 },
+        })
+        .await;
+        assert!(result.is_err(), "Zero-count sequence should be rejected");
     }
 }

@@ -78,6 +78,10 @@ pub async fn capture_focus_stack(
 }
 
 /// Capture focus brackets (multiple overlapping focus ranges)
+///
+/// ## Deprecation
+/// Prefer [`capture_focus_stack`] with a [`FocusStackConfig`] instead.
+/// This granular command is retained for backward compatibility.
 #[command]
 pub async fn capture_focus_brackets_command(
     device_id: String,

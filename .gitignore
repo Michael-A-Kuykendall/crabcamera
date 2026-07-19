@@ -46,6 +46,9 @@ examples/**/target/
 # Claude Code configuration (contains project-specific instructions)
 CLAUDE.md
 
+# Claude Code local settings
+/.claude/
+
 # Test image artifacts
 *.jpg
 *.png

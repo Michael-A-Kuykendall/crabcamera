@@ -12,6 +12,7 @@
 //! - Performance testing for advanced operations
 
 use crabcamera::commands::advanced::{
+    apply_camera_settings, CameraSettingsInput,
     capture_burst_sequence, capture_focus_stack_legacy, capture_hdr_sequence,
     get_camera_controls, get_camera_performance, set_camera_controls, set_manual_exposure,
     set_manual_focus, set_white_balance, test_camera_capabilities as test_capabilities,
@@ -644,4 +645,21 @@ async fn test_resource_management() {
             }
         }
     }
+}
+
+#[tokio::test]
+async fn test_apply_camera_settings_rejects_invalid_focus() {
+    let _lock = TEST_LOCK.lock().await;
+
+    let result = apply_camera_settings(CameraSettingsInput {
+        device_id: TEST_DEVICE_ID.to_string(),
+        focus_distance: Some(1.5),
+        exposure_time: None,
+        iso_sensitivity: None,
+        white_balance: None,
+        controls: None,
+    })
+    .await;
+    assert!(result.is_err());
+    assert!(result.unwrap_err().contains("Focus distance must be between 0.0"));
 }

@@ -7,7 +7,7 @@
 [![Crates.io](https://img.shields.io/crates/v/crabcamera.svg)](https://crates.io/crates/crabcamera)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/rust-stable-brightgreen.svg)](https://rustup.rs/)
-[![Tests](https://img.shields.io/badge/tests-85%2F85-brightgreen.svg)](https://github.com/Michael-A-Kuykendall/crabcamera)
+[![Tests](https://img.shields.io/badge/tests-196%2F196-brightgreen.svg)](https://github.com/Michael-A-Kuykendall/crabcamera)
 [![Sponsor](https://img.shields.io/badge/%E2%9D%A4%EF%B8%8F-Sponsor-ea4aaa?logo=github)](https://github.com/sponsors/Michael-A-Kuykendall)
 
 CrabCamera is the first production-ready desktop camera + audio plugin for Tauri—unified camera and audio access across Windows, macOS, and Linux with professional controls, synchronized A/V recording, and zero-config setup.
@@ -22,7 +22,7 @@ CrabCamera is the first production-ready desktop camera + audio plugin for Tauri
 
 ```toml
 [dependencies]
-crabcamera = { version = "0.8", features = ["recording", "audio"] }
+crabcamera = { version = "0.9", features = ["recording", "audio"] }
 tauri = { version = "2.0" }
 ```
 
@@ -165,7 +165,7 @@ cargo run --example camera_warmup_analysis --release
 ### Reliability
 - **Invariant Superhighway**— 40+ runtime correctness checks across all critical paths
 - **Feature Registry**—every capability declared as `Implemented`, `Beta`, `Stub`, or `Planned`
-- **85/85 lib tests** passing; property-based tests for encoder and sync invariants
+- **196/196 lib tests** passing; property-based tests for encoder and sync invariants
 - **Platform transparency**—hardware-unsupported controls log warnings; structural errors return `Err`
 
 ---
@@ -185,6 +185,11 @@ release_camera() -> Result<()>
 ### Capture
 
 ```rust
+// Consolidated capture command (preferred)
+capture(options: CaptureOptions) -> Result<CaptureResult>
+//   modes: CaptureMode::Single | Sequence { count, interval_ms } | QualityRetry { max_attempts, min_quality_score }
+
+// Granular commands (available for backward compatibility)
 capture_single_photo(device_id: Option<String>, format: Option<CameraFormat>) -> Result<CameraFrame>
 capture_with_quality_retry(params: QualityRetryParams) -> Result<CameraFrame>
 capture_photo_sequence(params: SequenceParams) -> Result<Vec<CameraFrame>>
@@ -196,6 +201,11 @@ save_frame_compressed(frame: CameraFrame, path: String, quality: u8) -> Result<(
 ### Camera controls
 
 ```rust
+// Consolidated settings command (preferred)
+apply_camera_settings(settings: CameraSettingsInput) -> Result<ControlApplicationResult>
+//   fields: focus_distance, exposure_time, iso_sensitivity, white_balance, controls
+
+// Granular commands (available for backward compatibility)
 get_camera_controls(device_id: String) -> Result<CameraControls>
 set_camera_controls(device_id: String, controls: CameraControls) -> Result<ControlApplicationResult>
 set_manual_focus(device_id: String, value: f32) -> Result<ControlApplicationResult>
@@ -229,8 +239,11 @@ validate_frame_quality(frame: CameraFrame) -> Result<QualityScore>
 ### Advanced / focus stacking
 
 ```rust
-capture_focus_brackets_command(params: FocusBracketParams) -> Result<Vec<CameraFrame>>
+// Consolidated (preferred)
 capture_focus_stack(params: FocusStackParams) -> Result<CameraFrame>
+
+// Granular (available for backward compatibility)
+capture_focus_brackets_command(params: FocusBracketParams) -> Result<Vec<CameraFrame>>
 capture_hdr_sequence(params: HdrParams) -> Result<Vec<CameraFrame>>
 ```
 
@@ -271,7 +284,7 @@ crabcamera/
 
 Cargo features:
 - `recording`—enables MP4 recording commands (openh264 + Muxide)
-- `audio`—enables audio capture constants and device enumeration
+- `audio`—enables audio capture and encoding (Opus via CPAL)
 - `headless`—enables HeadlessSession API for server/CLI usage
 
 ---
@@ -279,11 +292,18 @@ Cargo features:
 ## Testing
 
 ```bash
-# Core library (72 tests)
+# Core library (196 tests)
 cargo test --lib
 
-# With recording feature (85 tests)
+# With recording feature (196 tests)
 cargo test --lib --features recording
+
+# Integration tests
+cargo test --test commands_capture_test
+cargo test --test commands_init_test
+cargo test --test commands_advanced_test
+cargo test --test commands_permissions_test
+cargo test --test focus_stack_test
 
 # Compile check, all features
 cargo check --all-features

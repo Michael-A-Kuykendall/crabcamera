@@ -5,6 +5,36 @@ All notable changes to CrabCamera will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-07-19
+
+### Added
+- **Command consolidation**: New `capture` command with `CaptureOptions` (routes to single/sequence/quality-retry).
+  New `apply_camera_settings` command with `CameraSettingsInput` (batch focus/exposure/ISO/WB in one call).
+  Granular commands (`capture_single_photo`, `set_manual_focus`, etc.) remain available with deprecation docs.
+- **Quality profiles**: `QualityProfile` enum (Standard/FastPreview/FinalCapture) drives weights,
+  noise-sampling density, and optional downscale in `QualityValidator`. `QualityScore::new_weighted` added.
+- **Smart trigger lock**: `TriggerConfig::lock_after_ready` (default true) prevents duplicate Ready after
+  a shot; locked state returns `Captured` until `reset()`.
+- **Recording PTS drift metrics**: `test_recording_long_duration` (300 frames @ 30fps) and
+  `test_recording_drift_bounded` (60 frames @ 15fps) compute drift = |duration_secs - N/fps| and assert < 1ms.
+
+### Changed
+- **Laplacian pyramid blending**: Replaced linear alpha blend with full Laplacian pyramid in
+  `src/focus_stack/merge.rs`. Signed f32 detail layers, bilinear upsample, coarse-to-fine reconstruction.
+- **Bumped version to 0.9.0** — cumulative improvements since 0.8.5.
+
+### Removed
+- **WebRTC cleanup**: Stale references purged from all docs, GitHub description, and topics.
+- **Internal planning docs**: Removed `docs/ARCHITECTURE_NARRATIVE.md`, `docs/initiatives/*`,
+  `docs/audit/*`, `docs/COMPREHENSIVE_TEST_PLAN.md`, `docs/TEST_IMPLEMENTATION_STATUS.md`,
+  `docs/COVERAGE_SECTIONS.md`, `docs/MUXIDE_UPDATE_PLAN.md`, `docs/INVARIANT_PPT_GUIDE.md`.
+- **AI agent config**: Removed `AGENTS.md`, `CLAUDE.md`, `.claude/` from history.
+- **Stale `.gitattributes` beads reference**.
+
+### Fixed
+- Pyramid blending was using linear alpha blend instead of actual Laplacian pyramid. Now correctly
+  decomposes into signed f32 detail layers, blends at each level, and reconstructs.
+
 ## [0.8.5] - 2026-05-25
 
 ### Fixed

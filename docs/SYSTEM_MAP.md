@@ -87,9 +87,19 @@ The heart of the abstraction. Unlike previous "vaporware" iterations, this layer
 The public API. Every function here is exposed to the Tauri frontend.
 
 *   **`capture.rs`**:
+    *   **Consolidated**: `capture` with `CaptureOptions` (routes to single/sequence/quality-retry).
+    *   **Granular (deprecated)**: `capture_single_photo`, `capture_photo_sequence`, `capture_with_quality_retry`.
     *   **Real-time**: `start_camera_preview`, `stop_camera_preview`, `set_frame_callback`.
-    *   **One-shot**: `capture_single_photo`, `capture_with_quality_retry`.
     *   **Lifecycle**: `release_camera` (Critical for resource cleanup).
+*   **`advanced.rs`**:
+    *   **Consolidated**: `apply_camera_settings` with `CameraSettingsInput` (batch focus/exposure/ISO/WB).
+    *   **Granular (deprecated)**: `set_manual_focus`, `set_manual_exposure`, `set_white_balance`.
+    *   **Burst**: `capture_burst_sequence`, `capture_hdr_sequence`.
+    *   **Legacy**: `capture_focus_stack_legacy`.
+*   **`focus_stack.rs`**:
+    *   **Consolidated**: `capture_focus_stack` with `FocusStackConfig`.
+    *   **Granular (deprecated)**: `capture_focus_brackets_command`.
+    *   **Config**: `get_default_focus_config`, `validate_focus_config`.
 *   **`quality.rs`**: Exposes the logic from `src/quality` to allow the frontend to ask "Is this frame blurry?" without re-implementing the math in JS.
 
 ### 3.3 Quality Engine (`src/quality/`)
@@ -111,8 +121,10 @@ The file `src/registry.rs` contains the **compile-time enforced** map of every f
 | `capture.single` | Single Photo Capture | ✅ Implemented | `src/commands/capture.rs` | **YES** (Hardware Test) |
 | `capture.sequence` | Burst Sequence Capture | ✅ Implemented | `src/commands/capture.rs` | **YES** (Code Review) |
 | `capture.preview` | Live Preview Stream | ✅ Implemented | `src/commands/capture.rs` | **YES** (Code Review) |
+| `capture.consolidated` | Consolidated Capture Command | ✅ Implemented | `src/commands/capture.rs` | **YES** (Unit Tests) |
 | `controls.focus` | Manual Focus | 🚧 Beta | `src/platform/mod.rs` | **YES** (Windows/Mac only) |
 | `controls.exposure` | Exposure Control | 🚧 Beta | `src/platform/mod.rs` | **YES** (Windows/Mac only) |
+| `controls.batch` | Batch Camera Settings | ✅ Implemented | `src/commands/advanced.rs` | **YES** (Unit Tests) |
 | `quality.blur` | Blur Analysis | ✅ Implemented | `src/quality/blur.rs` | **YES** (Unit Tests) |
 | `quality.exposure` | Exposure Analysis | ✅ Implemented | `src/quality/exposure.rs` | **YES** (Unit Tests) |
 | `platform.windows` | Windows Driver | ✅ Implemented | `src/platform/windows/` | **YES** (Hardware Test) |

@@ -7,7 +7,91 @@ use crate::types::{CameraFormat, CameraFrame};
 use std::fs::File;
 use tauri::command;
 
+/// Capture mode for the consolidated [`capture`] command
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub enum CaptureMode {
+    /// Capture a single frame
+    Single,
+    /// Capture a sequence of frames
+    Sequence {
+        /// Number of frames to capture
+        count: u32,
+        /// Interval between captures in milliseconds
+        interval_ms: u32,
+    },
+    /// Capture with automatic quality retry
+    QualityRetry {
+        /// Maximum number of capture attempts
+        max_attempts: Option<u32>,
+        /// Minimum quality score threshold (0.0-1.0)
+        min_quality_score: Option<f32>,
+    },
+}
+
+/// Options for the consolidated [`capture`] command
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct CaptureOptions {
+    /// Camera device identifier (None = default)
+    pub device_id: Option<String>,
+    /// Desired capture format (None = standard)
+    pub format: Option<CameraFormat>,
+    /// Capture mode (single, sequence, or quality retry)
+    pub mode: CaptureMode,
+}
+
+/// Result from the consolidated [`capture`] command
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct CaptureResult {
+    /// Captured frame(s)
+    pub frames: Vec<CameraFrame>,
+    /// Mode string identifier ("single", "sequence", or "quality_retry")
+    pub mode: String,
+    /// Quality score from quality retry mode (None for other modes)
+    pub quality_score: Option<f32>,
+}
+
+/// Consolidated capture command — routes to single, sequence, or quality-retry
+/// based on [`CaptureOptions::mode`].
+///
+/// This is the preferred entry point for all capture operations.
+/// The individual granular commands (`capture_single_photo`,
+/// `capture_photo_sequence`, `capture_with_quality_retry`) remain available
+/// for backward compatibility.
+#[command]
+pub async fn capture(options: CaptureOptions) -> Result<CaptureResult, String> {
+    match options.mode {
+        CaptureMode::Single => {
+            let frame = capture_single_photo(options.device_id, options.format).await?;
+            Ok(CaptureResult {
+                frames: vec![frame],
+                mode: "single".to_string(),
+                quality_score: None,
+            })
+        }
+        CaptureMode::Sequence { count, interval_ms } => {
+            let device_id = options.device_id.unwrap_or_else(|| "0".to_string());
+            let frames = capture_photo_sequence(device_id, count, interval_ms, options.format).await?;
+            Ok(CaptureResult {
+                frames,
+                mode: "sequence".to_string(),
+                quality_score: None,
+            })
+        }
+        CaptureMode::QualityRetry { max_attempts, min_quality_score } => {
+            let frame = capture_with_quality_retry(options.device_id, max_attempts, min_quality_score, options.format).await?;
+            Ok(CaptureResult {
+                frames: vec![frame],
+                mode: "quality_retry".to_string(),
+                quality_score: min_quality_score,
+            })
+        }
+    }
+}
+
 /// Capture a single photo from the specified camera with automatic reconnection
+///
+/// ## Deprecation
+/// Prefer the consolidated [`capture`] command with `CaptureMode::Single`.
 #[command]
 pub async fn capture_single_photo(
     device_id: Option<String>,
@@ -38,6 +122,9 @@ pub async fn capture_single_photo(
 }
 
 /// Capture multiple photos in sequence
+///
+/// ## Deprecation
+/// Prefer the consolidated [`capture`] command with `CaptureMode::Sequence`.
 #[command]
 pub async fn capture_photo_sequence(
     device_id: String,
@@ -106,6 +193,9 @@ pub async fn capture_photo_sequence(
 }
 
 /// Capture a photo with quality retry - automatically retries until quality threshold is met
+///
+/// ## Deprecation
+/// Prefer the consolidated [`capture`] command with `CaptureMode::QualityRetry`.
 #[command]
 pub async fn capture_with_quality_retry(
     device_id: Option<String>,
@@ -505,6 +595,33 @@ mod tests {
             .await
             .expect("sequence capture should work with mock");
         assert_eq!(seq.len(), 2);
+
+        std::env::remove_var("CRABCAMERA_USE_MOCK");
+    }
+
+    #[tokio::test]
+    async fn test_consolidated_capture_routes_to_correct_mode() {
+        enable_mock_camera();
+
+        let single = capture(CaptureOptions {
+            device_id: Some("0".to_string()),
+            format: None,
+            mode: CaptureMode::Single,
+        })
+        .await
+        .expect("consolidated single capture should work");
+        assert_eq!(single.frames.len(), 1);
+        assert_eq!(single.mode, "single");
+
+        let seq = capture(CaptureOptions {
+            device_id: Some("0".to_string()),
+            format: None,
+            mode: CaptureMode::Sequence { count: 3, interval_ms: 0 },
+        })
+        .await
+        .expect("consolidated sequence capture should work");
+        assert_eq!(seq.frames.len(), 3);
+        assert_eq!(seq.mode, "sequence");
 
         std::env::remove_var("CRABCAMERA_USE_MOCK");
     }

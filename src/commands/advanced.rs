@@ -215,7 +215,97 @@ pub async fn capture_burst_sequence(
     Ok(frames)
 }
 
+/// Batch camera settings to apply in a single call
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct CameraSettingsInput {
+    /// Camera device identifier
+    pub device_id: String,
+    /// Manual focus distance (0.0 = infinity, 1.0 = closest)
+    pub focus_distance: Option<f32>,
+    /// Exposure time in seconds (0.0 < t <= 10.0)
+    pub exposure_time: Option<f32>,
+    /// ISO sensitivity (50-12800)
+    pub iso_sensitivity: Option<u32>,
+    /// White balance mode
+    pub white_balance: Option<WhiteBalance>,
+    /// Full CameraControls struct (merged over individual settings)
+    pub controls: Option<CameraControls>,
+}
+
+/// Apply multiple camera settings at once.
+///
+/// This is the preferred entry point for setting camera controls.
+/// It merges individual settings (focus, exposure, ISO, white balance)
+/// with an optional `CameraControls` struct and applies them in a single
+/// call. Individual granular commands (`set_manual_focus`,
+/// `set_manual_exposure`, `set_white_balance`) remain available for
+/// backward compatibility.
+#[command]
+pub async fn apply_camera_settings(
+    settings: CameraSettingsInput,
+) -> Result<ControlApplicationResult, String> {
+    let mut combined = CameraControls::default();
+
+    if let Some(focus_distance) = settings.focus_distance {
+        if !(0.0..=1.0).contains(&focus_distance) {
+            return Err("Focus distance must be between 0.0 and 1.0".to_string());
+        }
+        combined.auto_focus = Some(false);
+        combined.focus_distance = Some(focus_distance);
+    }
+
+    if let Some(exposure_time) = settings.exposure_time {
+        if exposure_time <= 0.0 || exposure_time > 10.0 {
+            return Err("Exposure time must be between 0.0 and 10.0 seconds".to_string());
+        }
+        combined.auto_exposure = Some(false);
+        combined.exposure_time = Some(exposure_time);
+    }
+
+    if let Some(iso_sensitivity) = settings.iso_sensitivity {
+        if !(MIN_ISO..=MAX_ISO).contains(&iso_sensitivity) {
+            return Err(format!(
+                "ISO sensitivity must be between {} and {}",
+                MIN_ISO, MAX_ISO
+            ));
+        }
+        combined.auto_exposure = Some(false);
+        combined.iso_sensitivity = Some(iso_sensitivity);
+    }
+
+    if let Some(white_balance) = settings.white_balance {
+        combined.white_balance = Some(white_balance);
+    }
+
+    if let Some(controls) = &settings.controls {
+        if controls.auto_focus.is_some() {
+            combined.auto_focus = controls.auto_focus;
+        }
+        if controls.focus_distance.is_some() {
+            combined.focus_distance = controls.focus_distance;
+        }
+        if controls.auto_exposure.is_some() {
+            combined.auto_exposure = controls.auto_exposure;
+        }
+        if controls.exposure_time.is_some() {
+            combined.exposure_time = controls.exposure_time;
+        }
+        if controls.iso_sensitivity.is_some() {
+            combined.iso_sensitivity = controls.iso_sensitivity;
+        }
+        if controls.white_balance.is_some() {
+            combined.white_balance = controls.white_balance.clone();
+        }
+    }
+
+    set_camera_controls(settings.device_id, combined).await
+}
+
 /// Enable manual focus mode and set focus distance
+///
+/// ## Deprecation
+/// Prefer the consolidated [`apply_camera_settings`] command
+/// which can batch multiple settings in a single call.
 #[command]
 pub async fn set_manual_focus(device_id: String, focus_distance: f32) -> Result<ControlApplicationResult, String> {
     if !(0.0..=1.0).contains(&focus_distance) {
@@ -232,6 +322,10 @@ pub async fn set_manual_focus(device_id: String, focus_distance: f32) -> Result<
 }
 
 /// Set manual exposure settings
+///
+/// ## Deprecation
+/// Prefer the consolidated [`apply_camera_settings`] command
+/// which can batch multiple settings in a single call.
 #[command]
 pub async fn set_manual_exposure(
     device_id: String,
@@ -257,6 +351,10 @@ pub async fn set_manual_exposure(
 }
 
 /// Set white balance mode
+///
+/// ## Deprecation
+/// Prefer the consolidated [`apply_camera_settings`] command
+/// which can batch multiple settings in a single call.
 #[command]
 pub async fn set_white_balance(
     device_id: String,
@@ -470,6 +568,45 @@ mod tests {
                 .unwrap_or_default()
                 .contains("ISO sensitivity must be between")
         );
+    }
+
+    #[tokio::test]
+    async fn test_apply_camera_settings_batches_correctly() {
+        let result = apply_camera_settings(CameraSettingsInput {
+            device_id: "0".to_string(),
+            focus_distance: Some(1.5),
+            exposure_time: None,
+            iso_sensitivity: None,
+            white_balance: None,
+            controls: None,
+        })
+        .await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Focus distance must be between 0.0"));
+
+        let result = apply_camera_settings(CameraSettingsInput {
+            device_id: "0".to_string(),
+            focus_distance: None,
+            exposure_time: Some(0.0),
+            iso_sensitivity: None,
+            white_balance: None,
+            controls: None,
+        })
+        .await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Exposure time must be between 0.0 and 10.0 seconds"));
+
+        let result = apply_camera_settings(CameraSettingsInput {
+            device_id: "0".to_string(),
+            focus_distance: None,
+            exposure_time: None,
+            iso_sensitivity: Some(MIN_ISO.saturating_sub(1)),
+            white_balance: None,
+            controls: None,
+        })
+        .await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("ISO sensitivity must be between"));
     }
 
     #[tokio::test]
