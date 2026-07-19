@@ -21,18 +21,49 @@ pub struct QualityScore {
 impl QualityScore {
     /// Create new quality score with components.
     ///
-    /// The overall score is a weighted average of individual components.
+    /// The overall score is a weighted average of individual components using
+    /// the standard `(0.35, 0.35, 0.15, 0.15)` weights.
     #[must_use]
     pub fn new(blur: f32, exposure: f32, composition: f32, technical: f32) -> Self {
+        Self::new_weighted(
+            blur,
+            exposure,
+            composition,
+            technical,
+            (0.35, 0.35, 0.15, 0.15),
+        )
+    }
+
+    /// Create a quality score with explicit component weights.
+    ///
+    /// `weights` are `(blur, exposure, composition, technical)`; the overall score
+    /// is their normalized weighted average (weights need not sum to 1.0).
+    #[must_use]
+    pub fn new_weighted(
+        blur: f32,
+        exposure: f32,
+        composition: f32,
+        technical: f32,
+        weights: (f32, f32, f32, f32),
+    ) -> Self {
         // Invariant: Score components must be normalized
         #[cfg(debug_assertions)]
         crate::assert_invariant!(
-            (0.0..=1.0).contains(&blur) && (0.0..=1.0).contains(&exposure),
+            (0.0..=1.0).contains(&blur)
+                && (0.0..=1.0).contains(&exposure)
+                && (0.0..=1.0).contains(&composition)
+                && (0.0..=1.0).contains(&technical),
             "Quality components must be normalized 0.0-1.0"
         );
 
-        let overall =
-            (blur * 0.35 + exposure * 0.35 + composition * 0.15 + technical * 0.15).clamp(0.0, 1.0);
+        let total = weights.0 + weights.1 + weights.2 + weights.3;
+        let overall = if total > 0.0 {
+            (blur * weights.0 + exposure * weights.1 + composition * weights.2 + technical * weights.3)
+                / total
+        } else {
+            0.0
+        }
+        .clamp(0.0, 1.0);
 
         Self {
             overall,
@@ -96,6 +127,80 @@ impl QualityGrade {
             Self::Fair => "Fair",
             Self::Poor => "Poor",
             Self::VeryPoor => "Very Poor",
+        }
+    }
+}
+
+/// Analysis profile controlling the cost/accuracy trade-off for quality validation.
+///
+/// - `Standard` matches the original behavior (full resolution, moderate noise
+///   sampling, balanced weights).
+/// - `FastPreview` is for preview / hot paths: downscales the frame, samples noise
+///   coarsely, and weights only blur + exposure (skips composition/technical).
+/// - `FinalCapture` is the accurate pass: denser noise sampling and slightly more
+///   weight on composition/technical.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum QualityProfile {
+    /// Original balanced behavior.
+    Standard,
+    /// Cheap pass for live preview / hot loops.
+    FastPreview,
+    /// Accurate pass for final captured frames.
+    FinalCapture,
+}
+
+impl Default for QualityProfile {
+    fn default() -> Self {
+        QualityProfile::Standard
+    }
+}
+
+impl QualityProfile {
+    /// Component weights `(blur, exposure, composition, technical)`.
+    pub fn weights(&self) -> (f32, f32, f32, f32) {
+        match self {
+            QualityProfile::Standard => (0.35, 0.35, 0.15, 0.15),
+            QualityProfile::FastPreview => (0.5, 0.5, 0.0, 0.0),
+            QualityProfile::FinalCapture => (0.35, 0.35, 0.2, 0.2),
+        }
+    }
+
+    /// Maximum dimension (px) to analyze; larger frames are downscaled.
+    /// `None` disables downscaling.
+    pub fn max_analysis_dimension(&self) -> Option<u32> {
+        match self {
+            QualityProfile::FastPreview => Some(320),
+            QualityProfile::Standard | QualityProfile::FinalCapture => None,
+        }
+    }
+
+    /// Byte stride for noise sampling; smaller = denser (more accurate).
+    pub fn noise_sampling_step(&self) -> usize {
+        match self {
+            QualityProfile::FastPreview => 1200,
+            QualityProfile::Standard => 300,
+            QualityProfile::FinalCapture => 30,
+        }
+    }
+
+    /// Default validation thresholds for this profile.
+    pub fn default_config(&self) -> ValidationConfig {
+        match self {
+            QualityProfile::Standard => ValidationConfig::default(),
+            QualityProfile::FastPreview => ValidationConfig {
+                blur_threshold: 0.4,
+                exposure_threshold: 0.4,
+                overall_threshold: 0.4,
+                min_resolution: (320, 240),
+                max_noise_level: 0.4,
+            },
+            QualityProfile::FinalCapture => ValidationConfig {
+                blur_threshold: 0.6,
+                exposure_threshold: 0.6,
+                overall_threshold: 0.7,
+                min_resolution: (MIN_RESOLUTION_WIDTH, MIN_RESOLUTION_HEIGHT),
+                max_noise_level: 0.3,
+            },
         }
     }
 }
@@ -182,15 +287,27 @@ pub struct QualityValidator {
     blur_detector: BlurDetector,
     exposure_analyzer: ExposureAnalyzer,
     config: ValidationConfig,
+    profile: QualityProfile,
 }
 
 impl QualityValidator {
-    /// Create new quality validator with custom configuration
+    /// Create new quality validator with custom configuration (Standard profile).
     pub fn new(config: ValidationConfig) -> Self {
         Self {
             blur_detector: BlurDetector::default(),
             exposure_analyzer: ExposureAnalyzer::default(),
             config,
+            profile: QualityProfile::Standard,
+        }
+    }
+
+    /// Create a validator using a named analysis profile (applies profile defaults).
+    pub fn with_profile(profile: QualityProfile) -> Self {
+        Self {
+            blur_detector: BlurDetector::default(),
+            exposure_analyzer: ExposureAnalyzer::default(),
+            config: profile.default_config(),
+            profile,
         }
     }
 
@@ -199,24 +316,38 @@ impl QualityValidator {
         &self.config
     }
 
+    /// Get the active analysis profile.
+    pub fn profile(&self) -> QualityProfile {
+        self.profile
+    }
+
     /// Validate frame quality comprehensively
     pub fn validate_frame(&self, frame: &CameraFrame) -> QualityReport {
+        // Fast-preview profiles downscale large frames before analysis.
+        let analyzed = match self.profile.max_analysis_dimension() {
+            Some(max_dim) => Self::downscale_frame(frame, max_dim),
+            None => frame.clone(),
+        };
+
         // Analyze blur
-        let blur_metrics = self.blur_detector.analyze_frame(frame);
+        let blur_metrics = self.blur_detector.analyze_frame(&analyzed);
 
         // Analyze exposure
-        let exposure_metrics = self.exposure_analyzer.analyze_frame(frame);
+        let exposure_metrics = self.exposure_analyzer.analyze_frame(&analyzed);
 
         // Analyze composition and technical aspects
-        let technical_details = Self::analyze_technical_aspects(frame);
-        let composition_score = self.analyze_composition(frame, &technical_details);
+        let technical_details =
+            Self::analyze_technical_aspects(&analyzed, self.profile.noise_sampling_step());
+        let composition_score = self.analyze_composition(&analyzed, &technical_details);
 
-        // Calculate overall quality score
-        let quality_score = QualityScore::new(
+        // Calculate overall quality score using the profile's component weights
+        let quality_score = QualityScore::new_weighted(
             blur_metrics.quality_score,
             exposure_metrics.quality_score,
             composition_score,
-            1.0 - technical_details.noise_estimate, // Technical score (inverted noise)
+            // Technical score (inverted noise)
+            1.0 - technical_details.noise_estimate,
+            self.profile.weights(),
         );
 
         let grade = quality_score.get_grade();
@@ -240,13 +371,13 @@ impl QualityValidator {
     }
 
     /// Analyze technical aspects of the frame
-    fn analyze_technical_aspects(frame: &CameraFrame) -> TechnicalDetails {
+    fn analyze_technical_aspects(frame: &CameraFrame, noise_step: usize) -> TechnicalDetails {
         let resolution = (frame.width, frame.height);
         let pixel_count = frame.width * frame.height;
         let aspect_ratio = frame.width as f32 / frame.height as f32;
 
-        // Estimate noise level
-        let noise_estimate = Self::estimate_noise_level(&frame.data);
+        // Estimate noise level (sampling density is controlled by the profile)
+        let noise_estimate = Self::estimate_noise_level(&frame.data, noise_step);
 
         // Analyze color distribution
         let color_distribution = Self::analyze_color_distribution(&frame.data);
@@ -261,16 +392,22 @@ impl QualityValidator {
     }
 
     /// Estimate noise level in the image
-    fn estimate_noise_level(rgb_data: &[u8]) -> f32 {
+    ///
+    /// `step` is the byte stride between samples (aligned to pixel boundaries).
+    /// Smaller strides sample more pixels and yield a more accurate estimate.
+    fn estimate_noise_level(rgb_data: &[u8], step: usize) -> f32 {
         if rgb_data.len() < 9 {
             return 1.0; // High noise for very small images
         }
 
+        // Align stride to pixel boundaries (3 bytes) and keep it sane.
+        let stride = ((step / 3).max(1)) * 3;
+
         // Simple noise estimation using local variance
         let mut noise_values = Vec::new();
 
-        // Sample every 100th pixel to estimate noise
-        for i in (0..rgb_data.len()).step_by(300) {
+        // Sample every `stride` bytes to estimate noise
+        for i in (0..rgb_data.len()).step_by(stride) {
             // Every 100 pixels * 3 channels
             if i + 8 < rgb_data.len() {
                 let r1 = f32::from(rgb_data[i]);
@@ -368,6 +505,48 @@ impl QualityValidator {
             saturation_mean,
             color_balance_score,
         }
+    }
+
+    /// Downscale a frame to at most `max_dim` on its longest side using box
+    /// average pooling. Used by fast-preview profiles to cut analysis cost.
+    fn downscale_frame(frame: &CameraFrame, max_dim: u32) -> CameraFrame {
+        let max_side = frame.width.max(frame.height);
+        if max_side <= max_dim {
+            return frame.clone();
+        }
+
+        let factor = ((max_side + max_dim - 1) / max_dim) as usize;
+        let new_w = (frame.width as usize / factor).max(1);
+        let new_h = (frame.height as usize / factor).max(1);
+        let area = (factor * factor) as u32;
+
+        let mut out = vec![0u8; new_w * new_h * 3];
+        for y in 0..new_h {
+            for x in 0..new_w {
+                let mut sr = 0u32;
+                let mut sg = 0u32;
+                let mut sb = 0u32;
+                for dy in 0..factor {
+                    for dx in 0..factor {
+                        let sx = x * factor + dx;
+                        let sy = y * factor + dy;
+                        if sx < frame.width as usize && sy < frame.height as usize {
+                            let idx = (sy * frame.width as usize + sx) * 3;
+                            sr += u32::from(frame.data[idx]);
+                            sg += u32::from(frame.data[idx + 1]);
+                            sb += u32::from(frame.data[idx + 2]);
+                        }
+                    }
+                }
+                let dst = (y * new_w + x) * 3;
+                out[dst] = (sr / area) as u8;
+                out[dst + 1] = (sg / area) as u8;
+                out[dst + 2] = (sb / area) as u8;
+            }
+        }
+
+        CameraFrame::new(out, new_w as u32, new_h as u32, frame.device_id.clone())
+            .with_format(frame.format.clone())
     }
 
     /// Analyze composition quality
@@ -560,7 +739,7 @@ mod tests {
     #[test]
     fn test_noise_estimation() {
         let noisy_data = vec![0, 255, 0, 255, 0, 255, 0, 255, 0]; // High noise pattern
-        let noise_level = QualityValidator::estimate_noise_level(&noisy_data);
+        let noise_level = QualityValidator::estimate_noise_level(&noisy_data, 300);
 
         assert!(noise_level > 0.0 && noise_level <= 1.0);
     }
@@ -591,5 +770,56 @@ mod tests {
 
         let recommendations_text = report.recommendations.join(" ");
         assert!(recommendations_text.contains("resolution"));
+    }
+
+    #[test]
+    fn test_profile_weights_change_overall() {
+        let frame = create_test_frame(1280, 720, 128);
+
+        // FastPreview weights only blur + exposure, so composition/technical are ignored.
+        let fast = QualityValidator::with_profile(QualityProfile::FastPreview);
+        let rf = fast.validate_frame(&frame);
+        let expected = (rf.score.blur + rf.score.exposure) / 2.0;
+        assert!((rf.score.overall - expected).abs() < 1e-3);
+
+        // Standard uses all four components and reports a profile of Standard.
+        let std = QualityValidator::with_profile(QualityProfile::Standard);
+        assert_eq!(std.profile(), QualityProfile::Standard);
+        let _ = std.validate_frame(&frame);
+    }
+
+    #[test]
+    fn test_fast_preview_downscales_analysis() {
+        let frame = create_test_frame(1920, 1080, 128);
+        let fast = QualityValidator::with_profile(QualityProfile::FastPreview);
+
+        let report = fast.validate_frame(&frame);
+
+        // Downscaled to <=320 on the long side, so the analyzed resolution is small.
+        assert!(report.technical_details.resolution.0 <= 320);
+        assert_eq!(fast.profile(), QualityProfile::FastPreview);
+    }
+
+    #[test]
+    fn test_profile_noise_sampling_detects_variation() {
+        // Build a frame with deterministic per-pixel luminance variation (noise-like).
+        let mut data = vec![128u8; 1920 * 1080 * 3];
+        for i in (0..data.len()).step_by(3) {
+            let n = (i % 17) as u8;
+            data[i] = data[i].wrapping_add(n);
+        }
+        let frame = CameraFrame::new(data, 1920, 1080, "test".to_string());
+
+        let fast = QualityValidator::with_profile(QualityProfile::FastPreview);
+        let final_v = QualityValidator::with_profile(QualityProfile::FinalCapture);
+
+        let nf = fast.validate_frame(&frame).technical_details.noise_estimate;
+        let nc = final_v.validate_frame(&frame).technical_details.noise_estimate;
+
+        // Both estimates are valid; FinalCapture samples far more pixels so it
+        // surfaces the injected variation rather than averaging it away.
+        assert!((0.0..=1.0).contains(&nf));
+        assert!((0.0..=1.0).contains(&nc));
+        assert!(nc > 1e-3, "FinalCapture should detect the injected noise");
     }
 }
