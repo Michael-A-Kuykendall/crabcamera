@@ -56,4 +56,60 @@ mod recording_tests {
         // Clean up
         let _ = std::fs::remove_file(&output);
     }
+
+    #[test]
+    fn test_recording_long_duration() {
+        let output = temp_dir().join("test_long.mp4");
+        let config = RecordingConfig::new(320, 240, 30.0);
+        let mut recorder = Recorder::new(&output, config).expect("Failed to create recorder");
+
+        let total_frames = 300u64;
+        for _ in 0..total_frames {
+            let rgb = vec![100u8; 320 * 240 * 3];
+            recorder
+                .write_rgb_frame(&rgb, 320, 240)
+                .expect("Failed to write frame");
+        }
+
+        assert_eq!(recorder.frame_count(), total_frames);
+        assert!(recorder.is_recording());
+
+        let stats = recorder.finish().expect("Failed to finish");
+
+        assert_eq!(stats.video_frames, total_frames);
+        assert!(stats.bytes_written > 0);
+        assert_eq!(stats.dropped_frames, 0);
+
+        let expected_duration = total_frames as f64 / 30.0;
+        let drift = (stats.duration_secs - expected_duration).abs();
+        assert!(drift < 0.001, "PTS drift too large: {drift}s (dur={}, exp={expected_duration})", stats.duration_secs);
+
+        let _ = std::fs::remove_file(&output);
+    }
+
+    #[test]
+    fn test_recording_drift_bounded() {
+        let output = temp_dir().join("test_drift.mp4");
+        let config = RecordingConfig::new(640, 480, 15.0);
+        let mut recorder = Recorder::new(&output, config).expect("Failed to create recorder");
+
+        let total_frames = 60u64;
+        for _ in 0..total_frames {
+            let rgb = vec![100u8; 640 * 480 * 3];
+            recorder
+                .write_rgb_frame(&rgb, 640, 480)
+                .expect("Failed to write frame");
+        }
+
+        let stats = recorder.finish().expect("Failed to finish");
+
+        assert_eq!(stats.video_frames, total_frames);
+        assert_eq!(stats.dropped_frames, 0);
+
+        let expected_duration = total_frames as f64 / 15.0;
+        let drift = (stats.duration_secs - expected_duration).abs();
+        assert!(drift < 0.001, "PTS drift exceeded bound: {drift}s (dur={}, exp={expected_duration})", stats.duration_secs);
+
+        let _ = std::fs::remove_file(&output);
+    }
 }
