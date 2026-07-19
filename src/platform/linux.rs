@@ -367,7 +367,7 @@ impl LinuxCamera {
     pub fn apply_controls(
         &mut self,
         controls: &crate::types::CameraControls,
-    ) -> Result<(), CameraError> {
+    ) -> Result<crate::types::ControlApplicationResult, CameraError> {
         let device_index = self.device_id.parse::<usize>().unwrap_or(0);
         let path = format!("/dev/video{}", device_index);
         let dev = Device::with_path(&path).map_err(|e| CameraError::InitializationError(format!("Failed to open device for controls: {}", e)))?;
@@ -382,73 +382,90 @@ impl LinuxCamera {
         const V4L2_CID_EXPOSURE_ABSOLUTE: u32 = 0x009a0902;
         const V4L2_CID_SHARPNESS: u32 = 0x0098091b;
 
-        // Helper to denormalize: min + val * (max - min)
-        let set_norm = |id: u32, val: f32| {
-            if let Ok(controls) = dev.query_controls() {
-                if let Some(desc) = controls.iter().find(|d| d.id == id) {
+        let mut applied = Vec::new();
+        let mut rejected = Vec::new();
+
+        // Closure returns true=applied, false=rejected
+        let try_set_norm = |id: u32, val: f32| -> bool {
+            if let Ok(desc_list) = dev.query_controls() {
+                if let Some(desc) = desc_list.iter().find(|d| d.id == id) {
                     let min = desc.minimum;
                     let max = desc.maximum;
                     let actual = min + (val.clamp(0.0, 1.0) * (max - min) as f32) as i64;
-                     
-                     let ctrl = v4l::control::Control {
+                    let ctrl = v4l::control::Control {
                         id,
                         value: v4l::control::Value::Integer(actual),
                     };
-                    if let Err(e) = dev.set_control(ctrl) {
-                        log::warn!("V4L2 set_control(id=0x{:08x}) failed: {}", id, e);
+                    match dev.set_control(ctrl) {
+                        Ok(_) => return true,
+                        Err(e) => { log::warn!("V4L2 set_control(id=0x{:08x}) failed: {}", id, e); }
                     }
                 } else {
                     log::warn!("V4L2 control id=0x{:08x} not found on device", id);
                 }
             }
+            false
         };
 
-        if let Some(b) = controls.brightness { set_norm(V4L2_CID_BRIGHTNESS, b); }
-        if let Some(c) = controls.contrast { set_norm(V4L2_CID_CONTRAST, c); }
-        if let Some(s) = controls.saturation { set_norm(V4L2_CID_SATURATION, s); }
-        if let Some(sh) = controls.sharpness { set_norm(V4L2_CID_SHARPNESS, sh); }
-        if let Some(z) = controls.zoom { set_norm(V4L2_CID_ZOOM_ABSOLUTE, z); }
+        macro_rules! try_norm {
+            ($field:expr, $id:expr, $name:literal) => {
+                if let Some(v) = $field {
+                    if try_set_norm($id, v) { applied.push($name.to_string()); }
+                    else { rejected.push($name.to_string()); }
+                }
+            };
+        }
+
+        try_norm!(controls.brightness, V4L2_CID_BRIGHTNESS, "brightness");
+        try_norm!(controls.contrast, V4L2_CID_CONTRAST, "contrast");
+        try_norm!(controls.saturation, V4L2_CID_SATURATION, "saturation");
+        try_norm!(controls.sharpness, V4L2_CID_SHARPNESS, "sharpness");
+        try_norm!(controls.zoom, V4L2_CID_ZOOM_ABSOLUTE, "zoom");
 
         if let Some(af) = controls.auto_focus {
-             let ctrl = v4l::control::Control {
+            let ctrl = v4l::control::Control {
                 id: V4L2_CID_FOCUS_AUTO,
                 value: v4l::control::Value::Boolean(af),
             };
-             if let Err(e) = dev.set_control(ctrl) {
-                 log::warn!("V4L2 set auto_focus failed: {}", e);
-             }
+            match dev.set_control(ctrl) {
+                Ok(_) => applied.push("auto_focus".to_string()),
+                Err(e) => {
+                    log::warn!("V4L2 set auto_focus failed: {}", e);
+                    rejected.push("auto_focus".to_string());
+                }
+            }
         }
-        
-        // Manual Focus
+
         if let Some(fd) = controls.focus_distance {
-             if controls.auto_focus != Some(true) {
-                 set_norm(V4L2_CID_FOCUS_ABSOLUTE, fd);
-             }
+            if controls.auto_focus != Some(true) {
+                if try_set_norm(V4L2_CID_FOCUS_ABSOLUTE, fd) { applied.push("focus_distance".to_string()); }
+                else { rejected.push("focus_distance".to_string()); }
+            }
         }
-        
-        // Auto Exposure
+
         if let Some(ae) = controls.auto_exposure {
-             // V4L2_CID_EXPOSURE_AUTO: 0=Auto, 1=Manual (usually, check docs)
-             // Actually enum: 0=Auto, 1=Manual, 2=Shutter Prio, 3=Aperture Prio
-             // For simplify: 0=Auto, 1=Manual
-             let val = if ae { 0 } else { 1 }; 
-             let ctrl = v4l::control::Control {
+            let val = if ae { 0 } else { 1 };
+            let ctrl = v4l::control::Control {
                 id: V4L2_CID_EXPOSURE_AUTO,
                 value: v4l::control::Value::Integer(val),
             };
-             if let Err(e) = dev.set_control(ctrl) {
-                 log::warn!("V4L2 set auto_exposure failed: {}", e);
-             }
+            match dev.set_control(ctrl) {
+                Ok(_) => applied.push("auto_exposure".to_string()),
+                Err(e) => {
+                    log::warn!("V4L2 set auto_exposure failed: {}", e);
+                    rejected.push("auto_exposure".to_string());
+                }
+            }
         }
 
-        // Manual Exposure
         if let Some(et) = controls.exposure_time {
-             if controls.auto_exposure != Some(true) {
-                 set_norm(V4L2_CID_EXPOSURE_ABSOLUTE, et);
-             } 
+            if controls.auto_exposure != Some(true) {
+                if try_set_norm(V4L2_CID_EXPOSURE_ABSOLUTE, et) { applied.push("exposure_time".to_string()); }
+                else { rejected.push("exposure_time".to_string()); }
+            }
         }
 
-        Ok(())
+        Ok(crate::types::ControlApplicationResult { applied, rejected })
     }
 
     /// Get camera capabilities (Linux V4L2)

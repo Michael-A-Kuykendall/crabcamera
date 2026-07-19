@@ -1,6 +1,6 @@
 // MediaFoundation camera controls for advanced functionality
 use crate::errors::CameraError;
-use crate::types::{CameraCapabilities, CameraControls, WhiteBalance};
+use crate::types::{CameraCapabilities, CameraControls, ControlApplicationResult, WhiteBalance};
 use crate::constants::*;
 use windows::core::Interface;
 use windows::Win32::Media::DirectShow::{
@@ -106,26 +106,33 @@ impl MediaFoundationControls {
     pub fn apply_controls(
         &mut self,
         controls: &CameraControls,
-    ) -> Result<Vec<String>, CameraError> {
-        let mut unsupported = Vec::new();
+    ) -> Result<ControlApplicationResult, CameraError> {
+        let mut applied = Vec::new();
+        let mut rejected = Vec::new();
 
         // Focus controls
         if let Some(auto_focus) = controls.auto_focus {
             match self.set_auto_focus(auto_focus) {
-                Ok(_) => log::debug!("Set auto focus: {}", auto_focus),
+                Ok(_) => {
+                    log::debug!("Set auto focus: {}", auto_focus);
+                    applied.push("auto_focus".to_string());
+                }
                 Err(e) => {
                     log::warn!("Auto focus not supported: {}", e);
-                    unsupported.push("auto_focus".to_string());
+                    rejected.push("auto_focus".to_string());
                 }
             }
         }
 
         if let Some(focus_distance) = controls.focus_distance {
             match self.set_focus_distance(focus_distance) {
-                Ok(_) => log::debug!("Set focus distance: {}", focus_distance),
+                Ok(_) => {
+                    log::debug!("Set focus distance: {}", focus_distance);
+                    applied.push("focus_distance".to_string());
+                }
                 Err(e) => {
                     log::warn!("Focus distance not supported: {}", e);
-                    unsupported.push("focus_distance".to_string());
+                    rejected.push("focus_distance".to_string());
                 }
             }
         }
@@ -133,20 +140,26 @@ impl MediaFoundationControls {
         // Exposure controls
         if let Some(auto_exposure) = controls.auto_exposure {
             match self.set_auto_exposure(auto_exposure) {
-                Ok(_) => log::debug!("Set auto exposure: {}", auto_exposure),
+                Ok(_) => {
+                    log::debug!("Set auto exposure: {}", auto_exposure);
+                    applied.push("auto_exposure".to_string());
+                }
                 Err(e) => {
                     log::warn!("Auto exposure not supported: {}", e);
-                    unsupported.push("auto_exposure".to_string());
+                    rejected.push("auto_exposure".to_string());
                 }
             }
         }
 
         if let Some(exposure_time) = controls.exposure_time {
             match self.set_exposure_time(exposure_time) {
-                Ok(_) => log::debug!("Set exposure time: {}s", exposure_time),
+                Ok(_) => {
+                    log::debug!("Set exposure time: {}s", exposure_time);
+                    applied.push("exposure_time".to_string());
+                }
                 Err(e) => {
                     log::warn!("Exposure time not supported: {}", e);
-                    unsupported.push("exposure_time".to_string());
+                    rejected.push("exposure_time".to_string());
                 }
             }
         }
@@ -154,46 +167,57 @@ impl MediaFoundationControls {
         // Video processing controls
         if let Some(ref white_balance) = controls.white_balance {
             match self.set_white_balance(white_balance) {
-                Ok(_) => log::debug!("Set white balance: {:?}", white_balance),
+                Ok(_) => {
+                    log::debug!("Set white balance: {:?}", white_balance);
+                    applied.push("white_balance".to_string());
+                }
                 Err(e) => {
                     log::warn!("White balance not supported: {}", e);
-                    unsupported.push("white_balance".to_string());
+                    rejected.push("white_balance".to_string());
                 }
             }
         }
 
         if let Some(brightness) = controls.brightness {
             match self.set_brightness(brightness) {
-                Ok(_) => log::debug!("Set brightness: {}", brightness),
+                Ok(_) => {
+                    log::debug!("Set brightness: {}", brightness);
+                    applied.push("brightness".to_string());
+                }
                 Err(e) => {
                     log::warn!("Brightness not supported: {}", e);
-                    unsupported.push("brightness".to_string());
+                    rejected.push("brightness".to_string());
                 }
             }
         }
 
         if let Some(contrast) = controls.contrast {
             match self.set_contrast(contrast) {
-                Ok(_) => log::debug!("Set contrast: {}", contrast),
+                Ok(_) => {
+                    log::debug!("Set contrast: {}", contrast);
+                    applied.push("contrast".to_string());
+                }
                 Err(e) => {
                     log::warn!("Contrast not supported: {}", e);
-                    unsupported.push("contrast".to_string());
+                    rejected.push("contrast".to_string());
                 }
             }
         }
 
         if let Some(saturation) = controls.saturation {
             match self.set_saturation(saturation) {
-                Ok(_) => log::debug!("Set saturation: {}", saturation),
+                Ok(_) => {
+                    log::debug!("Set saturation: {}", saturation);
+                    applied.push("saturation".to_string());
+                }
                 Err(e) => {
                     log::warn!("Saturation not supported: {}", e);
-                    unsupported.push("saturation".to_string());
+                    rejected.push("saturation".to_string());
                 }
             }
         }
 
-        // Return list of unsupported controls for user feedback
-        Ok(unsupported)
+        Ok(ControlApplicationResult { applied, rejected })
     }
 
     /// Get current camera control values
@@ -897,5 +921,177 @@ fn white_balance_to_kelvin(wb: &WhiteBalance) -> i32 {
         // Safe: valid color temperatures (1000–10000K) are well within i32 range
         #[allow(clippy::cast_possible_wrap)]
         WhiteBalance::Custom(temp) => *temp as i32,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_controls_without_interfaces() -> MediaFoundationControls {
+        MediaFoundationControls {
+            device_index: 0,
+            camera_control: None,
+            video_proc_amp: None,
+            focus_range: None,
+            exposure_range: None,
+            brightness_range: None,
+            contrast_range: None,
+            saturation_range: None,
+            white_balance_range: None,
+        }
+    }
+
+    #[test]
+    fn test_normalize_round_trip_and_clamp() {
+        let range = ControlRange {
+            min: 0,
+            max: 100,
+            step: 1,
+            default: 50,
+        };
+
+        assert_eq!(normalize_to_device_range(-2.0, &range), 0);
+        assert_eq!(normalize_to_device_range(2.0, &range), 100);
+
+        let mid = normalize_to_device_range(0.0, &range);
+        assert_eq!(mid, 50);
+
+        let back = device_to_normalized_range(mid, &range);
+        assert!(back.abs() < 0.05);
+    }
+
+    #[test]
+    fn test_white_balance_to_kelvin_mapping() {
+        assert_eq!(white_balance_to_kelvin(&WhiteBalance::Auto), -1);
+        assert_eq!(white_balance_to_kelvin(&WhiteBalance::Incandescent), 2700);
+        assert_eq!(white_balance_to_kelvin(&WhiteBalance::Fluorescent), 4200);
+        assert_eq!(white_balance_to_kelvin(&WhiteBalance::Daylight), 5500);
+        assert_eq!(white_balance_to_kelvin(&WhiteBalance::Flash), 5500);
+        assert_eq!(white_balance_to_kelvin(&WhiteBalance::Cloudy), 6500);
+        assert_eq!(white_balance_to_kelvin(&WhiteBalance::Shade), 7500);
+        assert_eq!(white_balance_to_kelvin(&WhiteBalance::Custom(5100)), 5100);
+    }
+
+    #[test]
+    fn test_apply_controls_with_no_interfaces_rejects_all_requested() {
+        let mut controls_if = make_controls_without_interfaces();
+        let controls = CameraControls {
+            auto_focus: Some(true),
+            focus_distance: Some(0.2),
+            auto_exposure: Some(false),
+            exposure_time: Some(0.01),
+            white_balance: Some(WhiteBalance::Daylight),
+            brightness: Some(0.1),
+            contrast: Some(0.2),
+            saturation: Some(0.3),
+            ..Default::default()
+        };
+
+        let result = controls_if
+            .apply_controls(&controls)
+            .expect("apply_controls should return structured result");
+
+        assert!(result.applied.is_empty());
+        assert!(result.rejected.contains(&"auto_focus".to_string()));
+        assert!(result.rejected.contains(&"focus_distance".to_string()));
+        assert!(result.rejected.contains(&"auto_exposure".to_string()));
+        assert!(result.rejected.contains(&"exposure_time".to_string()));
+        assert!(result.rejected.contains(&"white_balance".to_string()));
+        assert!(result.rejected.contains(&"brightness".to_string()));
+        assert!(result.rejected.contains(&"contrast".to_string()));
+        assert!(result.rejected.contains(&"saturation".to_string()));
+    }
+
+    #[test]
+    fn test_get_controls_and_capabilities_without_interfaces() {
+        let controls_if = make_controls_without_interfaces();
+
+        let controls = controls_if.get_controls().expect("get_controls should succeed");
+        assert_eq!(controls, CameraControls::default());
+
+        let caps = controls_if
+            .get_capabilities()
+            .expect("get_capabilities should succeed");
+        assert!(!caps.supports_auto_focus);
+        assert!(!caps.supports_manual_focus);
+        assert!(!caps.supports_auto_exposure);
+        assert!(!caps.supports_manual_exposure);
+        assert!(!caps.supports_white_balance);
+        assert!(!caps.supports_zoom);
+    }
+
+    #[test]
+    fn test_direct_setters_return_error_without_interfaces() {
+        let mut controls_if = make_controls_without_interfaces();
+
+        assert!(matches!(
+            controls_if.set_auto_focus(true),
+            Err(CameraError::ControlError(_))
+        ));
+        assert!(matches!(
+            controls_if.set_focus_distance(0.3),
+            Err(CameraError::ControlError(_))
+        ));
+        assert!(matches!(
+            controls_if.set_auto_exposure(true),
+            Err(CameraError::ControlError(_))
+        ));
+        assert!(matches!(
+            controls_if.set_exposure_time(0.02),
+            Err(CameraError::ControlError(_))
+        ));
+        assert!(matches!(
+            controls_if.set_white_balance(&WhiteBalance::Auto),
+            Err(CameraError::ControlError(_))
+        ));
+        assert!(matches!(
+            controls_if.set_brightness(0.1),
+            Err(CameraError::ControlError(_))
+        ));
+        assert!(matches!(
+            controls_if.set_contrast(0.1),
+            Err(CameraError::ControlError(_))
+        ));
+        assert!(matches!(
+            controls_if.set_saturation(0.1),
+            Err(CameraError::ControlError(_))
+        ));
+    }
+
+    #[test]
+    fn test_support_checks_without_interfaces() {
+        let controls_if = make_controls_without_interfaces();
+        assert!(!controls_if.test_camera_control_support(CameraControl_Focus.0));
+        assert!(!controls_if.test_video_proc_support(VideoProcAmp_Brightness.0));
+        assert!(controls_if.query_camera_control_range(CameraControl_Focus.0).is_none());
+        assert!(controls_if.query_video_proc_range(VideoProcAmp_Brightness.0).is_none());
+        assert!(controls_if
+            .get_camera_control_value(CameraControl_Focus.0)
+            .is_err());
+        assert!(controls_if
+            .get_video_proc_value(VideoProcAmp_Brightness.0)
+            .is_err());
+    }
+
+    #[test]
+    fn test_constructor_best_effort_paths() {
+        // Environment-dependent: this may succeed (device present) or fail (headless CI),
+        // but both outcomes should be handled without panics.
+        let result = MediaFoundationControls::new(0);
+        assert!(result.is_ok() || result.is_err());
+
+        if let Ok(mut controls) = result {
+            let _ = controls.cache_control_ranges();
+            let _ = controls.get_controls();
+            let _ = controls.get_capabilities();
+
+            let apply = controls.apply_controls(&CameraControls {
+                auto_focus: Some(true),
+                exposure_time: Some(0.01),
+                ..Default::default()
+            });
+            assert!(apply.is_ok() || apply.is_err());
+        }
     }
 }

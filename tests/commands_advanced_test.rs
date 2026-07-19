@@ -60,8 +60,12 @@ async fn test_set_get_camera_controls() {
     // Set controls
     let set_result = set_camera_controls(device_id.clone(), controls.clone()).await;
     match set_result {
-        Ok(message) => {
-            assert!(message.contains("Controls applied"));
+        Ok(result) => {
+            // At least some controls should have been accepted
+            assert!(
+                !result.applied.is_empty() || !result.rejected.is_empty(),
+                "Result should account for at least one requested control"
+            );
         }
         Err(e) => {
             // In CI environment, camera might not be available

@@ -228,4 +228,29 @@ mod tests {
         let result = validate_focus_config(config);
         assert!(result.is_err());
     }
+
+    #[tokio::test]
+    async fn test_capture_focus_stack_rejects_invalid_config_early() {
+        let config = FocusStackConfig {
+            num_steps: 1,
+            ..Default::default()
+        };
+
+        let result = capture_focus_stack("0".to_string(), config, None).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_capture_focus_brackets_command_rejects_invalid_inputs_early() {
+        let result = capture_focus_brackets_command(
+            "0".to_string(),
+            0,
+            3,
+            0.5,
+            5,
+            None,
+        )
+        .await;
+        assert!(result.is_err());
+    }
 }

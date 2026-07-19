@@ -188,3 +188,88 @@ pub fn get_mock_camera_mode(device_id: &str) -> MockCaptureMode {
         .cloned()
         .unwrap_or(MockCaptureMode::Success)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_mock_system_default_and_mode_setters() {
+        let system = MockCameraSystem::new();
+
+        system.set_capture_mode(MockCaptureMode::SlowCapture);
+        system.set_error_mode(Some(CameraError::CaptureError("x".to_string())));
+
+        // Default starts empty until devices are added.
+        assert!(system.get_devices().is_empty());
+    }
+
+    #[test]
+    fn test_add_mock_devices_per_platform() {
+        let system = MockCameraSystem::new();
+
+        system.add_mock_devices(Platform::Windows);
+        assert_eq!(system.get_devices().len(), 2);
+
+        system.add_mock_devices(Platform::MacOS);
+        assert_eq!(system.get_devices().len(), 2);
+
+        system.add_mock_devices(Platform::Linux);
+        assert_eq!(system.get_devices().len(), 2);
+
+        system.add_mock_devices(Platform::Unknown);
+        assert_eq!(system.get_devices().len(), 1);
+    }
+
+    #[test]
+    fn test_create_mock_device_and_formats() {
+        let device = create_mock_device("cam-1", "Mock Cam", Platform::Windows);
+        assert_eq!(device.id, "cam-1");
+        assert_eq!(device.name, "Mock Cam");
+        assert!(device.is_available);
+        assert_eq!(device.platform, Platform::Windows);
+        assert_eq!(device.supports_formats.len(), 3);
+
+        let formats = get_test_formats();
+        assert_eq!(formats.len(), 3);
+    }
+
+    #[test]
+    fn test_create_mock_frame_shape() {
+        let frame = create_mock_frame("device-a");
+        assert_eq!(frame.device_id, "device-a");
+        assert_eq!(frame.width, 1280);
+        assert_eq!(frame.height, 720);
+        assert_eq!(frame.format, "RGB8");
+        assert_eq!(frame.size_bytes, frame.data.len());
+        assert!(!frame.id.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_setup_test_environment_creates_devices() {
+        let env = setup_test_environment().await;
+        assert!(!env.get_devices().is_empty());
+    }
+
+    #[test]
+    fn test_mock_camera_mode_registry() {
+        let id = "mode-cam";
+
+        assert!(matches!(
+            get_mock_camera_mode(id),
+            MockCaptureMode::Success
+        ));
+
+        set_mock_camera_mode(id, MockCaptureMode::Failure);
+        assert!(matches!(
+            get_mock_camera_mode(id),
+            MockCaptureMode::Failure
+        ));
+    }
+
+    #[test]
+    fn test_init_test_env_is_idempotent() {
+        init_test_env();
+        init_test_env();
+    }
+}

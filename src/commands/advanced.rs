@@ -1,6 +1,6 @@
 use crate::commands::capture::get_or_create_camera;
 use crate::constants::*;
-use crate::types::{BurstConfig, CameraControls, CameraFrame, WhiteBalance};
+use crate::types::{BurstConfig, CameraControls, CameraFrame, ControlApplicationResult, WhiteBalance};
 use std::time::Instant;
 use tauri::command;
 
@@ -9,7 +9,7 @@ use tauri::command;
 pub async fn set_camera_controls(
     device_id: String,
     controls: CameraControls,
-) -> Result<String, String> {
+) -> Result<ControlApplicationResult, String> {
     log::info!("Setting camera controls for device: {}", device_id);
 
     let camera_arc =
@@ -21,20 +21,19 @@ pub async fn set_camera_controls(
             .lock()
             .map_err(|_| "Mutex poisoned".to_string())?;
 
-        // Apply controls to camera (platform-specific implementation)
-        match camera.apply_controls(&controls) {
-            Ok(_) => {
-                log::info!(
-                    "Camera controls applied successfully for device: {}",
-                    device_id_clone
-                );
-                Ok(format!("Controls applied to camera {}", device_id_clone))
-            }
-            Err(e) => {
-                log::error!("Failed to apply camera controls: {}", e);
-                Err(format!("Failed to apply controls: {}", e))
-            }
-        }
+        let result = camera.apply_controls(&controls).map_err(|e| {
+            log::error!("Failed to apply camera controls: {}", e);
+            format!("Failed to apply controls: {}", e)
+        })?;
+
+        log::info!(
+            "Camera controls applied for device {} (applied={}, rejected={})",
+            device_id_clone,
+            result.applied.len(),
+            result.rejected.len()
+        );
+
+        Ok(result)
     })
     .await
     .map_err(|e| format!("Task join error: {}", e))?
@@ -218,7 +217,7 @@ pub async fn capture_burst_sequence(
 
 /// Enable manual focus mode and set focus distance
 #[command]
-pub async fn set_manual_focus(device_id: String, focus_distance: f32) -> Result<String, String> {
+pub async fn set_manual_focus(device_id: String, focus_distance: f32) -> Result<ControlApplicationResult, String> {
     if !(0.0..=1.0).contains(&focus_distance) {
         return Err("Focus distance must be between 0.0 (infinity) and 1.0 (closest)".to_string());
     }
@@ -238,7 +237,7 @@ pub async fn set_manual_exposure(
     device_id: String,
     exposure_time: f32,
     iso_sensitivity: u32,
-) -> Result<String, String> {
+) -> Result<ControlApplicationResult, String> {
     if exposure_time <= 0.0 || exposure_time > 10.0 {
         return Err("Exposure time must be between 0.0 and 10.0 seconds".to_string());
     }
@@ -262,7 +261,7 @@ pub async fn set_manual_exposure(
 pub async fn set_white_balance(
     device_id: String,
     white_balance: WhiteBalance,
-) -> Result<String, String> {
+) -> Result<ControlApplicationResult, String> {
     let controls = CameraControls {
         white_balance: Some(white_balance),
         ..CameraControls::default()
@@ -426,4 +425,249 @@ async fn save_burst_sequence(frames: &[CameraFrame], save_dir: &str) -> Result<(
 
     log::info!("Successfully saved {} frames to {}", frames.len(), save_dir);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::ExposureBracketing;
+
+    fn enable_mock_camera() {
+        std::env::set_var("CRABCAMERA_USE_MOCK", "1");
+    }
+
+    #[tokio::test]
+    async fn test_set_manual_focus_rejects_out_of_range_value() {
+        let result = set_manual_focus("0".to_string(), 1.5).await;
+        assert!(result.is_err());
+        assert!(
+            result
+                .err()
+                .unwrap_or_default()
+                .contains("Focus distance must be between 0.0")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_set_manual_exposure_rejects_invalid_exposure_time() {
+        let result = set_manual_exposure("0".to_string(), 0.0, MIN_ISO).await;
+        assert!(result.is_err());
+        assert!(
+            result
+                .err()
+                .unwrap_or_default()
+                .contains("Exposure time must be between 0.0 and 10.0 seconds")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_set_manual_exposure_rejects_invalid_iso() {
+        let result = set_manual_exposure("0".to_string(), 0.01, MIN_ISO.saturating_sub(1)).await;
+        assert!(result.is_err());
+        assert!(
+            result
+                .err()
+                .unwrap_or_default()
+                .contains("ISO sensitivity must be between")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_capture_burst_sequence_rejects_invalid_count() {
+        let config = BurstConfig {
+            count: 0,
+            interval_ms: 10,
+            bracketing: None,
+            focus_stacking: false,
+            auto_save: false,
+            save_directory: None,
+        };
+
+        let result = capture_burst_sequence("0".to_string(), config).await;
+        assert!(result.is_err());
+        assert!(
+            result
+                .err()
+                .unwrap_or_default()
+                .contains("Invalid burst count")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_capture_burst_sequence_rejects_invalid_focus_stacking_count() {
+        let config = BurstConfig {
+            count: 1,
+            interval_ms: 10,
+            bracketing: None,
+            focus_stacking: true,
+            auto_save: false,
+            save_directory: None,
+        };
+
+        let result = capture_burst_sequence("0".to_string(), config).await;
+        assert!(result.is_err());
+        assert!(
+            result
+                .err()
+                .unwrap_or_default()
+                .contains("Focus stacking requires at least 2 frames")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_capture_burst_sequence_rejects_empty_bracketing_stops() {
+        let config = BurstConfig {
+            count: 3,
+            interval_ms: 10,
+            bracketing: Some(ExposureBracketing {
+                stops: vec![],
+                base_exposure: 0.01,
+            }),
+            focus_stacking: false,
+            auto_save: false,
+            save_directory: None,
+        };
+
+        let result = capture_burst_sequence("0".to_string(), config).await;
+        assert!(result.is_err());
+        assert!(
+            result
+                .err()
+                .unwrap_or_default()
+                .contains("Exposure bracketing requires at least one stop value")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_capture_burst_sequence_rejects_non_positive_base_exposure() {
+        let config = BurstConfig {
+            count: 3,
+            interval_ms: 10,
+            bracketing: Some(ExposureBracketing {
+                stops: vec![-1.0, 0.0, 1.0],
+                base_exposure: 0.0,
+            }),
+            focus_stacking: false,
+            auto_save: false,
+            save_directory: None,
+        };
+
+        let result = capture_burst_sequence("0".to_string(), config).await;
+        assert!(result.is_err());
+        assert!(
+            result
+                .err()
+                .unwrap_or_default()
+                .contains("Exposure bracketing base_exposure must be greater than zero")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_capture_focus_stack_legacy_rejects_out_of_range_stack_count() {
+        let result = capture_focus_stack_legacy("0".to_string(), 2).await;
+        assert!(result.is_err());
+        assert!(
+            result
+                .err()
+                .unwrap_or_default()
+                .contains("Focus stack count must be between 3 and 20")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_save_burst_sequence_rejects_invalid_frame_data_shape() {
+        let invalid_frame = CameraFrame::new(vec![1, 2, 3], 16, 16, "0".to_string());
+        let result = save_burst_sequence(&[invalid_frame], "test_outputs/invalid_burst").await;
+
+        assert!(result.is_err());
+        assert!(
+            result
+                .err()
+                .unwrap_or_default()
+                .contains("Failed to create image from frame data")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_get_and_set_camera_controls_with_mock() {
+        enable_mock_camera();
+
+        let controls = CameraControls {
+            auto_focus: Some(true),
+            brightness: Some(0.1),
+            ..Default::default()
+        };
+
+        let apply = set_camera_controls("0".to_string(), controls)
+            .await
+            .expect("set controls should succeed with mock");
+        assert!(!apply.applied.is_empty());
+
+        let fetched = get_camera_controls("0".to_string())
+            .await
+            .expect("get controls should succeed with mock");
+        assert_eq!(fetched.auto_focus, Some(true));
+
+        std::env::remove_var("CRABCAMERA_USE_MOCK");
+    }
+
+    #[tokio::test]
+    async fn test_capture_burst_sequence_success_with_mock() {
+        enable_mock_camera();
+
+        let config = BurstConfig {
+            count: 2,
+            interval_ms: 0,
+            bracketing: None,
+            focus_stacking: false,
+            auto_save: false,
+            save_directory: None,
+        };
+
+        let frames = capture_burst_sequence("0".to_string(), config)
+            .await
+            .expect("burst capture should succeed with mock");
+        assert_eq!(frames.len(), 2);
+
+        std::env::remove_var("CRABCAMERA_USE_MOCK");
+    }
+
+    #[tokio::test]
+    async fn test_performance_and_capabilities_with_mock() {
+        enable_mock_camera();
+
+        let metrics = get_camera_performance("0".to_string())
+            .await
+            .expect("performance should succeed");
+        assert!(metrics.fps_actual > 0.0);
+
+        let caps = test_camera_capabilities("0".to_string())
+            .await
+            .expect("capabilities should succeed");
+        assert!(caps.supports_manual_focus);
+
+        std::env::remove_var("CRABCAMERA_USE_MOCK");
+    }
+
+    #[tokio::test]
+    async fn test_wrapper_commands_hdr_focus_legacy_and_white_balance() {
+        enable_mock_camera();
+
+        let wb = set_white_balance("0".to_string(), WhiteBalance::Daylight)
+            .await
+            .expect("set_white_balance should succeed with mock");
+        assert!(!wb.applied.is_empty());
+
+        let hdr = capture_hdr_sequence("0".to_string())
+            .await
+            .expect("hdr wrapper should succeed with mock");
+        assert!(!hdr.is_empty());
+
+        let stack = capture_focus_stack_legacy("0".to_string(), 3)
+            .await
+            .expect("focus stack legacy should succeed with mock");
+        assert_eq!(stack.len(), 3);
+
+        std::env::remove_var("CRABCAMERA_USE_MOCK");
+    }
 }

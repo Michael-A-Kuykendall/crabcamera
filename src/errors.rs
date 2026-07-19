@@ -71,3 +71,59 @@ impl From<CameraError> for String {
 }
 
 impl std::error::Error for CameraError {}
+
+#[cfg(test)]
+mod tests {
+    use super::CameraError;
+
+    #[test]
+    fn test_display_messages_for_all_core_variants() {
+        let cases = vec![
+            (CameraError::InitializationError("init".to_string()), "Camera initialization error: init"),
+            (CameraError::PermissionDenied("perm".to_string()), "Permission denied error: perm"),
+            (CameraError::CaptureError("capture".to_string()), "Capture error: capture"),
+            (CameraError::ControlError("control".to_string()), "Camera control error: control"),
+            (CameraError::StreamError("stream".to_string()), "Stream error: stream"),
+            (CameraError::UnsupportedOperation("unsupported".to_string()), "Unsupported operation: unsupported"),
+            (CameraError::AccessError("access".to_string()), "Access error: access"),
+            (CameraError::ConnectionError("connection".to_string()), "Connection error: connection"),
+            (CameraError::SystemError("system".to_string()), "System error: system"),
+            (CameraError::ConfigError("config".to_string()), "Configuration error: config"),
+        ];
+
+        for (error, expected) in cases {
+            assert_eq!(error.to_string(), expected);
+        }
+    }
+
+    #[cfg(feature = "recording")]
+    #[test]
+    fn test_display_messages_for_recording_variants() {
+        let cases = vec![
+            (CameraError::EncodingError("enc".to_string()), "Encoding error: enc"),
+            (CameraError::MuxingError("mux".to_string()), "Muxing error: mux"),
+            (CameraError::IoError("io".to_string()), "IO error: io"),
+        ];
+
+        for (error, expected) in cases {
+            assert_eq!(error.to_string(), expected);
+        }
+    }
+
+    #[cfg(feature = "audio")]
+    #[test]
+    fn test_display_message_for_audio_variant() {
+        let error = CameraError::AudioError("audio".to_string());
+        assert_eq!(error.to_string(), "Audio error: audio");
+    }
+
+    #[test]
+    fn test_into_string_and_error_trait() {
+        let error = CameraError::CaptureError("boom".to_string());
+        let as_string: String = error.into();
+        assert_eq!(as_string, "Capture error: boom");
+
+        let err_obj: &dyn std::error::Error = &CameraError::SystemError("x".to_string());
+        assert!(err_obj.source().is_none());
+    }
+}

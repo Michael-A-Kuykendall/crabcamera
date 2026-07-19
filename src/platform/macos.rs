@@ -298,7 +298,7 @@ impl MacOSCamera {
     pub fn apply_controls(
         &mut self,
         controls: &crate::types::CameraControls,
-    ) -> Result<(), CameraError> {
+    ) -> Result<crate::types::ControlApplicationResult, CameraError> {
         let wrapper = match AVDeviceWrapper::new(&self.device_id) {
             Some(w) => w,
             None => return Err(CameraError::InitializationError("Device not found".to_string())),
@@ -306,31 +306,46 @@ impl MacOSCamera {
 
         wrapper.lock_for_configuration()?;
 
+        let mut applied = Vec::new();
+        let mut rejected = Vec::new();
+
         // Focus
         if let Some(af) = controls.auto_focus {
             let mode = if af { AV_CAPTURE_FOCUS_MODE_CONTINUOUS_AUTO } else { AV_CAPTURE_FOCUS_MODE_LOCKED };
-            if let Err(e) = wrapper.set_focus_mode(mode) {
-                log::warn!("AVFoundation set_focus_mode failed: {}", e);
+            match wrapper.set_focus_mode(mode) {
+                Ok(_) => applied.push("auto_focus".to_string()),
+                Err(e) => {
+                    log::warn!("AVFoundation set_focus_mode failed: {}", e);
+                    rejected.push("auto_focus".to_string());
+                }
             }
         }
 
         if let Some(dist) = controls.focus_distance {
-             if let Err(e) = wrapper.set_lens_position(dist) {
-                 log::warn!("AVFoundation set_lens_position failed: {}", e);
-             }
+            match wrapper.set_lens_position(dist) {
+                Ok(_) => applied.push("focus_distance".to_string()),
+                Err(e) => {
+                    log::warn!("AVFoundation set_lens_position failed: {}", e);
+                    rejected.push("focus_distance".to_string());
+                }
+            }
         }
 
         // Exposure
         if let Some(ae) = controls.auto_exposure {
-             let mode = if ae { AV_CAPTURE_EXPOSURE_MODE_CONTINUOUS_AUTO } else { AV_CAPTURE_EXPOSURE_MODE_LOCKED };
-             if let Err(e) = wrapper.set_exposure_mode(mode) {
-                 log::warn!("AVFoundation set_exposure_mode failed: {}", e);
-             }
+            let mode = if ae { AV_CAPTURE_EXPOSURE_MODE_CONTINUOUS_AUTO } else { AV_CAPTURE_EXPOSURE_MODE_LOCKED };
+            match wrapper.set_exposure_mode(mode) {
+                Ok(_) => applied.push("auto_exposure".to_string()),
+                Err(e) => {
+                    log::warn!("AVFoundation set_exposure_mode failed: {}", e);
+                    rejected.push("auto_exposure".to_string());
+                }
+            }
         }
 
         wrapper.unlock_for_configuration();
-        
-        Ok(())
+
+        Ok(crate::types::ControlApplicationResult { applied, rejected })
     }
 
     /// Test camera capabilities (macOS AVFoundation)

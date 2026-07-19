@@ -178,4 +178,32 @@ mod tests {
         let camera_config = result.unwrap();
         assert!(camera_config.auto_reconnect);
     }
+
+    #[tokio::test]
+    async fn test_other_getters_return_values() {
+        assert!(get_full_quality_config().await.is_ok());
+        assert!(get_storage_config().await.is_ok());
+        assert!(get_advanced_config().await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_update_config_and_subconfigs() {
+        let base = CrabCameraConfig::default();
+        update_config(base.clone())
+            .await
+            .expect("update_config should succeed for default config");
+
+        update_camera_config(base.camera.clone())
+            .await
+            .expect("update_camera_config should succeed");
+        update_full_quality_config(base.quality.clone())
+            .await
+            .expect("update_full_quality_config should succeed");
+        update_storage_config(base.storage.clone())
+            .await
+            .expect("update_storage_config should succeed");
+        update_advanced_config(base.advanced.clone())
+            .await
+            .expect("update_advanced_config should succeed");
+    }
 }

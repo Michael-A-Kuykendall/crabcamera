@@ -144,3 +144,74 @@ impl std::fmt::Display for HeadlessError {
 }
 
 impl std::error::Error for HeadlessError {}
+
+#[cfg(test)]
+mod tests {
+    use super::{HeadlessError, HeadlessErrorKind};
+    use crate::errors::CameraError;
+
+    #[test]
+    fn test_error_constructors_set_expected_kind_and_message() {
+        let cases = vec![
+            (HeadlessError::timeout(), HeadlessErrorKind::Timeout, "timeout"),
+            (HeadlessError::closed(), HeadlessErrorKind::Closed, "session is closed"),
+            (HeadlessError::stopped(), HeadlessErrorKind::Stopped, "session is stopped"),
+            (
+                HeadlessError::already_started(),
+                HeadlessErrorKind::AlreadyStarted,
+                "session is already started",
+            ),
+            (
+                HeadlessError::already_stopped(),
+                HeadlessErrorKind::AlreadyStopped,
+                "session is already stopped",
+            ),
+            (
+                HeadlessError::already_closed(),
+                HeadlessErrorKind::AlreadyClosed,
+                "session is already closed",
+            ),
+            (
+                HeadlessError::poisoned_lock(),
+                HeadlessErrorKind::PoisonedLock,
+                "lock poisoned by previous panic",
+            ),
+        ];
+
+        for (err, kind, msg) in cases {
+            assert_eq!(err.kind, kind);
+            assert_eq!(err.message, msg);
+            assert_eq!(err.to_string(), msg);
+        }
+    }
+
+    #[test]
+    fn test_not_found_and_invalid_argument_and_unsupported() {
+        let not_found = HeadlessError::not_found("device", "42");
+        assert_eq!(not_found.kind, HeadlessErrorKind::NotFound);
+        assert_eq!(not_found.message, "device not found: 42");
+
+        let invalid = HeadlessError::invalid_argument("bad value");
+        assert_eq!(invalid.kind, HeadlessErrorKind::InvalidArgument);
+        assert_eq!(invalid.message, "bad value");
+
+        let unsupported = HeadlessError::unsupported("feature disabled");
+        assert_eq!(unsupported.kind, HeadlessErrorKind::Unsupported);
+        assert_eq!(unsupported.message, "feature disabled");
+    }
+
+    #[test]
+    fn test_backend_wraps_camera_error() {
+        let backend = HeadlessError::backend(CameraError::CaptureError("camera exploded".to_string()));
+        assert_eq!(backend.kind, HeadlessErrorKind::Backend);
+        assert!(backend.message.contains("Capture error"));
+        assert!(backend.message.contains("camera exploded"));
+    }
+
+    #[test]
+    fn test_error_trait_impl() {
+        let err = HeadlessError::timeout();
+        let std_err: &dyn std::error::Error = &err;
+        assert!(std_err.source().is_none());
+    }
+}

@@ -197,10 +197,10 @@ save_frame_compressed(frame: CameraFrame, path: String, quality: u8) -> Result<(
 
 ```rust
 get_camera_controls(device_id: String) -> Result<CameraControls>
-set_camera_controls(device_id: String, controls: CameraControls) -> Result<String>
-set_manual_focus(device_id: String, value: f32) -> Result<()>
-set_manual_exposure(device_id: String, value: f32) -> Result<()>
-set_white_balance(device_id: String, wb: WhiteBalance) -> Result<()>
+set_camera_controls(device_id: String, controls: CameraControls) -> Result<ControlApplicationResult>
+set_manual_focus(device_id: String, value: f32) -> Result<ControlApplicationResult>
+set_manual_exposure(device_id: String, value: f32) -> Result<ControlApplicationResult>
+set_white_balance(device_id: String, wb: WhiteBalance) -> Result<ControlApplicationResult>
 test_camera_capabilities(device_id: String) -> Result<CameraCapabilities>
 ```
 

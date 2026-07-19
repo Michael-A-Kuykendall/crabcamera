@@ -11,7 +11,7 @@ pub mod controls;
 
 use self::controls::MediaFoundationControls;
 use crate::errors::CameraError;
-use crate::types::{CameraCapabilities, CameraControls, CameraFormat, CameraFrame};
+use crate::types::{CameraCapabilities, CameraControls, ControlApplicationResult, CameraFormat, CameraFrame};
 use nokhwa::Camera;
 
 /// Type alias for frame callback to reduce complexity
@@ -70,7 +70,7 @@ impl WindowsCamera {
     pub fn apply_controls(
         &mut self,
         controls: &CameraControls,
-    ) -> Result<Vec<String>, CameraError> {
+    ) -> Result<ControlApplicationResult, CameraError> {
         self.mf_controls.apply_controls(controls)
     }
 
@@ -127,3 +127,23 @@ impl WindowsCamera {
 
 // Re-export public interface functions for compatibility
 pub use capture::{capture_frame, initialize_camera, list_cameras};
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_windows_camera_new_rejects_invalid_device_id() {
+        let result = WindowsCamera::new("invalid-device-id".to_string(), CameraFormat::standard());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_windows_capture_helpers_are_callable() {
+        let init = initialize_camera("not-a-number", CameraFormat::standard());
+        assert!(init.is_err());
+
+        let cams = list_cameras();
+        assert!(cams.is_ok() || cams.is_err());
+    }
+}

@@ -312,6 +312,15 @@ fn apply_scale(frame: &mut CameraFrame, scale: f32) {
 mod tests {
     use super::*;
 
+    fn test_frame(width: u32, height: u32, value: u8) -> CameraFrame {
+        CameraFrame::new(
+            vec![value; (width * height * 3) as usize],
+            width,
+            height,
+            "test_device".to_string(),
+        )
+    }
+
     #[test]
     fn test_alignment_result_default() {
         let result = AlignmentResult::default();
@@ -361,5 +370,69 @@ mod tests {
             result,
             Err(FocusStackError::InsufficientImages { .. })
         ));
+    }
+
+    #[test]
+    fn test_align_frames_dimension_mismatch() {
+        let a = test_frame(8, 8, 100);
+        let b = test_frame(9, 8, 120);
+        let result = align_frames(&[a, b]);
+
+        assert!(matches!(result, Err(FocusStackError::DimensionMismatch { .. })));
+    }
+
+    #[test]
+    fn test_align_frames_success_and_identity_first_transform() {
+        let a = test_frame(8, 8, 100);
+        let b = test_frame(8, 8, 100);
+        let result = align_frames(&[a, b]).expect("alignment should succeed");
+
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].translation, (0.0, 0.0));
+        assert_eq!(result[0].rotation, 0.0);
+        assert_eq!(result[0].scale, 1.0);
+    }
+
+    #[test]
+    fn test_apply_alignment_identity_returns_clone() {
+        let frame = test_frame(6, 6, 90);
+        let aligned = apply_alignment(&frame, &AlignmentResult::default())
+            .expect("identity transform should succeed");
+        assert_eq!(aligned.data, frame.data);
+        assert_eq!(aligned.width, frame.width);
+        assert_eq!(aligned.height, frame.height);
+    }
+
+    #[test]
+    fn test_apply_alignment_non_identity_path() {
+        let frame = test_frame(6, 6, 200);
+        let transform = AlignmentResult {
+            translation: (1.0, 1.0),
+            rotation: 0.01,
+            scale: 1.02,
+            error: 0.5,
+        };
+
+        let aligned = apply_alignment(&frame, &transform).expect("non-identity should succeed");
+        assert_eq!(aligned.data.len(), frame.data.len());
+    }
+
+    #[test]
+    fn test_compute_center_of_mass_zero_weight_falls_back_center() {
+        let frame = test_frame(10, 10, 0);
+        let com = compute_center_of_mass(&frame);
+        assert!((com.0 - 5.0).abs() < 0.1);
+        assert!((com.1 - 5.0).abs() < 0.1);
+    }
+
+    #[test]
+    fn test_rotation_and_scale_helpers_run() {
+        let mut frame_rot = test_frame(10, 10, 128);
+        apply_rotation(&mut frame_rot, 0.1);
+        assert_eq!(frame_rot.data.len(), 10 * 10 * 3);
+
+        let mut frame_scale = test_frame(10, 10, 128);
+        apply_scale(&mut frame_scale, 1.2);
+        assert_eq!(frame_scale.data.len(), 10 * 10 * 3);
     }
 }

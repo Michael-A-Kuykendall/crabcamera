@@ -311,14 +311,76 @@ pub struct CameraSummary {
 
 /// Get list of Cargo features compiled into this build.
 fn get_enabled_features() -> Vec<String> {
-    let mut features = Vec::new();
-    #[cfg(feature = "recording")]
-    features.push("recording".to_string());
-    #[cfg(feature = "audio")]
-    features.push("audio".to_string());
-    #[cfg(feature = "headless")]
-    features.push("headless".to_string());
-    #[cfg(feature = "contextlite")]
-    features.push("contextlite".to_string());
-    features
+    [
+        ("recording", cfg!(feature = "recording")),
+        ("audio", cfg!(feature = "audio")),
+        ("headless", cfg!(feature = "headless")),
+        ("contextlite", cfg!(feature = "contextlite")),
+    ]
+    .into_iter()
+    .filter(|(_, enabled)| *enabled)
+    .map(|(name, _)| name.to_string())
+    .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_get_current_platform_returns_known_value() {
+        let platform = get_current_platform().await.expect("platform query should succeed");
+        assert!(matches!(platform.as_str(), "windows" | "macos" | "linux" | "unknown"));
+    }
+
+    #[tokio::test]
+    async fn test_get_recommended_format_has_valid_shape() {
+        let format = get_recommended_format()
+            .await
+            .expect("recommended format should be available");
+        assert!(format.width > 0);
+        assert!(format.height > 0);
+        assert!(format.fps > 0.0);
+        assert!(!format.format_type.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_get_optimal_settings_has_valid_shape() {
+        let params = get_optimal_settings()
+            .await
+            .expect("optimal settings should be available");
+        assert!(!params.device_id.is_empty());
+        assert!(params.format.width > 0);
+        assert!(params.format.height > 0);
+        assert!(params.format.fps > 0.0);
+    }
+
+    #[test]
+    fn test_get_enabled_features_contains_recording_when_enabled() {
+        let features = get_enabled_features();
+
+        #[cfg(feature = "recording")]
+        assert!(features.iter().any(|f| f == "recording"));
+
+        #[cfg(not(feature = "recording"))]
+        assert!(!features.iter().any(|f| f == "recording"));
+    }
+
+    #[tokio::test]
+    async fn test_system_diagnostics_shape() {
+        let diagnostics = get_system_diagnostics()
+            .await
+            .expect("diagnostics should always return a report");
+
+        assert!(!diagnostics.crate_version.is_empty());
+        assert!(matches!(diagnostics.platform.as_str(), "windows" | "macos" | "linux" | "unknown"));
+        assert!(!diagnostics.backend.is_empty());
+        assert!(!diagnostics.permission_status.is_empty());
+        assert!(!diagnostics.timestamp.is_empty());
+
+        for cam in diagnostics.cameras {
+            assert!(!cam.id.is_empty());
+            assert!(!cam.name.is_empty());
+        }
+    }
 }

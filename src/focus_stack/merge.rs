@@ -452,6 +452,15 @@ fn reconstruct_from_pyramid(pyramid: &[Vec<u8>], _width: usize, _height: usize) 
 mod tests {
     use super::*;
 
+    fn mk_frame(width: u32, height: u32, value: u8) -> CameraFrame {
+        CameraFrame::new(
+            vec![value; (width * height * 3) as usize],
+            width,
+            height,
+            "test_device".to_string(),
+        )
+    }
+
     #[test]
     fn test_luminance_calculation() {
         let rgb = vec![100u8, 150, 200];
@@ -509,5 +518,90 @@ mod tests {
         let merged = result.unwrap();
         assert_eq!(merged.width, width as u32);
         assert_eq!(merged.data, data);
+    }
+
+    #[test]
+    fn test_merge_frames_empty_errors() {
+        let empty = merge_frames(&[], 0.5, 0);
+        assert!(matches!(empty, Err(FocusStackError::InsufficientImages { .. })));
+    }
+
+    #[test]
+    #[should_panic(expected = "Focus stack frames must have identical dimensions")]
+    fn test_merge_frames_dimension_mismatch_triggers_invariant_in_debug() {
+        let a = mk_frame(8, 8, 100);
+        let b = mk_frame(9, 8, 120);
+        let _ = merge_frames(&[a, b], 0.5, 0);
+    }
+
+    #[test]
+    fn test_merge_frames_data_corruption_error() {
+        let mut bad = mk_frame(8, 8, 100);
+        bad.data.truncate(10);
+        let good = mk_frame(8, 8, 120);
+
+        let result = merge_frames(&[bad, good], 0.5, 0);
+        assert!(matches!(result, Err(FocusStackError::DataCorruption { .. })));
+    }
+
+    #[test]
+    fn test_merge_simple_and_weight_map_helpers() {
+        let a = mk_frame(4, 4, 10);
+        let b = mk_frame(4, 4, 240);
+        let sa = compute_sharpness_map(&a);
+        let sb = compute_sharpness_map(&b);
+
+        let merged = merge_simple(&[a.clone(), b.clone()], &[sa.clone(), sb.clone()], 0.0)
+            .expect("simple merge should succeed");
+        assert_eq!(merged.len(), (4 * 4 * 3) as usize);
+
+        let weights = create_weight_maps(&[sa, sb]);
+        assert_eq!(weights.len(), 2);
+        assert_eq!(weights[0].len(), 16);
+    }
+
+    #[test]
+    fn test_compute_sharpness_map_handles_short_data() {
+        let mut frame = mk_frame(4, 4, 100);
+        frame.data.truncate(5);
+
+        let sharp = compute_sharpness_map(&frame);
+        assert_eq!(sharp.width, 4);
+        assert_eq!(sharp.height, 4);
+        assert_eq!(sharp.scores.len(), 16);
+        assert!(sharp.scores.iter().all(|v| (*v - 0.0).abs() < f32::EPSILON));
+    }
+
+    #[test]
+    fn test_pyramid_pipeline_helpers() {
+        let width = 8;
+        let height = 8;
+        let data = vec![100u8; width * height * 3];
+
+        let gp = build_gaussian_pyramid(&data, width, height, 3);
+        assert!(!gp.is_empty());
+
+        let lp = build_laplacian_pyramid(&gp);
+        assert_eq!(lp.len(), gp.len());
+
+        let weights = vec![0.5f32; width * height];
+        let wp = build_weight_pyramid(&weights, width, height, 3);
+        assert!(!wp.is_empty());
+
+        let blended = blend_pyramids(std::slice::from_ref(&lp), std::slice::from_ref(&wp));
+        assert!(!blended.is_empty());
+
+        let reconstructed = reconstruct_from_pyramid(&blended, width, height);
+        assert_eq!(reconstructed.len(), blended[0].len());
+    }
+
+    #[test]
+    fn test_merge_with_pyramid_blending_path() {
+        let a = mk_frame(8, 8, 100);
+        let b = mk_frame(8, 8, 120);
+
+        let result = merge_frames(&[a, b], 0.3, 3).expect("pyramid merge should succeed");
+        assert_eq!(result.width, 8);
+        assert_eq!(result.height, 8);
     }
 }

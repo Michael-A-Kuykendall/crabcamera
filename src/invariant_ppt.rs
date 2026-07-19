@@ -169,3 +169,95 @@ pub fn assert_performance_invariant(
         InvariantType::Performance
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_invariant_type_default() {
+        assert_eq!(InvariantType::default(), InvariantType::Correctness);
+    }
+
+    #[test]
+    fn test_contract_test_passes_when_invariant_logged() {
+        clear_invariant_log();
+        __assert_invariant_impl(true, "must exist", Some("ctx"), InvariantType::State);
+        contract_test("contract pass", &["must exist"]);
+    }
+
+    #[test]
+    #[should_panic(expected = "CONTRACT FAILURE")]
+    fn test_contract_test_fails_when_invariant_missing() {
+        clear_invariant_log();
+        contract_test("contract fail", &["missing invariant"]);
+    }
+
+    #[test]
+    fn test_invariant_history_is_ring_buffered_to_100() {
+        clear_invariant_log();
+
+        for i in 0..105 {
+            __assert_invariant_impl(
+                true,
+                &format!("inv-{i}"),
+                Some("ring"),
+                InvariantType::Correctness,
+            );
+        }
+
+        // Newest entries should still be present.
+        contract_test("latest survives", &["inv-104"]);
+    }
+
+    #[test]
+    #[should_panic(expected = "CONTRACT FAILURE")]
+    fn test_invariant_history_drops_oldest_entries() {
+        clear_invariant_log();
+
+        for i in 0..105 {
+            __assert_invariant_impl(
+                true,
+                &format!("inv-{i}"),
+                Some("ring"),
+                InvariantType::Correctness,
+            );
+        }
+
+        // Oldest entries should have been evicted from the 100-slot history.
+        contract_test("oldest evicted", &["inv-0"]);
+    }
+
+    #[test]
+    fn test_performance_invariant_passes_in_envelope() {
+        clear_invariant_log();
+
+        let snapshot = PerfSnapshot {
+            label: "latency_ok".to_string(),
+            latency_ms: 9.0,
+            throughput_ops: 10.0,
+            memory_delta_kb: 0,
+        };
+
+        assert_performance_invariant(&snapshot, 10.0, 0.10);
+        contract_test(
+            "perf pass",
+            &["PERF: latency_ok latency within predicted envelope"],
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "INVARIANT VIOLATION")]
+    fn test_performance_invariant_fails_outside_envelope() {
+        clear_invariant_log();
+
+        let snapshot = PerfSnapshot {
+            label: "latency_bad".to_string(),
+            latency_ms: 20.0,
+            throughput_ops: 10.0,
+            memory_delta_kb: 0,
+        };
+
+        assert_performance_invariant(&snapshot, 10.0, 0.10);
+    }
+}

@@ -25,7 +25,7 @@ use crabcamera::commands::permissions::{
 use crabcamera::commands::quality::{
     capture_best_quality_frame, get_quality_config, validate_frame_quality, validate_provided_frame,
 };
-use crabcamera::types::{BurstConfig, CameraControls};
+use crabcamera::types::{BurstConfig, CameraControls, ExposureBracketing};
 use std::time::Duration;
 use tokio::time::sleep;
 
@@ -358,8 +358,13 @@ async fn main() {
         ..CameraControls::default()
     };
     match set_camera_controls(device_id.clone(), test_controls).await {
-        Ok(msg) => {
-            println!("✅ {}", msg);
+        Ok(result) => {
+            println!(
+                "✅ applied={}, rejected={}, fully_applied={}",
+                result.applied.len(),
+                result.rejected.len(),
+                result.fully_applied()
+            );
             results.push(TestResult::pass("set_camera_controls"));
         }
         Err(e) => {
@@ -536,6 +541,57 @@ async fn main() {
         }
     }
 
+    // Test: burst guard focus_stacking requires count >= 2
+    print!("  [6.7] burst validation: focus_stacking requires count >= 2 ... ");
+    let invalid_focus_stack = BurstConfig {
+        count: 1,
+        interval_ms: 50,
+        bracketing: None,
+        focus_stacking: true,
+        auto_save: false,
+        save_directory: None,
+    };
+    match capture_burst_sequence(device_id.clone(), invalid_focus_stack).await {
+        Ok(_) => {
+            println!("❌ unexpectedly accepted invalid focus-stacking config");
+            results.push(TestResult::fail(
+                "burst_validation_focus_stacking_count",
+                "Expected error when focus_stacking=true and count<2",
+            ));
+        }
+        Err(e) => {
+            println!("✅ {}", e);
+            results.push(TestResult::pass("burst_validation_focus_stacking_count"));
+        }
+    }
+
+    // Test: burst guard bracketing rejects empty stops and non-positive base exposure
+    print!("  [6.8] burst validation: bracketing rejects invalid parameters ... ");
+    let invalid_bracketing = BurstConfig {
+        count: 3,
+        interval_ms: 50,
+        bracketing: Some(ExposureBracketing {
+            stops: vec![],
+            base_exposure: 0.0,
+        }),
+        focus_stacking: false,
+        auto_save: false,
+        save_directory: None,
+    };
+    match capture_burst_sequence(device_id.clone(), invalid_bracketing).await {
+        Ok(_) => {
+            println!("❌ unexpectedly accepted invalid bracketing config");
+            results.push(TestResult::fail(
+                "burst_validation_bracketing_params",
+                "Expected error for empty stops and non-positive base exposure",
+            ));
+        }
+        Err(e) => {
+            println!("✅ {}", e);
+            results.push(TestResult::pass("burst_validation_bracketing_params"));
+        }
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
     // SECTION 7: QUALITY VALIDATION
     // ═══════════════════════════════════════════════════════════════════════
@@ -654,4 +710,9 @@ async fn main() {
     println!("    → audit_compressed.jpg");
 
     println!("\n══════════════════════════════════════════════════════════════════════");
+
+    // Authoritative signal for automation/CI wrappers
+    if failed > 0 {
+        std::process::exit(1);
+    }
 }

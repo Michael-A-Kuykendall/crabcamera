@@ -133,6 +133,43 @@ mod tests {
     use super::*;
 
     #[tokio::test]
+    async fn test_check_permission_status_shape() {
+        let result = check_camera_permission_status().await;
+        assert!(result.is_ok());
+
+        let info = result.expect("permission status should return info");
+        assert!(!info.message.is_empty());
+        match info.status {
+            PermissionStatus::Granted
+            | PermissionStatus::Denied
+            | PermissionStatus::NotDetermined
+            | PermissionStatus::Restricted => {}
+        }
+    }
+
+    #[test]
+    fn test_permission_status_string_is_known_debug_variant() {
+        let status = get_permission_status_string();
+        assert!(
+            matches!(
+                status.as_str(),
+                "Granted" | "Denied" | "NotDetermined" | "Restricted"
+            ),
+            "unexpected permission status string: {status}"
+        );
+    }
+
+    #[tokio::test]
+    #[cfg(any(target_os = "windows", target_os = "linux"))]
+    async fn test_request_permission_platform_message_non_empty() {
+        let result = request_camera_permission().await;
+        assert!(result.is_ok());
+
+        let info = result.expect("request should return guidance info");
+        assert!(!info.message.is_empty());
+    }
+
+    #[tokio::test]
     #[ignore = "Requires camera hardware and OS permissions - run manually"]
     async fn test_check_permission_status() {
         let result = check_camera_permission_status().await;

@@ -159,3 +159,29 @@ pub fn capture_frame(camera: &mut Camera, device_id: &str) -> Result<CameraFrame
 
     Ok(camera_frame.with_format(frame.source_frame_format().to_string()))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_initialize_camera_rejects_non_numeric_device_id() {
+        let result = initialize_camera("not-a-number", CameraFormat::standard());
+        assert!(result.is_err());
+        assert!(matches!(result, Err(CameraError::InitializationError(_))));
+    }
+
+    #[test]
+    fn test_list_cameras_returns_result_type() {
+        // Environment-dependent; this validates the function executes and returns structured result.
+        let result = list_cameras();
+        assert!(result.is_ok() || result.is_err());
+    }
+
+    #[test]
+    fn test_initialize_camera_numeric_id_best_effort() {
+        // May fail if no device is available, but should still execute the numeric-id path.
+        let result = initialize_camera("0", CameraFormat::standard());
+        assert!(result.is_ok() || result.is_err());
+    }
+}

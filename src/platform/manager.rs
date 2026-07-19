@@ -230,3 +230,89 @@ pub async fn capture_with_reconnect(
     .await
     .map_err(|e| CameraError::SystemError(format!("Task join error: {}", e)))?
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tests::{set_mock_camera_mode, MockCaptureMode};
+
+    #[tokio::test]
+    async fn test_get_or_create_and_get_existing_and_release() {
+        let device_id = "mgr-dev-1".to_string();
+        let format = CameraFormat::standard();
+
+        let cam1 = get_or_create_camera(device_id.clone(), format.clone())
+            .await
+            .expect("camera should be created");
+        let cam2 = get_or_create_camera(device_id.clone(), format)
+            .await
+            .expect("camera should be reused");
+
+        assert!(Arc::ptr_eq(&cam1, &cam2));
+
+        let existing = get_existing_camera(&device_id)
+            .await
+            .expect("camera should exist in registry");
+        assert!(Arc::ptr_eq(&cam1, &existing));
+
+        let msg = release_camera(&device_id)
+            .await
+            .expect("release should succeed");
+        assert!(msg.contains("released"));
+
+        assert!(get_existing_camera(&device_id).await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_release_missing_camera_is_ok() {
+        let msg = release_camera("definitely-missing")
+            .await
+            .expect("missing camera should not error");
+        assert!(msg.contains("No active camera"));
+    }
+
+    #[tokio::test]
+    async fn test_reconnect_camera_success() {
+        let device_id = "mgr-dev-2".to_string();
+        let format = CameraFormat::standard();
+
+        let _ = get_or_create_camera(device_id.clone(), format.clone())
+            .await
+            .expect("pre-create camera");
+
+        let reconnected = reconnect_camera(device_id.clone(), format, 2)
+            .await
+            .expect("reconnect should succeed");
+
+        let existing = get_existing_camera(&device_id)
+            .await
+            .expect("camera should exist after reconnect");
+        assert!(Arc::ptr_eq(&reconnected, &existing));
+    }
+
+    #[tokio::test]
+    async fn test_capture_with_reconnect_success() {
+        let device_id = "mgr-cap-ok".to_string();
+        set_mock_camera_mode(&device_id, MockCaptureMode::Success);
+
+        let frame = capture_with_reconnect(device_id.clone(), CameraFormat::standard(), 1)
+            .await
+            .expect("capture should succeed");
+
+        assert_eq!(frame.device_id, device_id);
+        assert!(frame.width > 0);
+        assert!(frame.height > 0);
+    }
+
+    #[tokio::test]
+    async fn test_capture_with_reconnect_failure_after_retries() {
+        let device_id = "mgr-cap-fail".to_string();
+        set_mock_camera_mode(&device_id, MockCaptureMode::Failure);
+
+        let err = capture_with_reconnect(device_id, CameraFormat::standard(), 1)
+            .await
+            .expect_err("capture should fail in persistent failure mode");
+
+        assert!(matches!(err, CameraError::CaptureError(_)));
+    }
+}

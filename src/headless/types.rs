@@ -87,3 +87,59 @@ pub struct AudioPacket {
     /// Raw audio data
     pub data: Vec<u8>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_capture_config_defaults() {
+        let format = CameraFormat::new(640, 480, 30.0);
+        let cfg = CaptureConfig::new("dev-1".to_string(), format.clone());
+
+        assert_eq!(cfg.device_id, "dev-1");
+        assert_eq!(cfg.format, format);
+        match cfg.buffer_policy {
+            BufferPolicy::DropOldest { capacity } => assert_eq!(capacity, 2),
+        }
+        assert!(matches!(cfg.audio_mode, AudioMode::Disabled));
+        assert!(cfg.audio_device_id.is_none());
+    }
+
+    #[test]
+    fn test_frame_serialization_shape() {
+        let frame = Frame {
+            sequence: 7,
+            timestamp_us: 123,
+            width: 320,
+            height: 240,
+            format: "RGB".to_string(),
+            device_id: "dev".to_string(),
+            data: vec![1, 2, 3],
+        };
+
+        let json = serde_json::to_string(&frame).expect("frame should serialize");
+        assert!(json.contains("\"sequence\":7"));
+        assert!(json.contains("\"width\":320"));
+        assert!(json.contains("\"format\":\"RGB\""));
+    }
+
+    #[test]
+    fn test_audio_packet_clone_and_fields() {
+        let pkt = AudioPacket {
+            sequence: 3,
+            timestamp_us: 1000,
+            sample_rate: 48_000,
+            channels: 2,
+            format: "F32".to_string(),
+            data: vec![0, 1, 2, 3],
+        };
+        let cloned = pkt.clone();
+
+        assert_eq!(cloned.sequence, 3);
+        assert_eq!(cloned.sample_rate, 48_000);
+        assert_eq!(cloned.channels, 2);
+        assert_eq!(cloned.format, "F32");
+        assert_eq!(cloned.data.len(), 4);
+    }
+}

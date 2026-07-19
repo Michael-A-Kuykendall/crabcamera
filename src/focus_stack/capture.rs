@@ -241,4 +241,48 @@ mod tests {
         }
         Ok(())
     }
+
+    #[tokio::test]
+    async fn test_capture_focus_sequence_rejects_invalid_steps() {
+        let cfg = FocusStackConfig {
+            num_steps: 1,
+            ..Default::default()
+        };
+
+        let err = capture_focus_sequence("dev0".to_string(), cfg, None)
+            .await
+            .expect_err("invalid steps should fail before capture");
+        assert!(matches!(err, FocusStackError::InvalidConfig(_)));
+    }
+
+    #[tokio::test]
+    async fn test_capture_focus_sequence_rejects_invalid_focus_bounds() {
+        let cfg = FocusStackConfig {
+            num_steps: 3,
+            focus_start: -0.1,
+            focus_end: 1.2,
+            ..Default::default()
+        };
+
+        let err = capture_focus_sequence("dev0".to_string(), cfg, None)
+            .await
+            .expect_err("out of range focus should fail before capture");
+        assert!(matches!(err, FocusStackError::InvalidConfig(_)));
+    }
+
+    #[tokio::test]
+    async fn test_capture_focus_brackets_rejects_invalid_bracket_count() {
+        let err = capture_focus_brackets("dev0".to_string(), 0, 3, None)
+            .await
+            .expect_err("invalid bracket count should fail");
+        assert!(matches!(err, FocusStackError::InvalidConfig(_)));
+    }
+
+    #[tokio::test]
+    async fn test_capture_focus_brackets_rejects_invalid_shots_per_bracket() {
+        let err = capture_focus_brackets("dev0".to_string(), 2, 0, None)
+            .await
+            .expect_err("invalid shots_per_bracket should fail");
+        assert!(matches!(err, FocusStackError::InvalidConfig(_)));
+    }
 }

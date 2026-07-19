@@ -217,3 +217,57 @@ fn check_linux_group_membership() -> bool {
     // Fallback: assume permission if we can't check groups
     false
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{check_permission, check_permission_detailed, PermissionInfo, PermissionStatus};
+
+    #[test]
+    fn test_permission_status_display_values() {
+        assert_eq!(PermissionStatus::Granted.to_string(), "granted");
+        assert_eq!(PermissionStatus::Denied.to_string(), "denied");
+        assert_eq!(PermissionStatus::NotDetermined.to_string(), "not_determined");
+        assert_eq!(PermissionStatus::Restricted.to_string(), "restricted");
+    }
+
+    #[test]
+    fn test_check_permission_returns_valid_status() {
+        let status = check_permission();
+        match status {
+            PermissionStatus::Granted
+            | PermissionStatus::Denied
+            | PermissionStatus::NotDetermined
+            | PermissionStatus::Restricted => {}
+        }
+    }
+
+    #[test]
+    fn test_check_permission_detailed_shape() {
+        let info = check_permission_detailed();
+        assert!(!info.message.is_empty());
+
+        match info.status {
+            PermissionStatus::Granted
+            | PermissionStatus::Denied
+            | PermissionStatus::NotDetermined
+            | PermissionStatus::Restricted => {}
+        }
+    }
+
+    #[test]
+    fn test_permission_info_serde_roundtrip() {
+        let info = PermissionInfo {
+            status: PermissionStatus::Denied,
+            message: "camera blocked".to_string(),
+            can_request: true,
+        };
+
+        let json = serde_json::to_string(&info).expect("PermissionInfo should serialize");
+        let decoded: PermissionInfo =
+            serde_json::from_str(&json).expect("PermissionInfo should deserialize");
+
+        assert_eq!(decoded.status, PermissionStatus::Denied);
+        assert_eq!(decoded.message, "camera blocked");
+        assert!(decoded.can_request);
+    }
+}

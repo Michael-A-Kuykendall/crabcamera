@@ -287,4 +287,119 @@ mod tests {
         assert!(result.is_ok()); // Should return default
         assert_eq!(result.unwrap().camera.default_fps, 30);
     }
+
+    #[test]
+    fn test_validate_all_remaining_error_branches() {
+        let mut cfg = CrabCameraConfig::default();
+
+        cfg.camera.default_fps = 0;
+        assert_eq!(
+            cfg.validate().expect_err("fps=0 should fail"),
+            "Invalid default FPS (must be 1-240)"
+        );
+
+        cfg = CrabCameraConfig::default();
+        cfg.camera.default_fps = 241;
+        assert_eq!(
+            cfg.validate().expect_err("fps>240 should fail"),
+            "Invalid default FPS (must be 1-240)"
+        );
+
+        cfg = CrabCameraConfig::default();
+        cfg.quality.min_exposure_score = 1.2;
+        assert_eq!(
+            cfg.validate().expect_err("exposure>1 should fail"),
+            "Exposure score must be between 0.0 and 1.0"
+        );
+
+        cfg = CrabCameraConfig::default();
+        cfg.quality.min_overall_score = -0.1;
+        assert_eq!(
+            cfg.validate().expect_err("overall<0 should fail"),
+            "Overall score must be between 0.0 and 1.0"
+        );
+
+        cfg = CrabCameraConfig::default();
+        cfg.storage.jpeg_quality = 0;
+        assert_eq!(
+            cfg.validate().expect_err("jpeg quality 0 should fail"),
+            "JPEG quality must be between 1 and 100"
+        );
+
+        cfg = CrabCameraConfig::default();
+        cfg.storage.jpeg_quality = 101;
+        assert_eq!(
+            cfg.validate().expect_err("jpeg quality >100 should fail"),
+            "JPEG quality must be between 1 and 100"
+        );
+
+        cfg = CrabCameraConfig::default();
+        cfg.advanced.focus_stack_steps = 0;
+        assert_eq!(
+            cfg.validate().expect_err("focus stack 0 should fail"),
+            "Focus stack steps must be between 1 and 100"
+        );
+
+        cfg = CrabCameraConfig::default();
+        cfg.advanced.focus_stack_steps = 101;
+        assert_eq!(
+            cfg.validate().expect_err("focus stack >100 should fail"),
+            "Focus stack steps must be between 1 and 100"
+        );
+
+        cfg = CrabCameraConfig::default();
+        cfg.advanced.hdr_brackets = 0;
+        assert_eq!(
+            cfg.validate().expect_err("hdr 0 should fail"),
+            "HDR brackets must be between 1 and 10"
+        );
+
+        cfg = CrabCameraConfig::default();
+        cfg.advanced.hdr_brackets = 11;
+        assert_eq!(
+            cfg.validate().expect_err("hdr >10 should fail"),
+            "HDR brackets must be between 1 and 10"
+        );
+    }
+
+    #[test]
+    fn test_default_path_and_load_or_default() {
+        assert_eq!(CrabCameraConfig::default_path(), PathBuf::from("crabcamera.toml"));
+
+        // Ensure missing default file path still returns a usable default.
+        let loaded = CrabCameraConfig::load_or_default();
+        assert_eq!(loaded.camera.default_fps, CrabCameraConfig::default().camera.default_fps);
+    }
+
+    #[test]
+    fn test_load_from_file_parse_error() {
+        let temp_dir = std::env::temp_dir();
+        let bad_path = temp_dir.join("test_crabcamera_invalid.toml");
+
+        let _ = fs::remove_file(&bad_path);
+        fs::write(&bad_path, "this-is-not-valid-toml = = =").expect("write invalid toml");
+
+        let result = CrabCameraConfig::load_from_file(&bad_path);
+        assert!(result.is_err());
+        let msg = result.expect_err("invalid toml should error").to_string();
+        assert!(msg.contains("Failed to parse config file"));
+
+        let _ = fs::remove_file(&bad_path);
+    }
+
+    #[test]
+    fn test_save_to_file_create_parent_directory() {
+        let base = std::env::temp_dir().join("crabcamera_config_nested_test");
+        let nested = base.join("deep").join("crabcamera.toml");
+        let _ = fs::remove_dir_all(&base);
+
+        let cfg = CrabCameraConfig::default();
+        cfg.save_to_file(&nested).expect("save should create parent dirs");
+        assert!(nested.exists());
+
+        let loaded = CrabCameraConfig::load_from_file(&nested).expect("load saved config");
+        assert_eq!(loaded.storage.default_format, cfg.storage.default_format);
+
+        let _ = fs::remove_dir_all(&base);
+    }
 }

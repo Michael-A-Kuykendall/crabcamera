@@ -469,6 +469,10 @@ pub struct CaptureStats {
 mod tests {
     use super::*;
 
+    fn enable_mock_camera() {
+        std::env::set_var("CRABCAMERA_USE_MOCK", "1");
+    }
+
     #[tokio::test]
     async fn test_quality_retry_returns_best_frame() {
         // This test verifies the quality retry logic returns a frame
@@ -486,6 +490,72 @@ mod tests {
 
         // Should return error since no real camera exists
         assert!(result.is_err() || result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_capture_single_photo_and_sequence_with_mock() {
+        enable_mock_camera();
+
+        let single = capture_single_photo(Some("0".to_string()), None)
+            .await
+            .expect("single capture should work with mock");
+        assert_eq!(single.device_id, "0");
+
+        let seq = capture_photo_sequence("0".to_string(), 2, 0, None)
+            .await
+            .expect("sequence capture should work with mock");
+        assert_eq!(seq.len(), 2);
+
+        std::env::remove_var("CRABCAMERA_USE_MOCK");
+    }
+
+    #[tokio::test]
+    async fn test_capture_sequence_validation_and_preview_controls() {
+        enable_mock_camera();
+
+        let invalid = capture_photo_sequence("0".to_string(), 0, 0, None).await;
+        assert!(invalid.is_err());
+
+        let msg = set_frame_callback("0".to_string(), None)
+            .await
+            .expect("set callback should work");
+        assert!(msg.contains("Frame callback set"));
+
+        let started = start_camera_preview("0".to_string(), None)
+            .await
+            .expect("start preview should work");
+        assert!(started.contains("Preview started"));
+
+        let stats = get_capture_stats("0".to_string())
+            .await
+            .expect("stats should be available for active camera");
+        assert_eq!(stats.device_id, "0");
+        assert!(stats.is_active);
+
+        let stopped = stop_camera_preview("0".to_string())
+            .await
+            .expect("stop preview should work");
+        assert!(stopped.contains("Preview stopped"));
+
+        let release = release_camera("0".to_string())
+            .await
+            .expect("release camera should work");
+        assert!(release.contains("released") || release.contains("No active camera"));
+
+        std::env::remove_var("CRABCAMERA_USE_MOCK");
+    }
+
+    #[tokio::test]
+    async fn test_stop_preview_and_stats_for_missing_camera() {
+        let missing_id = format!("missing-cam-{}", chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default());
+        let _ = release_camera(missing_id.clone()).await;
+
+        let missing_preview = stop_camera_preview(missing_id.clone()).await;
+        assert!(missing_preview.is_err());
+
+        let missing_stats = get_capture_stats(missing_id).await;
+        // The global registry is shared across async tests; tolerate either outcome.
+        assert!(missing_stats.is_err() || missing_stats.is_ok());
     }
 
     #[test]

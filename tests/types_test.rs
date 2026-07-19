@@ -4,7 +4,8 @@
 
 use crabcamera::types::{
     BurstConfig, CameraCapabilities, CameraControls, CameraDeviceInfo, CameraFormat, CameraFrame,
-    CameraInitParams, CameraPerformanceMetrics, ExposureBracketing, FrameMetadata, Platform,
+    CameraInitParams, CameraPerformanceMetrics, ControlApplicationResult, ExposureBracketing,
+    FrameMetadata, Platform,
     WhiteBalance,
 };
 
@@ -209,6 +210,45 @@ mod camera_controls_tests {
 
         assert!(json_auto.contains("Auto"));
         assert!(json_custom.contains("5500"));
+    }
+}
+
+#[cfg(test)]
+mod control_application_result_tests {
+    use super::*;
+
+    #[test]
+    fn test_fully_applied_true_when_no_rejections() {
+        let result = ControlApplicationResult {
+            applied: vec!["focus_distance".to_string(), "exposure_time".to_string()],
+            rejected: vec![],
+        };
+
+        assert!(result.fully_applied());
+    }
+
+    #[test]
+    fn test_fully_applied_false_when_any_rejected() {
+        let result = ControlApplicationResult {
+            applied: vec!["focus_distance".to_string()],
+            rejected: vec!["exposure_time".to_string()],
+        };
+
+        assert!(!result.fully_applied());
+    }
+
+    #[test]
+    fn test_control_application_result_serialization() {
+        let result = ControlApplicationResult {
+            applied: vec!["brightness".to_string()],
+            rejected: vec!["white_balance".to_string()],
+        };
+
+        let json = serde_json::to_string(&result).unwrap();
+        let deserialized: ControlApplicationResult = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(deserialized.applied, result.applied);
+        assert_eq!(deserialized.rejected, result.rejected);
     }
 }
 

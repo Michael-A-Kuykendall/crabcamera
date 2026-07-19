@@ -273,3 +273,59 @@ pub fn validate_control_value(id: ControlId, value: &ControlValue) -> Result<(),
         )),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::headless::errors::HeadlessErrorKind;
+
+    #[test]
+    fn test_control_id_from_str_and_unknown() {
+        assert_eq!(ControlId::from_str("AutoFocus").ok(), Some(ControlId::AutoFocus));
+        assert_eq!(ControlId::from_str("ExposureTime").ok(), Some(ControlId::ExposureTime));
+        assert!(ControlId::from_str("Nope").is_err());
+    }
+
+    #[test]
+    fn test_all_controls_contains_expected_shape() {
+        let controls = all_controls();
+        assert!(controls.len() >= 10);
+        assert!(controls.iter().any(|c| c.id == ControlId::AutoFocus && c.kind == ControlKind::Bool));
+        assert!(controls.iter().any(|c| c.id == ControlId::FocusDistance && c.kind == ControlKind::F32));
+        assert!(controls.iter().any(|c| c.id == ControlId::IsoSensitivity && c.kind == ControlKind::U32));
+        assert!(controls.iter().any(|c| c.id == ControlId::WhiteBalance && c.kind == ControlKind::WhiteBalance));
+    }
+
+    #[test]
+    fn test_validate_control_value_accepts_valid_values() {
+        assert!(validate_control_value(ControlId::AutoFocus, &ControlValue::Bool(true)).is_ok());
+        assert!(validate_control_value(ControlId::FocusDistance, &ControlValue::F32(0.5)).is_ok());
+        assert!(validate_control_value(ControlId::Brightness, &ControlValue::F32(0.0)).is_ok());
+        assert!(validate_control_value(ControlId::IsoSensitivity, &ControlValue::U32(100)).is_ok());
+        assert!(validate_control_value(
+            ControlId::WhiteBalance,
+            &ControlValue::WhiteBalance(WhiteBalance::Auto)
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn test_validate_control_value_rejects_out_of_range_values() {
+        let too_low = validate_control_value(ControlId::FocusDistance, &ControlValue::F32(-0.1));
+        assert!(too_low.is_err());
+        assert_eq!(too_low.expect_err("expected min bound error").kind, HeadlessErrorKind::InvalidArgument);
+
+        let too_high = validate_control_value(ControlId::Brightness, &ControlValue::F32(1.5));
+        assert!(too_high.is_err());
+        assert_eq!(too_high.expect_err("expected max bound error").kind, HeadlessErrorKind::InvalidArgument);
+    }
+
+    #[test]
+    fn test_validate_control_value_rejects_kind_mismatch() {
+        let mismatch = validate_control_value(ControlId::AutoFocus, &ControlValue::F32(1.0));
+        assert!(mismatch.is_err());
+        let err = mismatch.expect_err("expected kind mismatch");
+        assert_eq!(err.kind, HeadlessErrorKind::InvalidArgument);
+        assert!(err.message.contains("kind mismatch"));
+    }
+}

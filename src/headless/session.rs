@@ -507,7 +507,7 @@ impl SessionHandle {
         cam_guard
             .apply_controls(&controls)
             .map_err(HeadlessError::backend)
-            .map(|_| ())
+            .map(|_result| ())
     }
 
     /// Retrieves the current values of all supported camera controls.
@@ -792,5 +792,248 @@ fn apply_control_to_struct(controls: &mut CameraControls, id: ControlId, value: 
             controls.image_stabilization = Some(v)
         }
         _ => {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::headless::errors::HeadlessErrorKind;
+    use crate::types::{CameraFormat, WhiteBalance};
+
+    fn make_test_handle(state: SessionState) -> SessionHandle {
+        let config = CaptureConfig::new("test-device".to_string(), CameraFormat::standard());
+        SessionHandle {
+            inner: Arc::new(Inner {
+                state: Mutex::new(state),
+                camera: Mutex::new(None),
+                config,
+                queue: Queue::new(2),
+                start_instant: Instant::now(),
+                next_sequence: Mutex::new(1),
+                capture_thread: Mutex::new(None),
+                stop_flag: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                #[cfg(feature = "audio")]
+                pts_clock: PTSClock::new(),
+                #[cfg(feature = "audio")]
+                audio_enabled: false,
+                #[cfg(feature = "audio")]
+                audio_queue: None,
+                #[cfg(feature = "audio")]
+                audio_thread: Mutex::new(None),
+                #[cfg(feature = "audio")]
+                audio_sequence: Mutex::new(1),
+            }),
+        }
+    }
+
+    #[test]
+    fn test_queue_capacity_drop_and_close_behavior() {
+        let q = Queue::new(2);
+        q.push_drop_oldest(1u8);
+        q.push_drop_oldest(2u8);
+        q.push_drop_oldest(3u8); // drops 1
+
+        assert_eq!(q.dropped(), 1);
+        assert_eq!(q.pop_timeout(Duration::ZERO).expect("pop should work"), Some(2));
+        assert_eq!(q.pop_timeout(Duration::ZERO).expect("pop should work"), Some(3));
+        assert_eq!(q.pop_timeout(Duration::ZERO).expect("empty queue"), None);
+
+        q.close();
+        let err = q
+            .pop_timeout(Duration::from_millis(1))
+            .expect_err("closed queue should error");
+        assert_eq!(err.kind, HeadlessErrorKind::Closed);
+    }
+
+    #[test]
+    fn test_queue_zero_capacity_is_clamped_to_one() {
+        let q = Queue::new(0);
+        q.push_drop_oldest(10u8);
+        q.push_drop_oldest(11u8);
+        assert_eq!(q.dropped(), 1);
+        assert_eq!(q.pop_timeout(Duration::ZERO).expect("pop should work"), Some(11));
+    }
+
+    #[test]
+    fn test_start_stop_and_close_state_transitions_without_camera() {
+        let handle = make_test_handle(SessionState::Open);
+
+        // Preload warmup frame so start exits warmup loop quickly.
+        handle.inner.queue.push_drop_oldest(Frame {
+            sequence: 1,
+            timestamp_us: 1,
+            width: 1,
+            height: 1,
+            format: "RGB".to_string(),
+            device_id: "test-device".to_string(),
+            data: vec![0, 0, 0],
+        });
+
+        handle.start().expect("start should succeed from open state");
+        assert_eq!(*handle.inner.state.lock().expect("state lock"), SessionState::Started);
+
+        handle
+            .stop(Duration::from_millis(50))
+            .expect("stop should succeed from started state");
+        assert_eq!(*handle.inner.state.lock().expect("state lock"), SessionState::Stopped);
+
+        handle
+            .close(Duration::from_millis(50))
+            .expect("close should succeed");
+        assert_eq!(*handle.inner.state.lock().expect("state lock"), SessionState::Closed);
+    }
+
+    #[test]
+    fn test_get_frame_state_guards_and_started_pop() {
+        let closed = make_test_handle(SessionState::Closed);
+        assert_eq!(
+            closed
+                .get_frame(Duration::ZERO)
+                .expect_err("closed should fail")
+                .kind,
+            HeadlessErrorKind::Closed
+        );
+
+        let stopped = make_test_handle(SessionState::Stopped);
+        assert_eq!(
+            stopped
+                .get_frame(Duration::ZERO)
+                .expect_err("stopped should fail")
+                .kind,
+            HeadlessErrorKind::Stopped
+        );
+
+        let open = make_test_handle(SessionState::Open);
+        assert_eq!(
+            open.get_frame(Duration::ZERO)
+                .expect_err("open should fail")
+                .kind,
+            HeadlessErrorKind::InvalidArgument
+        );
+
+        let started = make_test_handle(SessionState::Started);
+        started.inner.queue.push_drop_oldest(Frame {
+            sequence: 9,
+            timestamp_us: 99,
+            width: 2,
+            height: 2,
+            format: "RGB".to_string(),
+            device_id: "dev".to_string(),
+            data: vec![1, 2, 3, 4],
+        });
+
+        let frame = started
+            .get_frame(Duration::ZERO)
+            .expect("started get_frame should succeed")
+            .expect("frame should be present");
+        assert_eq!(frame.sequence, 9);
+    }
+
+    #[test]
+    fn test_dropped_frames_and_audio_packet_guard() {
+        let started = make_test_handle(SessionState::Started);
+        started.inner.queue.push_drop_oldest(Frame {
+            sequence: 1,
+            timestamp_us: 1,
+            width: 1,
+            height: 1,
+            format: "RGB".to_string(),
+            device_id: "dev".to_string(),
+            data: vec![0],
+        });
+        started.inner.queue.push_drop_oldest(Frame {
+            sequence: 2,
+            timestamp_us: 2,
+            width: 1,
+            height: 1,
+            format: "RGB".to_string(),
+            device_id: "dev".to_string(),
+            data: vec![0],
+        });
+        started.inner.queue.push_drop_oldest(Frame {
+            sequence: 3,
+            timestamp_us: 3,
+            width: 1,
+            height: 1,
+            format: "RGB".to_string(),
+            device_id: "dev".to_string(),
+            data: vec![0],
+        });
+        assert_eq!(started.dropped_frames().expect("dropped should work"), 1);
+
+        let closed = make_test_handle(SessionState::Closed);
+        assert_eq!(
+            closed
+                .dropped_frames()
+                .expect_err("closed should fail")
+                .kind,
+            HeadlessErrorKind::Closed
+        );
+
+        #[cfg(not(feature = "audio"))]
+        {
+            let err = started
+                .get_audio_packet(Duration::ZERO)
+                .expect_err("audio disabled should return unsupported");
+            assert_eq!(err.kind, HeadlessErrorKind::Unsupported);
+        }
+    }
+
+    #[test]
+    fn test_apply_control_to_struct_and_normalize_frame() {
+        let mut controls = CameraControls::default();
+        apply_control_to_struct(&mut controls, ControlId::AutoFocus, ControlValue::Bool(false));
+        apply_control_to_struct(
+            &mut controls,
+            ControlId::FocusDistance,
+            ControlValue::F32(0.7),
+        );
+        apply_control_to_struct(
+            &mut controls,
+            ControlId::WhiteBalance,
+            ControlValue::WhiteBalance(WhiteBalance::Cloudy),
+        );
+        assert_eq!(controls.auto_focus, Some(false));
+        assert_eq!(controls.focus_distance, Some(0.7));
+        assert_eq!(controls.white_balance, Some(WhiteBalance::Cloudy));
+
+        let handle = make_test_handle(SessionState::Started);
+        let frame = CameraFrame::new(vec![1, 2, 3], 3, 1, "dev".to_string()).with_format("RGB".to_string());
+        let normalized = normalize_frame(&handle.inner, frame);
+
+        assert_eq!(normalized.sequence, 1);
+        assert_eq!(normalized.width, 3);
+        assert_eq!(normalized.height, 1);
+        assert_eq!(normalized.device_id, "dev");
+        assert_eq!(normalized.data.len(), 3);
+        assert!(normalized.timestamp_us > 0);
+    }
+
+    #[test]
+    fn test_stop_and_close_error_guards() {
+        let closed = make_test_handle(SessionState::Closed);
+        assert_eq!(
+            closed
+                .stop(Duration::from_millis(1))
+                .expect_err("closed stop should fail")
+                .kind,
+            HeadlessErrorKind::AlreadyClosed
+        );
+        assert_eq!(
+            closed
+                .close(Duration::from_millis(1))
+                .expect_err("closed close should fail")
+                .kind,
+            HeadlessErrorKind::AlreadyClosed
+        );
+
+        let open = make_test_handle(SessionState::Open);
+        assert_eq!(
+            open.stop(Duration::from_millis(1))
+                .expect_err("open stop should fail")
+                .kind,
+            HeadlessErrorKind::AlreadyStopped
+        );
     }
 }

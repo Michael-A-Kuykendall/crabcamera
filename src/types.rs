@@ -199,6 +199,26 @@ impl CameraFrame {
     }
 }
 
+/// Reports which controls were accepted vs. rejected by hardware after a `set_camera_controls` call.
+///
+/// A `rejected` entry means the hardware driver declined the setting (unsupported control,
+/// out-of-range value, or a read-only register). The overall `Result` is still `Ok` because
+/// partial application is a normal condition on heterogeneous camera hardware.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ControlApplicationResult {
+    /// Names of controls successfully written to hardware.
+    pub applied: Vec<String>,
+    /// Names of controls the hardware rejected or does not support.
+    pub rejected: Vec<String>,
+}
+
+impl ControlApplicationResult {
+    /// Returns `true` if every requested control was accepted by the hardware.
+    pub fn fully_applied(&self) -> bool {
+        self.rejected.is_empty()
+    }
+}
+
 /// Advanced camera controls for professional photography
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct CameraControls {
@@ -511,5 +531,163 @@ impl CameraInitParams {
             format: CameraFormat::new(2592, 1944, 15.0), // 5MP high quality
             controls: CameraControls::professional(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_platform_current_and_string() {
+        let platform = Platform::current();
+        assert_ne!(platform, Platform::Unknown);
+        assert!(["windows", "macos", "linux", "unknown"].contains(&platform.as_str()));
+    }
+
+    #[test]
+    fn test_camera_device_info_builders() {
+        let formats = vec![CameraFormat::standard(), CameraFormat::hd()];
+        let device = CameraDeviceInfo::new("0".to_string(), "Cam".to_string())
+            .with_description("Front camera".to_string())
+            .with_formats(formats.clone())
+            .with_availability(false);
+
+        assert_eq!(device.id, "0");
+        assert_eq!(device.name, "Cam");
+        assert_eq!(device.description.as_deref(), Some("Front camera"));
+        assert_eq!(device.supports_formats.len(), formats.len());
+        assert!(!device.is_available);
+    }
+
+    #[test]
+    fn test_camera_format_presets_and_builder() {
+        let hd = CameraFormat::hd();
+        let standard = CameraFormat::standard();
+        let low = CameraFormat::low();
+
+        assert!(hd.width >= standard.width);
+        assert!(standard.width >= low.width);
+        assert_eq!(CameraFormat::default(), standard);
+
+        let mjpeg = CameraFormat::new(800, 600, 24.0).with_format_type("MJPEG".to_string());
+        assert_eq!(mjpeg.width, 800);
+        assert_eq!(mjpeg.height, 600);
+        assert_eq!(mjpeg.fps, 24.0);
+        assert_eq!(mjpeg.format_type, "MJPEG");
+    }
+
+    #[test]
+    fn test_camera_frame_methods() {
+        let data = vec![1, 2, 3, 4, 5, 6];
+        let frame = CameraFrame::new(data.clone(), 2, 1, "dev-0".to_string());
+
+        assert_eq!(frame.data, data);
+        assert_eq!(frame.size_bytes, 6);
+        assert_eq!(frame.width, 2);
+        assert_eq!(frame.height, 1);
+        assert_eq!(frame.device_id, "dev-0");
+        assert!(!frame.id.is_empty());
+        assert!(frame.is_valid());
+        assert_eq!(frame.aspect_ratio(), 2.0);
+
+        let yuyv = frame.clone().with_format("YUYV".to_string());
+        assert_eq!(yuyv.format, "YUYV");
+
+        let invalid = CameraFrame::new(Vec::new(), 640, 480, "dev-1".to_string());
+        assert!(!invalid.is_valid());
+    }
+
+    #[test]
+    fn test_control_application_result_fully_applied() {
+        let ok = ControlApplicationResult {
+            applied: vec!["focus".to_string()],
+            rejected: Vec::new(),
+        };
+        assert!(ok.fully_applied());
+
+        let partial = ControlApplicationResult {
+            applied: vec!["focus".to_string()],
+            rejected: vec!["iso".to_string()],
+        };
+        assert!(!partial.fully_applied());
+    }
+
+    #[test]
+    fn test_camera_controls_defaults_and_professional_preset() {
+        let default_controls = CameraControls::default();
+        assert_eq!(default_controls.auto_focus, Some(true));
+        assert_eq!(default_controls.auto_exposure, Some(true));
+        assert_eq!(default_controls.iso_sensitivity, Some(400));
+        assert_eq!(default_controls.white_balance, Some(WhiteBalance::Auto));
+
+        let pro = CameraControls::professional();
+        assert_eq!(pro.auto_focus, Some(false));
+        assert_eq!(pro.auto_exposure, Some(false));
+        assert_eq!(pro.iso_sensitivity, Some(100));
+        assert_eq!(pro.white_balance, Some(WhiteBalance::Daylight));
+        assert_eq!(pro.aperture, Some(8.0));
+    }
+
+    #[test]
+    fn test_burst_and_capabilities_defaults() {
+        let burst = BurstConfig::hdr_burst();
+        assert_eq!(burst.count, 3);
+        assert_eq!(burst.interval_ms, 200);
+        assert!(burst.bracketing.is_some());
+        assert!(burst.auto_save);
+        assert_eq!(burst.save_directory.as_deref(), Some("hdr_captures"));
+
+        let bracketing = burst.bracketing.expect("hdr_burst should set bracketing");
+        assert_eq!(bracketing.stops, vec![-1.0, 0.0, 1.0]);
+        assert!(bracketing.base_exposure > 0.0);
+
+        let caps = CameraCapabilities::default();
+        assert!(caps.supports_auto_focus);
+        assert!(caps.supports_auto_exposure);
+        assert_eq!(caps.max_resolution, (1920, 1080));
+        assert_eq!(caps.max_fps, 30.0);
+    }
+
+    #[test]
+    fn test_metadata_and_performance_defaults() {
+        let meta = FrameMetadata::default();
+        assert!(meta.exposure_time.is_none());
+        assert!(meta.iso_sensitivity.is_none());
+        assert!(meta.capture_settings.is_none());
+
+        let perf = CameraPerformanceMetrics::default();
+        assert_eq!(perf.capture_latency_ms, 0.0);
+        assert_eq!(perf.processing_time_ms, 0.0);
+        assert_eq!(perf.memory_usage_mb, 0.0);
+        assert_eq!(perf.fps_actual, 0.0);
+        assert_eq!(perf.quality_score, 0.0);
+    }
+
+    #[test]
+    fn test_camera_init_params_builders_and_professional() {
+        let default_params = CameraInitParams::default();
+        assert_eq!(default_params.device_id, "0");
+
+        let custom_format = CameraFormat::new(1024, 768, 25.0);
+        let custom_controls = CameraControls::default();
+
+        let built = CameraInitParams::new("2".to_string())
+            .with_format(custom_format.clone())
+            .with_controls(custom_controls.clone())
+            .with_auto_focus(false)
+            .with_auto_exposure(false);
+
+        assert_eq!(built.device_id, "2");
+        assert_eq!(built.format, custom_format);
+        assert_eq!(built.controls.auto_focus, Some(false));
+        assert_eq!(built.controls.auto_exposure, Some(false));
+
+        let pro = CameraInitParams::professional("9".to_string());
+        assert_eq!(pro.device_id, "9");
+        assert_eq!(pro.format.width, 2592);
+        assert_eq!(pro.format.height, 1944);
+        assert_eq!(pro.format.fps, 15.0);
+        assert_eq!(pro.controls, CameraControls::professional());
     }
 }
