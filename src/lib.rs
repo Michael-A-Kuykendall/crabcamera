@@ -91,6 +91,9 @@ pub mod timing;
 /// Common data types and structures.
 pub mod types;
 
+/// Preview stream module.
+pub mod preview;
+
 #[cfg(feature = "recording")]
 /// Video recording and encoding.
 pub mod recording;
