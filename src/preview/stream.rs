@@ -1,7 +1,7 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex as StdMutex};
 use std::time::Duration;
 
-use tokio::sync::{broadcast, Mutex};
+use tokio::sync::broadcast;
 use tokio_util::sync::CancellationToken;
 
 #[cfg(feature = "tauri")]
@@ -33,7 +33,7 @@ impl PreviewStream {
 
     pub async fn start(
         &self,
-        camera: Arc<Mutex<PlatformCamera>>,
+        camera: Arc<StdMutex<PlatformCamera>>,
         config: PreviewConfig,
         mut trigger: SmartTrigger,
         #[cfg(feature = "tauri")] app: Option<tauri::AppHandle>,
@@ -66,7 +66,7 @@ impl PreviewStream {
 
                 let camera_arc = camera.clone();
                 let frame = match tokio::task::spawn_blocking(move || {
-                    let mut cam = camera_arc.blocking_lock();
+                    let mut cam = camera_arc.lock().expect("camera lock");
                     cam.capture_frame()
                 })
                 .await
@@ -83,15 +83,15 @@ impl PreviewStream {
                 let (quality_event, stale_flag, trigger_ready, jpeg_data) = if config.downscale < 1.0 {
                     let preview = downsample_frame(&frame, config.downscale);
 
-                    let (quality, status, stale) = if should_analyze {
+                    let (quality, stale, trigger_status) = if should_analyze {
                         let (status, report) = trigger.process_frame(&preview);
                         last_quality = Some(report.clone());
                         last_sampled_frame = frame_number;
-                        (Some(report), status, false)
+                        (Some(report), false, status)
                     } else if let Some(ref cached) = last_quality {
-                        (Some(cached.clone()), TriggerStatus::Thinking("stale".into()), true)
+                        (Some(cached.clone()), true, TriggerStatus::Thinking("stale".into()))
                     } else {
-                        (None, TriggerStatus::Thinking("initial".into()), false)
+                        (None, false, TriggerStatus::Thinking("initial".into()))
                     };
 
                     let jpeg = match encode_frame_jpeg(&preview, config.jpeg_quality) {
@@ -99,17 +99,17 @@ impl PreviewStream {
                         Err(_) => continue,
                     };
 
-                    (quality, stale, status == TriggerStatus::Ready, jpeg)
+                    (quality, stale, trigger_status == TriggerStatus::Ready, jpeg)
                 } else {
-                    let (quality, status, stale) = if should_analyze {
+                    let (quality, stale, trigger_status) = if should_analyze {
                         let (status, report) = trigger.process_frame(&frame);
                         last_quality = Some(report.clone());
                         last_sampled_frame = frame_number;
-                        (Some(report), status, false)
+                        (Some(report), false, status)
                     } else if let Some(ref cached) = last_quality {
-                        (Some(cached.clone()), TriggerStatus::Thinking("stale".into()), true)
+                        (Some(cached.clone()), true, TriggerStatus::Thinking("stale".into()))
                     } else {
-                        (None, TriggerStatus::Thinking("initial".into()), false)
+                        (None, false, TriggerStatus::Thinking("initial".into()))
                     };
 
                     let jpeg = match encode_frame_jpeg(&frame, config.jpeg_quality) {
@@ -117,7 +117,7 @@ impl PreviewStream {
                         Err(_) => continue,
                     };
 
-                    (quality, stale, status == TriggerStatus::Ready, jpeg)
+                    (quality, stale, trigger_status == TriggerStatus::Ready, jpeg)
                 };
 
                 let event = PreviewFrameEvent {

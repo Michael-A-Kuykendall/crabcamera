@@ -12,6 +12,9 @@ pub mod focus_stack;
 pub mod init;
 /// Permission handling.
 pub mod permissions;
+/// Preview stream commands (Tauri only).
+#[cfg(feature = "tauri")]
+pub mod preview;
 /// Image quality analysis.
 pub mod quality;
 
