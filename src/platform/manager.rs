@@ -1,7 +1,7 @@
 use crate::platform::PlatformCamera;
 use crate::types::{CameraFormat, CameraFrame, CameraInitParams};
 use crate::errors::CameraError;
-use crate::constants::*;
+use crate::constants::{CONNECTION_BACKOFF_INITIAL_MS, CONNECTION_BACKOFF_MAX_MS, CAPTURE_WARMUP_FRAMES, CAPTURE_WARMUP_DELAY_MS, CAPTURE_RECONNECT_WARMUP_FRAMES, CAPTURE_RECONNECT_WARMUP_DELAY_MS};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex as SyncMutex};
 use tokio::sync::RwLock;
@@ -19,7 +19,7 @@ pub async fn get_existing_camera(device_id: &str) -> Option<Arc<SyncMutex<Platfo
 
 /// Release a camera (stop and remove from registry)
 pub async fn release_camera(device_id: &str) -> Result<String, CameraError> {
-    log::info!("Releasing camera: {}", device_id);
+    log::info!("Releasing camera: {device_id}");
 
     let mut registry = CAMERA_REGISTRY.write().await;
 
@@ -29,15 +29,15 @@ pub async fn release_camera(device_id: &str) -> Result<String, CameraError> {
         tokio::task::spawn_blocking(move || {
             if let Ok(mut camera_guard) = camera_clone.lock() {
                 let _ = camera_guard.stop_stream(); // Ignore errors on cleanup
-                log::info!("Camera {} released", device_id_clone);
+                log::info!("Camera {device_id_clone} released");
             }
         })
         .await
         .ok();
-        Ok(format!("Camera {} released", device_id))
+        Ok(format!("Camera {device_id} released"))
     } else {
-        let msg = format!("No active camera found with ID: {}", device_id);
-        log::info!("{}", msg);
+        let msg = format!("No active camera found with ID: {device_id}");
+        log::info!("{msg}");
         Ok(msg) // Not an error if camera wasn't active
     }
 }
@@ -51,7 +51,7 @@ pub async fn get_or_create_camera(
     {
         let registry = CAMERA_REGISTRY.read().await;
         if let Some(camera) = registry.get(&device_id) {
-            log::debug!("Using existing camera: {}", device_id);
+            log::debug!("Using existing camera: {device_id}");
             return Ok(camera.clone());
         }
     }
@@ -61,12 +61,12 @@ pub async fn get_or_create_camera(
 
     // Double-check in case another task created it while we waited
     if let Some(camera) = registry.get(&device_id) {
-        log::debug!("Using camera created by another task: {}", device_id);
+        log::debug!("Using camera created by another task: {device_id}");
         return Ok(camera.clone());
     }
 
     // Create new camera
-    log::debug!("Creating new camera: {}", device_id);
+    log::debug!("Creating new camera: {device_id}");
     let params = CameraInitParams::new(device_id.clone()).with_format(format);
 
     match PlatformCamera::new(params) {
@@ -76,7 +76,7 @@ pub async fn get_or_create_camera(
             Ok(camera_arc)
         }
         Err(e) => {
-            log::error!("Failed to create camera: {}", e);
+            log::error!("Failed to create camera: {e}");
             Err(e)
         }
     }
@@ -92,9 +92,7 @@ pub async fn reconnect_camera(
     max_retries: u32,
 ) -> Result<Arc<SyncMutex<PlatformCamera>>, CameraError> {
     log::info!(
-        "Attempting to reconnect camera: {} (max retries: {})",
-        device_id,
-        max_retries
+        "Attempting to reconnect camera: {device_id} (max retries: {max_retries})"
     );
 
     // Remove old camera from registry
@@ -116,15 +114,12 @@ pub async fn reconnect_camera(
     // Retry connection with exponential backoff
     for attempt in 1..=max_retries {
         log::debug!(
-            "Reconnection attempt {}/{} for camera: {}",
-            attempt,
-            max_retries,
-            device_id
+            "Reconnection attempt {attempt}/{max_retries} for camera: {device_id}"
         );
 
         match get_or_create_camera(device_id.clone(), format.clone()).await {
             Ok(camera) => {
-                log::info!("Camera reconnected successfully on attempt {}", attempt);
+                log::info!("Camera reconnected successfully on attempt {attempt}");
                 return Ok(camera);
             }
             Err(e) => {
@@ -149,8 +144,7 @@ pub async fn capture_with_reconnect(
     max_reconnect_attempts: u32,
 ) -> Result<CameraFrame, CameraError> {
     log::debug!(
-        "Attempting capture with reconnect for device: {}",
-        device_id
+        "Attempting capture with reconnect for device: {device_id}"
     );
 
     let camera_result = get_or_create_camera(device_id.clone(), format.clone()).await;
@@ -168,7 +162,7 @@ pub async fn capture_with_reconnect(
 
         // Ensure stream is started
         if let Err(e) = camera_guard.start_stream() {
-            log::warn!("Failed to start stream: {}", e);
+            log::warn!("Failed to start stream: {e}");
         }
 
         // Discard warmup frames - cameras need time to stabilize exposure/focus
@@ -194,10 +188,10 @@ pub async fn capture_with_reconnect(
         // Now capture the real frame
         camera_guard
             .capture_frame()
-            .map_err(|e| CameraError::CaptureError(format!("Initial capture failed: {}, attempting reconnect", e)))
+            .map_err(|e| CameraError::CaptureError(format!("Initial capture failed: {e}, attempting reconnect")))
     })
     .await
-    .map_err(|e| CameraError::SystemError(format!("Task join error: {}", e)))?;
+    .map_err(|e| CameraError::SystemError(format!("Task join error: {e}")))?;
 
     if let Ok(frame) = capture_result {
         return Ok(frame);
@@ -214,7 +208,7 @@ pub async fn capture_with_reconnect(
             .map_err(|_| CameraError::AccessError("Mutex poisoned".to_string()))?;
 
         if let Err(e) = camera_guard.start_stream() {
-            log::warn!("Failed to start stream after reconnect: {}", e);
+            log::warn!("Failed to start stream after reconnect: {e}");
         }
 
         // Warmup after reconnect too
@@ -225,10 +219,10 @@ pub async fn capture_with_reconnect(
 
         camera_guard
             .capture_frame()
-            .map_err(|e| CameraError::CaptureError(format!("Capture failed after reconnection: {}", e)))
+            .map_err(|e| CameraError::CaptureError(format!("Capture failed after reconnection: {e}")))
     })
     .await
-    .map_err(|e| CameraError::SystemError(format!("Task join error: {}", e)))?
+    .map_err(|e| CameraError::SystemError(format!("Task join error: {e}")))?
 }
 
 #[cfg(test)]

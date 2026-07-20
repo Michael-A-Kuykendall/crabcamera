@@ -185,6 +185,6 @@ mod tests {
     fn test_permission_status_string() {
         let status = get_permission_status_string();
         assert!(!status.is_empty());
-        println!("Status string: {}", status);
+        println!("Status string: {status}");
     }
 }

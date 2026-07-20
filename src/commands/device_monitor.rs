@@ -17,7 +17,7 @@ pub async fn start_device_monitoring() -> Result<String, String> {
         monitor
             .start_monitoring()
             .await
-            .map_err(|e| format!("Failed to start monitoring: {}", e))?;
+            .map_err(|e| format!("Failed to start monitoring: {e}"))?;
         *monitor_guard = Some(monitor);
         Ok("Device monitoring started".to_string())
     } else {
@@ -34,7 +34,7 @@ pub async fn stop_device_monitoring() -> Result<String, String> {
         monitor
             .stop_monitoring()
             .await
-            .map_err(|e| format!("Failed to stop monitoring: {}", e))?;
+            .map_err(|e| format!("Failed to stop monitoring: {e}"))?;
         *monitor_guard = None;
         Ok("Device monitoring stopped".to_string())
     } else {

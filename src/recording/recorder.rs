@@ -21,7 +21,7 @@ use muxide::api::{Metadata, MuxerBuilder, VideoCodec};
 #[cfg(feature = "audio")]
 use muxide::api::AudioCodec;
 
-use crate::constants::*;
+use crate::constants::{RECORDING_AUDIO_CHANNEL_CAPACITY, RECORDING_AUDIO_SLEEP_MS, RECORDING_JITTER_TOLERANCE, RECORDING_DROP_LOG_INTERVAL};
 use super::config::{RecordingConfig, RecordingStats};
 use super::encoder::H264Encoder;
 use crate::errors::CameraError;
@@ -340,7 +340,7 @@ impl Recorder {
 
     /// Drain available audio frames and write to muxer (non-blocking)
     /// Per #`RecorderIntegrateAudio`: ! `drains_audio_non_blocking`
-    /// Bounded drain: processes at most MAX_AUDIO_DRAIN_PER_FRAME packets
+    /// Bounded drain: processes at most `MAX_AUDIO_DRAIN_PER_FRAME` packets
     /// to prevent blocking video on slow audio processing
     #[cfg(feature = "audio")]
     fn drain_audio(&mut self) {
@@ -419,7 +419,7 @@ impl Recorder {
 
         self.muxer
             .write_video(pts, &encoded.data, encoded.is_keyframe)
-            .map_err(|e| CameraError::MuxingError(format!("Failed to write frame: {}", e)))?;
+            .map_err(|e| CameraError::MuxingError(format!("Failed to write frame: {e}")))?;
 
         self.frame_count += 1;
         self.last_frame_time = Some(now);
@@ -440,13 +440,12 @@ impl Recorder {
 
         // Use finish_with_stats() which returns Result<MuxerStats, MuxerError>
         let muxer_stats = self.muxer.finish_with_stats().map_err(|e| {
-            CameraError::MuxingError(format!("Failed to finalize recording: {}", e))
+            CameraError::MuxingError(format!("Failed to finalize recording: {e}"))
         })?;
 
         let actual_duration = self
             .start_time
-            .map(|start| start.elapsed().as_secs_f64())
-            .unwrap_or(muxer_stats.duration_secs);
+            .map_or(muxer_stats.duration_secs, |start| start.elapsed().as_secs_f64());
 
         let actual_fps = if actual_duration > 0.0 {
             self.frame_count as f64 / actual_duration
@@ -478,11 +477,11 @@ impl Recorder {
         // Wait for audio thread to finish (it will flush its encoder)
         if let Some(handle) = self.audio_thread.take() {
             match handle.join() {
-                Ok(_) => {
+                Ok(()) => {
                     // Thread completed normally
                 }
                 Err(panic_payload) => {
-                    log::error!("Audio thread panicked: {:?}", panic_payload);
+                    log::error!("Audio thread panicked: {panic_payload:?}");
                     self.audio_failed = true;
                 }
             }
@@ -492,7 +491,7 @@ impl Recorder {
         if let Some(ref receiver) = self.audio_receiver {
             while let Ok(packet) = receiver.try_recv() {
                 if let Err(e) = self.muxer.write_audio(packet.timestamp, &packet.data) {
-                    log::warn!("Failed to write remaining audio packet in finish: {}", e);
+                    log::warn!("Failed to write remaining audio packet in finish: {e}");
                 }
             }
         }
@@ -511,8 +510,7 @@ impl Recorder {
     /// Get the recording duration so far
     pub fn duration(&self) -> f64 {
         self.start_time
-            .map(|start| start.elapsed().as_secs_f64())
-            .unwrap_or(0.0)
+            .map_or(0.0, |start| start.elapsed().as_secs_f64())
     }
 
     /// Check if recording has started
@@ -526,7 +524,7 @@ impl Recorder {
     }
 
     /// Check if audio capture has failed
-    /// Per #AudioErrorRecovery: ! session_status_reflects_audio_state
+    /// Per #`AudioErrorRecovery`: ! `session_status_reflects_audio_state`
     #[cfg(feature = "audio")]
     pub fn audio_failed(&self) -> bool {
         // Check the shared error flag from audio thread

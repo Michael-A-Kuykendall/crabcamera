@@ -19,7 +19,7 @@ pub async fn validate_frame_quality(
     device_id: Option<String>,
     capture_format: Option<crate::types::CameraFormat>,
 ) -> Result<QualityReport, String> {
-    log::info!("Validating frame quality for device: {:?}", device_id);
+    log::info!("Validating frame quality for device: {device_id:?}");
 
     // Capture a frame first
     let frame = capture_single_photo(device_id, capture_format).await?;
@@ -52,7 +52,7 @@ pub async fn analyze_frame_blur(
     device_id: Option<String>,
     capture_format: Option<crate::types::CameraFormat>,
 ) -> Result<BlurMetrics, String> {
-    log::info!("Analyzing frame blur for device: {:?}", device_id);
+    log::info!("Analyzing frame blur for device: {device_id:?}");
 
     // Capture a frame
     let frame = capture_single_photo(device_id, capture_format).await?;
@@ -70,7 +70,7 @@ pub async fn analyze_frame_exposure(
     device_id: Option<String>,
     capture_format: Option<crate::types::CameraFormat>,
 ) -> Result<ExposureMetrics, String> {
-    log::info!("Analyzing frame exposure for device: {:?}", device_id);
+    log::info!("Analyzing frame exposure for device: {device_id:?}");
 
     // Capture a frame
     let frame = capture_single_photo(device_id, capture_format).await?;
@@ -126,7 +126,7 @@ pub async fn capture_best_quality_frame(
     num_attempts: Option<u32>,
 ) -> Result<CaptureQualityResult, String> {
     let attempts = num_attempts.unwrap_or(5).min(10); // Max 10 attempts
-    log::info!("Capturing best quality frame with {} attempts", attempts);
+    log::info!("Capturing best quality frame with {attempts} attempts");
 
     let validator = QUALITY_VALIDATOR.read().await;
     let mut best_frame: Option<CameraFrame> = None;
@@ -134,7 +134,7 @@ pub async fn capture_best_quality_frame(
     let mut best_score = 0.0f32;
 
     for attempt in 1..=attempts {
-        log::debug!("Quality capture attempt {} of {}", attempt, attempts);
+        log::debug!("Quality capture attempt {attempt} of {attempts}");
 
         // Capture frame
         match capture_single_photo(device_id.clone(), capture_format.clone()).await {
@@ -150,12 +150,12 @@ pub async fn capture_best_quality_frame(
 
                 // If we achieve excellent quality, stop early
                 if best_score >= 0.9 {
-                    log::info!("Excellent quality achieved on attempt {}", attempt);
+                    log::info!("Excellent quality achieved on attempt {attempt}");
                     break;
                 }
             }
             Err(e) => {
-                log::warn!("Frame capture failed on attempt {}: {}", attempt, e);
+                log::warn!("Frame capture failed on attempt {attempt}: {e}");
                 continue;
             }
         }
@@ -190,10 +190,7 @@ pub async fn auto_capture_with_quality(
     let timeout = timeout_seconds.unwrap_or(30); // 30 second timeout
 
     log::info!(
-        "Auto-capturing with quality threshold {} (max {} attempts, {}s timeout)",
-        quality_threshold,
-        max_tries,
-        timeout
+        "Auto-capturing with quality threshold {quality_threshold} (max {max_tries} attempts, {timeout}s timeout)"
     );
 
     let start_time = std::time::Instant::now();
@@ -201,11 +198,11 @@ pub async fn auto_capture_with_quality(
 
     for attempt in 1..=max_tries {
         // Check timeout
-        if start_time.elapsed().as_secs() >= timeout as u64 {
-            return Err(format!("Auto-capture timeout after {} seconds", timeout));
+        if start_time.elapsed().as_secs() >= u64::from(timeout) {
+            return Err(format!("Auto-capture timeout after {timeout} seconds"));
         }
 
-        log::debug!("Auto-capture attempt {} of {}", attempt, max_tries);
+        log::debug!("Auto-capture attempt {attempt} of {max_tries}");
 
         // Capture frame
         match capture_single_photo(device_id.clone(), capture_format.clone()).await {
@@ -233,7 +230,7 @@ pub async fn auto_capture_with_quality(
                 );
             }
             Err(e) => {
-                log::warn!("Frame capture failed on attempt {}: {}", attempt, e);
+                log::warn!("Frame capture failed on attempt {attempt}: {e}");
             }
         }
 
@@ -242,8 +239,7 @@ pub async fn auto_capture_with_quality(
     }
 
     Err(format!(
-        "Failed to capture frame meeting quality threshold {} after {} attempts",
-        quality_threshold, max_tries
+        "Failed to capture frame meeting quality threshold {quality_threshold} after {max_tries} attempts"
     ))
 }
 
@@ -255,13 +251,13 @@ pub async fn analyze_quality_trends(
     num_samples: Option<u32>,
 ) -> Result<QualityTrendAnalysis, String> {
     let samples = num_samples.unwrap_or(10).min(20); // Max 20 samples
-    log::info!("Analyzing quality trends over {} samples", samples);
+    log::info!("Analyzing quality trends over {samples} samples");
 
     let validator = QUALITY_VALIDATOR.read().await;
     let mut reports = Vec::new();
 
     for i in 1..=samples {
-        log::debug!("Quality trend sample {} of {}", i, samples);
+        log::debug!("Quality trend sample {i} of {samples}");
 
         match capture_single_photo(device_id.clone(), capture_format.clone()).await {
             Ok(frame) => {
@@ -269,7 +265,7 @@ pub async fn analyze_quality_trends(
                 reports.push(report);
             }
             Err(e) => {
-                log::warn!("Failed to capture sample {}: {}", i, e);
+                log::warn!("Failed to capture sample {i}: {e}");
                 continue;
             }
         }

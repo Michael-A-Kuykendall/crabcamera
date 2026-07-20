@@ -1,5 +1,5 @@
 use crabcamera::invariant_ppt;
-use crabcamera::types::{CameraFrame, CameraFormat};
+use crabcamera::types::CameraFrame;
 
 #[test]
 #[should_panic(expected = "Focus stack frames must have identical dimensions")]

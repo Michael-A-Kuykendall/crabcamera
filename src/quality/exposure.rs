@@ -1,5 +1,5 @@
 use crate::types::CameraFrame;
-use crate::constants::*;
+use crate::constants::{EXPOSURE_BRIGHTNESS_LOW, EXPOSURE_BRIGHTNESS_DARK, EXPOSURE_BRIGHTNESS_GOOD, EXPOSURE_BRIGHTNESS_HIGH, QUALITY_SCORE_SHARP, QUALITY_SCORE_GOOD, QUALITY_SCORE_BLURRY, EXPOSURE_PIXEL_DARK, EXPOSURE_PIXEL_BRIGHT};
 use serde::{Deserialize, Serialize};
 
 /// Exposure analysis levels

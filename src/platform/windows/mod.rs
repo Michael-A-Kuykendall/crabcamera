@@ -6,7 +6,7 @@
 
 /// Capture implementation using nokhwa.
 pub mod capture;
-/// Advanced camera controls via MediaFoundation.
+/// Advanced camera controls via `MediaFoundation`.
 pub mod controls;
 
 use self::controls::MediaFoundationControls;
@@ -23,7 +23,7 @@ type FrameCallback = Box<dyn Fn(CameraFrame) + Send + 'static>;
 pub struct WindowsCamera {
     /// nokhwa camera for frame capture
     pub nokhwa_camera: Camera,
-    /// MediaFoundation controls for advanced camera settings
+    /// `MediaFoundation` controls for advanced camera settings
     pub mf_controls: MediaFoundationControls,
     /// Device identifier
     pub device_id: String,
@@ -37,8 +37,7 @@ impl WindowsCamera {
     /// Create new Windows camera with both capture and control capabilities
     pub fn new(device_id: String, format: CameraFormat) -> Result<Self, CameraError> {
         log::info!(
-            "Initializing Windows camera {} with MediaFoundation controls",
-            device_id
+            "Initializing Windows camera {device_id} with MediaFoundation controls"
         );
 
         // Initialize nokhwa camera for capture
@@ -114,7 +113,7 @@ impl WindowsCamera {
         ))
     }
 
-    /// Apply camera controls using MediaFoundation
+    /// Apply camera controls using `MediaFoundation`
     pub fn apply_controls(
         &mut self,
         controls: &CameraControls,
@@ -132,12 +131,12 @@ impl WindowsCamera {
         self.mf_controls.get_capabilities()
     }
 
-    /// Start camera stream - must be called before capture_frame
+    /// Start camera stream - must be called before `capture_frame`
     pub fn start_stream(&mut self) -> Result<(), CameraError> {
         log::debug!("Opening camera stream for device {}", self.device_id);
         self.nokhwa_camera
             .open_stream()
-            .map_err(|e| CameraError::StreamError(format!("Failed to open stream: {}", e)))
+            .map_err(|e| CameraError::StreamError(format!("Failed to open stream: {e}")))
     }
 
     /// Stop camera stream
@@ -145,7 +144,7 @@ impl WindowsCamera {
         log::debug!("Stopping camera stream for device {}", self.device_id);
         self.nokhwa_camera
             .stop_stream()
-            .map_err(|e| CameraError::StreamError(format!("Failed to stop stream: {}", e)))
+            .map_err(|e| CameraError::StreamError(format!("Failed to stop stream: {e}")))
     }
 
     /// Check if the stream is currently open

@@ -40,7 +40,7 @@ pub async fn capture_focus_stack(
 
         let avg_error = alignments.iter().map(|a| a.error).sum::<f32>() / alignments.len() as f32;
 
-        log::info!("Alignment complete, avg error: {:.3} pixels", avg_error);
+        log::info!("Alignment complete, avg error: {avg_error:.3} pixels");
 
         // Apply alignment transforms to frames
         let mut aligned = Vec::with_capacity(frames.len());
@@ -67,7 +67,7 @@ pub async fn capture_focus_stack(
 
     let processing_time_ms = start_time.elapsed().as_millis() as u64;
 
-    log::info!("Focus stack complete in {}ms", processing_time_ms);
+    log::info!("Focus stack complete in {processing_time_ms}ms");
 
     Ok(FocusStackResult {
         merged_frame,
@@ -92,9 +92,7 @@ pub async fn capture_focus_brackets_command(
     format: Option<CameraFormat>,
 ) -> Result<FocusStackResult, String> {
     log::info!(
-        "Starting focus bracket capture: {} brackets x {} shots",
-        brackets,
-        shots_per_bracket
+        "Starting focus bracket capture: {brackets} brackets x {shots_per_bracket} shots"
     );
 
     let start_time = Instant::now();
@@ -116,7 +114,7 @@ pub async fn capture_focus_brackets_command(
 
     let processing_time_ms = start_time.elapsed().as_millis() as u64;
 
-    log::info!("Focus bracket stack complete in {}ms", processing_time_ms);
+    log::info!("Focus bracket stack complete in {processing_time_ms}ms");
 
     Ok(FocusStackResult {
         merged_frame,
@@ -137,29 +135,25 @@ pub fn get_default_focus_config() -> FocusStackConfig {
 pub fn validate_focus_config(config: FocusStackConfig) -> Result<String, String> {
     if config.num_steps < FOCUS_STACK_MIN_STEPS {
         return Err(format!(
-            "num_steps must be at least {}",
-            FOCUS_STACK_MIN_STEPS
+            "num_steps must be at least {FOCUS_STACK_MIN_STEPS}"
         ));
     }
 
     if config.num_steps > FOCUS_STACK_MAX_STEPS {
         return Err(format!(
-            "num_steps must be at most {}",
-            FOCUS_STACK_MAX_STEPS
+            "num_steps must be at most {FOCUS_STACK_MAX_STEPS}"
         ));
     }
 
     if config.focus_start < FOCUS_STACK_MIN_DIST || config.focus_start > FOCUS_STACK_MAX_DIST {
         return Err(format!(
-            "focus_start must be between {:.1} and {:.1}",
-            FOCUS_STACK_MIN_DIST, FOCUS_STACK_MAX_DIST
+            "focus_start must be between {FOCUS_STACK_MIN_DIST:.1} and {FOCUS_STACK_MAX_DIST:.1}"
         ));
     }
 
     if config.focus_end < FOCUS_STACK_MIN_DIST || config.focus_end > FOCUS_STACK_MAX_DIST {
         return Err(format!(
-            "focus_end must be between {:.1} and {:.1}",
-            FOCUS_STACK_MIN_DIST, FOCUS_STACK_MAX_DIST
+            "focus_end must be between {FOCUS_STACK_MIN_DIST:.1} and {FOCUS_STACK_MAX_DIST:.1}"
         ));
     }
 

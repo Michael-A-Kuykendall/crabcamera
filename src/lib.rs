@@ -1,4 +1,4 @@
-//! CrabCamera: Advanced cross-platform camera integration for Tauri applications
+//! `CrabCamera`: Advanced cross-platform camera integration for Tauri applications
 //!
 //! This crate provides unified camera access across desktop platforms
 //! with real-time processing capabilities and professional camera controls.

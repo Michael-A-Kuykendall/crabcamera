@@ -114,7 +114,7 @@ impl PerfTracker {
 ///
 /// Uses a genuine OS interface per platform:
 /// - Linux: `RSS` field of `/proc/self/statm`.
-/// - macOS: `task_info` with `MACH_TASK_BASIC_INFO` (resident_size).
+/// - macOS: `task_info` with `MACH_TASK_BASIC_INFO` (`resident_size`).
 /// - Windows: `GetProcessMemoryInfo` working-set size.
 pub fn current_process_memory_mb() -> f32 {
     #[cfg(target_os = "linux")]
@@ -170,7 +170,7 @@ pub fn current_process_memory_mb() -> f32 {
             let handle = GetCurrentProcess();
             let mut counters = PROCESS_MEMORY_COUNTERS::default();
             counters.cb = std::mem::size_of::<PROCESS_MEMORY_COUNTERS>() as u32;
-            if GetProcessMemoryInfo(handle, &mut counters, counters.cb).is_ok() {
+            if GetProcessMemoryInfo(handle, &raw mut counters, counters.cb).is_ok() {
                 counters.WorkingSetSize as f32 / (1024.0 * 1024.0)
             } else {
                 0.0
@@ -195,7 +195,7 @@ pub fn build_metrics(tracker: &PerfTracker, device_id: &str) -> CameraPerformanc
         Some((buffer, width, height, format)) => {
             let frame = CameraFrame::new(buffer.clone(), *width, *height, device_id.to_string())
                 .with_format(format.clone());
-            let detector = BlurDetector::new(BLUR_VARIANCE_BLURRY as f64, 100.0);
+            let detector = BlurDetector::new(BLUR_VARIANCE_BLURRY, 100.0);
             detector.analyze_frame(&frame).quality_score
         }
         None => 0.0,

@@ -15,12 +15,12 @@ pub async fn get_system_manifest() -> Vec<FeatureManifest> {
 pub async fn initialize_camera_system() -> Result<String, String> {
     match CameraSystem::initialize() {
         Ok(message) => {
-            log::info!("Camera system initialized: {}", message);
+            log::info!("Camera system initialized: {message}");
             Ok(message)
         }
         Err(e) => {
-            log::error!("Failed to initialize camera system: {}", e);
-            Err(format!("Failed to initialize camera system: {}", e))
+            log::error!("Failed to initialize camera system: {e}");
+            Err(format!("Failed to initialize camera system: {e}"))
         }
     }
 }
@@ -42,8 +42,8 @@ pub async fn get_available_cameras() -> Result<Vec<CameraDeviceInfo>, String> {
             Ok(cameras)
         }
         Err(e) => {
-            log::error!("Failed to list cameras: {}", e);
-            Err(format!("Failed to list cameras: {}", e))
+            log::error!("Failed to list cameras: {e}");
+            Err(format!("Failed to list cameras: {e}"))
         }
     }
 }
@@ -61,8 +61,8 @@ pub async fn get_platform_info() -> Result<PlatformInfo, String> {
             Ok(info)
         }
         Err(e) => {
-            log::error!("Failed to get platform info: {}", e);
-            Err(format!("Failed to get platform info: {}", e))
+            log::error!("Failed to get platform info: {e}");
+            Err(format!("Failed to get platform info: {e}"))
         }
     }
 }
@@ -83,16 +83,16 @@ pub async fn test_camera_system() -> Result<SystemTestResult, String> {
             for (camera_id, test_result) in &result.test_results {
                 match test_result {
                     crate::platform::CameraTestResult::Success => {
-                        log::info!("Camera {} test: SUCCESS", camera_id);
+                        log::info!("Camera {camera_id} test: SUCCESS");
                     }
                     crate::platform::CameraTestResult::InitError(err) => {
-                        log::warn!("Camera {} init error: {}", camera_id, err);
+                        log::warn!("Camera {camera_id} init error: {err}");
                     }
                     crate::platform::CameraTestResult::CaptureError(err) => {
-                        log::warn!("Camera {} capture error: {}", camera_id, err);
+                        log::warn!("Camera {camera_id} capture error: {err}");
                     }
                     crate::platform::CameraTestResult::NotAvailable => {
-                        log::info!("Camera {} not available", camera_id);
+                        log::info!("Camera {camera_id} not available");
                     }
                 }
             }
@@ -100,8 +100,8 @@ pub async fn test_camera_system() -> Result<SystemTestResult, String> {
             Ok(result)
         }
         Err(e) => {
-            log::error!("Camera system test failed: {}", e);
-            Err(format!("Camera system test failed: {}", e))
+            log::error!("Camera system test failed: {e}");
+            Err(format!("Camera system test failed: {e}"))
         }
     }
 }
@@ -121,15 +121,14 @@ pub async fn check_camera_availability(device_id: String) -> Result<bool, String
             let is_available = cameras
                 .iter()
                 .find(|camera| camera.id == device_id)
-                .map(|camera| camera.is_available)
-                .unwrap_or(false);
+                .is_some_and(|camera| camera.is_available);
 
-            log::debug!("Camera {} availability: {}", device_id, is_available);
+            log::debug!("Camera {device_id} availability: {is_available}");
             Ok(is_available)
         }
         Err(e) => {
-            log::error!("Failed to check camera availability: {}", e);
-            Err(format!("Failed to check camera availability: {}", e))
+            log::error!("Failed to check camera availability: {e}");
+            Err(format!("Failed to check camera availability: {e}"))
         }
     }
 }
@@ -147,14 +146,14 @@ pub async fn get_camera_formats(device_id: String) -> Result<Vec<CameraFormat>, 
                 );
                 Ok(camera.supports_formats.clone())
             } else {
-                let msg = format!("Camera with ID '{}' not found", device_id);
-                log::warn!("{}", msg);
+                let msg = format!("Camera with ID '{device_id}' not found");
+                log::warn!("{msg}");
                 Err(msg)
             }
         }
         Err(e) => {
-            log::error!("Failed to get camera formats: {}", e);
-            Err(format!("Failed to get camera formats: {}", e))
+            log::error!("Failed to get camera formats: {e}");
+            Err(format!("Failed to get camera formats: {e}"))
         }
     }
 }
@@ -202,16 +201,16 @@ pub async fn get_system_diagnostics() -> Result<SystemDiagnostics, String> {
     let (platform_info, platform_info_error) = match CameraSystem::get_platform_info() {
         Ok(info) => (Some(info), None),
         Err(e) => {
-            log::warn!("Platform info unavailable: {}", e);
+            log::warn!("Platform info unavailable: {e}");
             (None, Some(e.to_string()))
         }
     };
 
     // Get available cameras — preserve enumeration error
-    let (cameras, camera_enumeration_error) = match CameraSystem::list_cameras() {
+    let (_cameras, _camera_enumeration_error) = match CameraSystem::list_cameras() {
         Ok(cams) => (cams, None),
         Err(e) => {
-            log::warn!("Camera enumeration failed: {}", e);
+            log::warn!("Camera enumeration failed: {e}");
             (vec![], Some(e.to_string()))
         }
     };
@@ -220,7 +219,7 @@ pub async fn get_system_diagnostics() -> Result<SystemDiagnostics, String> {
         Ok(cams) => (cams, None),
         Err(e) => {
             let msg = e.to_string();
-            log::warn!("Camera enumeration failed: {}", msg);
+            log::warn!("Camera enumeration failed: {msg}");
             (vec![], Some(msg))
         }
     };
@@ -253,9 +252,7 @@ pub async fn get_system_diagnostics() -> Result<SystemDiagnostics, String> {
         crate_version,
         platform: platform.as_str().to_string(),
         backend: platform_info
-            .as_ref()
-            .map(|p| p.backend.clone())
-            .unwrap_or_else(|| "unknown".to_string()),
+            .as_ref().map_or_else(|| "unknown".to_string(), |p| p.backend.clone()),
         camera_count,
         cameras: camera_summaries,
         permission_status,
@@ -283,7 +280,7 @@ pub struct SystemDiagnostics {
     pub crate_version: String,
     /// Operating system platform (e.g., "windows", "macos").
     pub platform: String,
-    /// Camera backend in use (e.g., "MediaFoundation", "AVFoundation").
+    /// Camera backend in use (e.g., "`MediaFoundation`", "`AVFoundation`").
     pub backend: String,
     /// Number of detected cameras.
     pub camera_count: usize,

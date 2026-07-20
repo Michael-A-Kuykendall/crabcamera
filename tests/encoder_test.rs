@@ -415,7 +415,7 @@ mod opus_tests {
             OpusEncoder::new(48000, 2, 128_000).expect("Opus encoder creation should succeed");
 
         // Test partial frames (smaller than 960 samples)
-        let partial_sizes = vec![100, 200, 500, 659]; // Sum = 1459, so we should get 1 packet
+        let partial_sizes = [100, 200, 500, 659]; // Sum = 1459, so we should get 1 packet
         let mut total_samples_sent = 0;
 
         for (i, size) in partial_sizes.iter().enumerate() {

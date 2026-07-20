@@ -165,7 +165,7 @@ pub const OPUS_FRAME_DURATION_MS: u32 = 20;
 pub const OPUS_FRAME_SAMPLES: usize = 960; // 20ms at 48kHz
 /// Opus Encoding - Audio Application Profile
 pub const OPUS_APPLICATION_AUDIO: i32 = 2049;
-/// Opus Encoding - VoIP Application Profile
+/// Opus Encoding - `VoIP` Application Profile
 pub const OPUS_APPLICATION_VOIP: i32 = 2048;
 /// Opus Encoding - Low Delay Application Profile
 pub const OPUS_APPLICATION_LOW_DELAY: i32 = 2051;

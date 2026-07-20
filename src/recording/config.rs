@@ -1,10 +1,10 @@
 //! Recording configuration types
 
-use crate::constants::*;
+use crate::constants::{AUDIO_SAMPLE_RATE, AUDIO_CHANNELS, AUDIO_BITRATE, VIDEO_BITRATE_HD};
 use serde::{Deserialize, Serialize};
 
 /// Audio configuration for recording
-/// Per #RecorderIntegrateAudio: ! supports_audio_optional
+/// Per #`RecorderIntegrateAudio`: ! `supports_audio_optional`
 #[cfg(feature = "audio")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AudioConfig {

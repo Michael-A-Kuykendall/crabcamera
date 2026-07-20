@@ -244,7 +244,7 @@ mod commands_permissions_tests {
                 assert!(!info.message.is_empty(), "Message should not become empty");
             }
 
-            previous_status = Some(info.status.clone());
+            previous_status = Some(info.status);
             previous_message = Some(info.message.clone());
 
             // Small delay between checks

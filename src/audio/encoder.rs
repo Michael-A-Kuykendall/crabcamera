@@ -14,7 +14,7 @@
 
 use super::capture::AudioFrame;
 use crate::errors::CameraError;
-use crate::constants::*;
+use crate::constants::{OPUS_SAMPLE_RATE, OPUS_APPLICATION_AUDIO, OPUS_FRAME_SAMPLES};
 
 /// Encoded Opus audio packet
 #[derive(Debug, Clone)]
@@ -70,7 +70,7 @@ impl OpusEncoder {
     pub fn new(sample_rate: u32, channels: u16, bitrate: u32) -> Result<Self, CameraError> {
         if sample_rate != OPUS_SAMPLE_RATE {
             return Err(CameraError::AudioError(
-                format!("Opus requires {} Hz sample rate", OPUS_SAMPLE_RATE),
+                format!("Opus requires {OPUS_SAMPLE_RATE} Hz sample rate"),
             ));
         }
 

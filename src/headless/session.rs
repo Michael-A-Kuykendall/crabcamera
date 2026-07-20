@@ -305,7 +305,7 @@ impl SessionHandle {
             let start = Instant::now();
             let mut handle = Some(handle);
             loop {
-                let finished = handle.as_ref().is_some_and(|h| h.is_finished());
+                let finished = handle.as_ref().is_some_and(std::thread::JoinHandle::is_finished);
                 if finished {
                     let _ = handle.take().unwrap().join();
                     break;
@@ -331,7 +331,7 @@ impl SessionHandle {
                 let start = Instant::now();
                 let mut handle = Some(handle);
                 loop {
-                    let finished = handle.as_ref().is_some_and(|h| h.is_finished());
+                    let finished = handle.as_ref().is_some_and(std::thread::JoinHandle::is_finished);
                     if finished {
                         let _ = handle.take().unwrap().join();
                         break;
@@ -374,7 +374,7 @@ impl SessionHandle {
         }
 
         if let Err(e) = self.stop(join_timeout) {
-            log::warn!("Error stopping session during close: {}", e);
+            log::warn!("Error stopping session during close: {e}");
         }
 
         self.inner.queue.close();
@@ -637,7 +637,7 @@ impl SessionHandle {
 impl Drop for SessionHandle {
     fn drop(&mut self) {
         if let Err(e) = self.close(Duration::from_millis(100)) {
-            log::warn!("Error closing session in drop: {}", e);
+            log::warn!("Error closing session in drop: {e}");
         }
     }
 }
@@ -779,7 +779,7 @@ fn apply_control_to_struct(controls: &mut CameraControls, id: ControlId, value: 
         (ControlId::ExposureTime, ControlValue::F32(v)) => controls.exposure_time = Some(v),
         (ControlId::IsoSensitivity, ControlValue::U32(v)) => controls.iso_sensitivity = Some(v),
         (ControlId::WhiteBalance, ControlValue::WhiteBalance(v)) => {
-            controls.white_balance = Some(v)
+            controls.white_balance = Some(v);
         }
         (ControlId::Aperture, ControlValue::F32(v)) => controls.aperture = Some(v),
         (ControlId::Zoom, ControlValue::F32(v)) => controls.zoom = Some(v),
@@ -789,7 +789,7 @@ fn apply_control_to_struct(controls: &mut CameraControls, id: ControlId, value: 
         (ControlId::Sharpness, ControlValue::F32(v)) => controls.sharpness = Some(v),
         (ControlId::NoiseReduction, ControlValue::Bool(v)) => controls.noise_reduction = Some(v),
         (ControlId::ImageStabilization, ControlValue::Bool(v)) => {
-            controls.image_stabilization = Some(v)
+            controls.image_stabilization = Some(v);
         }
         _ => {}
     }

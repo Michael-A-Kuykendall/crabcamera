@@ -6,11 +6,11 @@
 //! ## Features
 //!
 //! - `system_inputs -> Vec<AudioDevice>`
-//! - includes(id, name, sample_rate, channels, is_default)
-//! - input_devices_only
-//! - deterministic_ordering
-//! - no starting_audio_capture
-//! - no inferring_missing_fields
+//! - includes(id, name, `sample_rate`, channels, `is_default`)
+//! - `input_devices_only`
+//! - `deterministic_ordering`
+//! - no `starting_audio_capture`
+//! - no `inferring_missing_fields`
 
 use cpal::traits::{DeviceTrait, HostTrait};
 use serde::{Deserialize, Serialize};
@@ -44,7 +44,7 @@ pub fn list_audio_devices() -> Result<Vec<AudioDevice>, CameraError> {
 
     let mut devices: Vec<AudioDevice> = host
         .input_devices()
-        .map_err(|e| CameraError::AudioError(format!("Failed to enumerate audio devices: {}", e)))?
+        .map_err(|e| CameraError::AudioError(format!("Failed to enumerate audio devices: {e}")))?
         .enumerate()
         .filter_map(|(index, device)| {
             let name = device.name().ok()?;
@@ -60,7 +60,7 @@ pub fn list_audio_devices() -> Result<Vec<AudioDevice>, CameraError> {
                 name.hash(&mut hasher);
                 format!("{:08x}", hasher.finish() & 0xFFFF_FFFF)
             };
-            let id = format!("audio_{}_{}", index, name_hash);
+            let id = format!("audio_{index}_{name_hash}");
 
             Some(AudioDevice {
                 id,
@@ -95,11 +95,11 @@ pub fn get_default_audio_device() -> Result<AudioDevice, CameraError> {
 
     let name = device
         .name()
-        .map_err(|e| CameraError::AudioError(format!("Failed to get device name: {}", e)))?;
+        .map_err(|e| CameraError::AudioError(format!("Failed to get device name: {e}")))?;
 
     let config = device
         .default_input_config()
-        .map_err(|e| CameraError::AudioError(format!("Failed to get device config: {}", e)))?;
+        .map_err(|e| CameraError::AudioError(format!("Failed to get device config: {e}")))?;
 
     // Generate synthetic ID for default device (index 0)
     let name_hash = {
@@ -109,7 +109,7 @@ pub fn get_default_audio_device() -> Result<AudioDevice, CameraError> {
         name.hash(&mut hasher);
         format!("{:08x}", hasher.finish() & 0xFFFF_FFFF)
     };
-    let id = format!("audio_0_{}", name_hash);
+    let id = format!("audio_0_{name_hash}");
 
     Ok(AudioDevice {
         id,
@@ -132,7 +132,7 @@ pub fn find_audio_device(device_id: &str) -> Result<AudioDevice, CameraError> {
     devices
         .into_iter()
         .find(|d| d.id == device_id || d.name == device_id)
-        .ok_or_else(|| CameraError::AudioError(format!("Audio device not found: {}", device_id)))
+        .ok_or_else(|| CameraError::AudioError(format!("Audio device not found: {device_id}")))
 }
 
 #[cfg(test)]

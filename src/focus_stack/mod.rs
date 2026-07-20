@@ -113,8 +113,7 @@ impl std::fmt::Display for FocusStackError {
             Self::InsufficientImages { required, provided } => {
                 write!(
                     f,
-                    "Insufficient images: need {}, got {}",
-                    required, provided
+                    "Insufficient images: need {required}, got {provided}"
                 )
             }
             Self::DimensionMismatch { expected, got } => {
@@ -130,13 +129,12 @@ impl std::fmt::Display for FocusStackError {
             } => {
                 write!(
                     f,
-                    "Frame data corruption: got {} bytes, expected {}",
-                    frame_size, expected_size
+                    "Frame data corruption: got {frame_size} bytes, expected {expected_size}"
                 )
             }
-            Self::AlignmentFailed(msg) => write!(f, "Alignment failed: {}", msg),
-            Self::MergeFailed(msg) => write!(f, "Merge failed: {}", msg),
-            Self::InvalidConfig(msg) => write!(f, "Invalid config: {}", msg),
+            Self::AlignmentFailed(msg) => write!(f, "Alignment failed: {msg}"),
+            Self::MergeFailed(msg) => write!(f, "Merge failed: {msg}"),
+            Self::InvalidConfig(msg) => write!(f, "Invalid config: {msg}"),
         }
     }
 }

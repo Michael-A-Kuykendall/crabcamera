@@ -1,5 +1,5 @@
 use crate::commands::capture::get_or_create_camera;
-use crate::constants::*;
+use crate::constants::{MIN_ISO, MAX_ISO};
 use crate::types::{BurstConfig, CameraControls, CameraFrame, ControlApplicationResult, WhiteBalance};
 use std::time::Instant;
 use tauri::command;
@@ -10,7 +10,7 @@ pub async fn set_camera_controls(
     device_id: String,
     controls: CameraControls,
 ) -> Result<ControlApplicationResult, String> {
-    log::info!("Setting camera controls for device: {}", device_id);
+    log::info!("Setting camera controls for device: {device_id}");
 
     let camera_arc =
         get_or_create_camera(device_id.clone(), crate::types::CameraFormat::standard()).await?;
@@ -22,8 +22,8 @@ pub async fn set_camera_controls(
             .map_err(|_| "Mutex poisoned".to_string())?;
 
         let result = camera.apply_controls(&controls).map_err(|e| {
-            log::error!("Failed to apply camera controls: {}", e);
-            format!("Failed to apply controls: {}", e)
+            log::error!("Failed to apply camera controls: {e}");
+            format!("Failed to apply controls: {e}")
         })?;
 
         log::info!(
@@ -36,13 +36,13 @@ pub async fn set_camera_controls(
         Ok(result)
     })
     .await
-    .map_err(|e| format!("Task join error: {}", e))?
+    .map_err(|e| format!("Task join error: {e}"))?
 }
 
 /// Get current camera controls
 #[command]
 pub async fn get_camera_controls(device_id: String) -> Result<CameraControls, String> {
-    log::info!("Getting camera controls for device: {}", device_id);
+    log::info!("Getting camera controls for device: {device_id}");
 
     let camera_arc =
         get_or_create_camera(device_id.clone(), crate::types::CameraFormat::standard()).await?;
@@ -55,17 +55,17 @@ pub async fn get_camera_controls(device_id: String) -> Result<CameraControls, St
 
         match camera.get_controls() {
             Ok(controls) => {
-                log::debug!("Retrieved camera controls for device: {}", device_id_clone);
+                log::debug!("Retrieved camera controls for device: {device_id_clone}");
                 Ok(controls)
             }
             Err(e) => {
-                log::error!("Failed to get camera controls: {}", e);
-                Err(format!("Failed to get controls: {}", e))
+                log::error!("Failed to get camera controls: {e}");
+                Err(format!("Failed to get controls: {e}"))
             }
         }
     })
     .await
-    .map_err(|e| format!("Task join error: {}", e))?
+    .map_err(|e| format!("Task join error: {e}"))?
 }
 
 /// Capture burst sequence with advanced controls
@@ -110,12 +110,12 @@ pub async fn capture_burst_sequence(
         tokio::task::spawn_blocking(move || {
             if let Ok(mut camera) = camera_arc.lock() {
                 if let Err(e) = camera.start_stream() {
-                    log::warn!("Failed to start camera stream: {}", e);
+                    log::warn!("Failed to start camera stream: {e}");
                 }
             }
         })
         .await
-        .map_err(|e| format!("Task join error: {}", e))?;
+        .map_err(|e| format!("Task join error: {e}"))?;
     }
 
     let mut frames = Vec::with_capacity(config.count as usize);
@@ -143,7 +143,7 @@ pub async fn capture_burst_sequence(
                     };
 
                     if let Err(e) = camera.apply_controls(&controls) {
-                        log::warn!("Failed to apply exposure bracketing: {}", e);
+                        log::warn!("Failed to apply exposure bracketing: {e}");
                     }
                 }
             }
@@ -158,7 +158,7 @@ pub async fn capture_burst_sequence(
                 };
 
                 if let Err(e) = camera.apply_controls(&controls) {
-                    log::warn!("Failed to apply focus stacking: {}", e);
+                    log::warn!("Failed to apply focus stacking: {e}");
                 }
 
                 // Wait for focus adjustment (blocking sleep is okay here as we are in spawn_blocking)
@@ -184,14 +184,14 @@ pub async fn capture_burst_sequence(
             }
         })
         .await
-        .map_err(|e| format!("Task join error: {}", e))??;
+        .map_err(|e| format!("Task join error: {e}"))??;
 
         frames.push(frame);
 
         // Wait between captures (except for the last one)
         if i < config.count - 1 {
             tokio::time::sleep(tokio::time::Duration::from_millis(
-                config.interval_ms as u64,
+                u64::from(config.interval_ms),
             ))
             .await;
         }
@@ -228,7 +228,7 @@ pub struct CameraSettingsInput {
     pub iso_sensitivity: Option<u32>,
     /// White balance mode
     pub white_balance: Option<WhiteBalance>,
-    /// Full CameraControls struct (merged over individual settings)
+    /// Full `CameraControls` struct (merged over individual settings)
     pub controls: Option<CameraControls>,
 }
 
@@ -265,8 +265,7 @@ pub async fn apply_camera_settings(
     if let Some(iso_sensitivity) = settings.iso_sensitivity {
         if !(MIN_ISO..=MAX_ISO).contains(&iso_sensitivity) {
             return Err(format!(
-                "ISO sensitivity must be between {} and {}",
-                MIN_ISO, MAX_ISO
+                "ISO sensitivity must be between {MIN_ISO} and {MAX_ISO}"
             ));
         }
         combined.auto_exposure = Some(false);
@@ -337,7 +336,7 @@ pub async fn set_manual_exposure(
     }
 
     if !(MIN_ISO..=MAX_ISO).contains(&iso_sensitivity) {
-        return Err(format!("ISO sensitivity must be between {} and {}", MIN_ISO, MAX_ISO));
+        return Err(format!("ISO sensitivity must be between {MIN_ISO} and {MAX_ISO}"));
     }
 
     let controls = CameraControls {
@@ -371,22 +370,20 @@ pub async fn set_white_balance(
 /// Enable HDR mode with automatic exposure bracketing
 #[command]
 pub async fn capture_hdr_sequence(device_id: String) -> Result<Vec<CameraFrame>, String> {
-    log::info!("Capturing HDR sequence from device: {}", device_id);
+    log::info!("Capturing HDR sequence from device: {device_id}");
 
     let config = BurstConfig::hdr_burst();
     capture_burst_sequence(device_id, config).await
 }
 
-/// Capture focus stacked sequence for macro photography (legacy - use focus_stack module)
+/// Capture focus stacked sequence for macro photography (legacy - use `focus_stack` module)
 #[command]
 pub async fn capture_focus_stack_legacy(
     device_id: String,
     stack_count: u32,
 ) -> Result<Vec<CameraFrame>, String> {
     log::info!(
-        "Capturing focus stack (legacy): {} frames from device {}",
-        stack_count,
-        device_id
+        "Capturing focus stack (legacy): {stack_count} frames from device {device_id}"
     );
 
     if !(3..=20).contains(&stack_count) {
@@ -430,13 +427,13 @@ pub async fn get_camera_performance(
                 Ok(metrics)
             }
             Err(e) => {
-                log::error!("Failed to get performance metrics: {}", e);
-                Err(format!("Failed to get performance metrics: {}", e))
+                log::error!("Failed to get performance metrics: {e}");
+                Err(format!("Failed to get performance metrics: {e}"))
             }
         }
     })
     .await
-    .map_err(|e| format!("Task join error: {}", e))?
+    .map_err(|e| format!("Task join error: {e}"))?
 }
 
 /// Test camera capabilities and return supported features
@@ -444,7 +441,7 @@ pub async fn get_camera_performance(
 pub async fn test_camera_capabilities(
     device_id: String,
 ) -> Result<crate::types::CameraCapabilities, String> {
-    log::info!("Testing camera capabilities for device: {}", device_id);
+    log::info!("Testing camera capabilities for device: {device_id}");
 
     let camera_arc =
         get_or_create_camera(device_id.clone(), crate::types::CameraFormat::standard()).await?;
@@ -468,13 +465,13 @@ pub async fn test_camera_capabilities(
                 Ok(capabilities)
             }
             Err(e) => {
-                log::error!("Failed to test camera capabilities: {}", e);
-                Err(format!("Failed to test capabilities: {}", e))
+                log::error!("Failed to test camera capabilities: {e}");
+                Err(format!("Failed to test capabilities: {e}"))
             }
         }
     })
     .await
-    .map_err(|e| format!("Task join error: {}", e))?
+    .map_err(|e| format!("Task join error: {e}"))?
 }
 
 // Helper functions
@@ -485,7 +482,7 @@ async fn save_burst_sequence(frames: &[CameraFrame], save_dir: &str) -> Result<(
 
     // Create directory if it doesn't exist
     if let Err(e) = tokio::fs::create_dir_all(save_dir).await {
-        return Err(format!("Failed to create directory {}: {}", save_dir, e));
+        return Err(format!("Failed to create directory {save_dir}: {e}"));
     }
 
     let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S");
@@ -507,7 +504,7 @@ async fn save_burst_sequence(frames: &[CameraFrame], save_dir: &str) -> Result<(
         })
         .await
         {
-            Ok(Ok(_)) => {
+            Ok(Ok(())) => {
                 log::debug!("Saved frame {} to {}", i + 1, filename);
             }
             Ok(Err(e)) => {

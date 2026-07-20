@@ -696,7 +696,7 @@ mod platform_windows_tests {
 
                     // Should have detailed descriptions from MediaFoundation
                     assert!(
-                        camera.description.as_ref().map_or(false, |s| !s.is_empty()),
+                        camera.description.as_ref().is_some_and(|s| !s.is_empty()),
                         "MediaFoundation should provide camera descriptions"
                     );
 

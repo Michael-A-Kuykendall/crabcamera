@@ -55,14 +55,14 @@ impl PreviewStream {
         tokio::spawn(async move {
             loop {
                 tokio::select! {
-                    _ = cancel.cancelled() => {
+                    () = cancel.cancelled() => {
                         #[cfg(feature = "tauri")]
                         if let Some(ref a) = app {
                             let _ = a.emit("crabcamera://preview-state", &serde_json::json!({"running": false}));
                         }
                         break;
                     }
-                    _ = tokio::time::sleep(Duration::from_millis((1000 / config.fps_target) as u64)) => {}
+                    () = tokio::time::sleep(Duration::from_millis(u64::from(1000 / config.fps_target))) => {}
                 }
 
                 let camera_arc = camera.clone();
@@ -79,7 +79,7 @@ impl PreviewStream {
                 frame_number += 1;
 
                 let should_analyze =
-                    frame_number % u64::from(config.quality_sample_rate) == 0;
+                    frame_number.is_multiple_of(u64::from(config.quality_sample_rate));
 
                 let (quality_event, stale_flag, trigger_ready, jpeg_data) = if config.downscale < 1.0 {
                     let preview = downsample_frame(&frame, config.downscale);

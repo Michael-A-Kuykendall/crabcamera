@@ -71,16 +71,11 @@ pub async fn start_recording(
     {
         if let Some(ref audio_id) = audio_device_id {
             log::info!(
-                "Starting recording from camera {} with audio {} to {}",
-                camera_id,
-                audio_id,
-                output_path
+                "Starting recording from camera {camera_id} with audio {audio_id} to {output_path}"
             );
         } else {
             log::info!(
-                "Starting recording from camera {} (no audio) to {}",
-                camera_id,
-                output_path
+                "Starting recording from camera {camera_id} (no audio) to {output_path}"
             );
         }
     }
@@ -138,7 +133,7 @@ pub async fn start_recording(
         CameraFormat::new(config.width, config.height, fps as f32),
     )
     .await
-    .map_err(|e| format!("Failed to initialize camera: {}", e))?;
+    .map_err(|e| format!("Failed to initialize camera: {e}"))?;
 
     // Start camera stream
     {
@@ -146,12 +141,12 @@ pub async fn start_recording(
             .lock()
             .map_err(|_| "Camera mutex poisoned".to_string())?;
         cam.start_stream()
-            .map_err(|e| format!("Failed to start camera stream: {}", e))?;
+            .map_err(|e| format!("Failed to start camera stream: {e}"))?;
     }
 
     // Create recorder
     let recorder = Recorder::new(&output_path, config)
-        .map_err(|e| format!("Failed to create recorder: {}", e))?;
+        .map_err(|e| format!("Failed to create recorder: {e}"))?;
 
     // Generate session ID
     let session_id = format!(
@@ -172,7 +167,7 @@ pub async fn start_recording(
         registry.insert(session_id.clone(), Arc::new(SyncMutex::new(session)));
     }
 
-    log::info!("Recording started: session {}", session_id);
+    log::info!("Recording started: session {session_id}");
     Ok(session_id)
 }
 
@@ -187,7 +182,7 @@ pub async fn record_frame(session_id: String) -> Result<u64, String> {
         registry
             .get(&session_id)
             .cloned()
-            .ok_or_else(|| format!("Recording session not found: {}", session_id))?
+            .ok_or_else(|| format!("Recording session not found: {session_id}"))?
     };
 
     let mut session = session_arc
@@ -206,7 +201,7 @@ pub async fn record_frame(session_id: String) -> Result<u64, String> {
             .map_err(|_| "Mutex poisoned".to_string())?;
         camera
             .capture_frame()
-            .map_err(|e| format!("Failed to capture frame: {}", e))?
+            .map_err(|e| format!("Failed to capture frame: {e}"))?
     };
 
     // Write to recorder
@@ -216,7 +211,7 @@ pub async fn record_frame(session_id: String) -> Result<u64, String> {
         .ok_or_else(|| "Recorder not available".to_string())?;
     recorder
         .write_frame(&frame)
-        .map_err(|e| format!("Failed to write frame: {}", e))?;
+        .map_err(|e| format!("Failed to write frame: {e}"))?;
 
     Ok(recorder.frame_count())
 }
@@ -232,7 +227,7 @@ pub async fn stop_recording(session_id: String) -> Result<RecordingStats, String
         let mut registry = RECORDER_REGISTRY.write().await;
         registry
             .remove(&session_id)
-            .ok_or_else(|| format!("Recording session not found: {}", session_id))?
+            .ok_or_else(|| format!("Recording session not found: {session_id}"))?
     };
 
     // Get exclusive access and stop
@@ -255,7 +250,7 @@ pub async fn stop_recording(session_id: String) -> Result<RecordingStats, String
         .take()
         .ok_or_else(|| "Recorder already taken".to_string())?
         .finish()
-        .map_err(|e| format!("Failed to finalize recording: {}", e))?;
+        .map_err(|e| format!("Failed to finalize recording: {e}"))?;
 
     log::info!(
         "Recording stopped: {} frames, {:.2}s, {} bytes",
@@ -275,7 +270,7 @@ pub async fn get_recording_status(session_id: String) -> Result<RecordingStatus,
         registry
             .get(&session_id)
             .cloned()
-            .ok_or_else(|| format!("Recording session not found: {}", session_id))?
+            .ok_or_else(|| format!("Recording session not found: {session_id}"))?
     };
 
     let session = session_arc
@@ -317,7 +312,7 @@ pub async fn list_recording_sessions() -> Result<Vec<String>, String> {
 }
 
 /// Recording status information
-/// Per #AudioErrorRecovery: ! session_status_reflects_audio_state
+/// Per #`AudioErrorRecovery`: ! `session_status_reflects_audio_state`
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RecordingStatus {
@@ -337,7 +332,7 @@ pub struct RecordingStatus {
 }
 
 /// Audio status within a recording session
-/// Per #AudioErrorRecovery: ! session_status_reflects_audio_state
+/// Per #`AudioErrorRecovery`: ! `session_status_reflects_audio_state`
 #[cfg(feature = "audio")]
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]

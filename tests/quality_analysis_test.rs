@@ -18,7 +18,6 @@ use crabcamera::quality::{
 };
 use crabcamera::types::{CameraFormat, CameraFrame};
 use std::time::Instant;
-use tokio;
 
 /// Mock device ID for testing
 const TEST_DEVICE_ID: &str = "test_camera_quality";

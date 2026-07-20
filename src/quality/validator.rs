@@ -1,4 +1,4 @@
-use crate::constants::*;
+use crate::constants::{MIN_RESOLUTION_WIDTH, MIN_RESOLUTION_HEIGHT};
 use crate::quality::{BlurDetector, BlurMetrics, ExposureAnalyzer, ExposureMetrics};
 use crate::types::CameraFrame;
 use serde::{Deserialize, Serialize};
@@ -140,8 +140,10 @@ impl QualityGrade {
 /// - `FinalCapture` is the accurate pass: denser noise sampling and slightly more
 ///   weight on composition/technical.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum QualityProfile {
     /// Original balanced behavior.
+    #[default]
     Standard,
     /// Cheap pass for live preview / hot loops.
     FastPreview,
@@ -149,11 +151,6 @@ pub enum QualityProfile {
     FinalCapture,
 }
 
-impl Default for QualityProfile {
-    fn default() -> Self {
-        QualityProfile::Standard
-    }
-}
 
 impl QualityProfile {
     /// Component weights `(blur, exposure, composition, technical)`.
@@ -515,7 +512,7 @@ impl QualityValidator {
             return frame.clone();
         }
 
-        let factor = ((max_side + max_dim - 1) / max_dim) as usize;
+        let factor = max_side.div_ceil(max_dim) as usize;
         let new_w = (frame.width as usize / factor).max(1);
         let new_h = (frame.height as usize / factor).max(1);
         let area = (factor * factor) as u32;
@@ -779,7 +776,7 @@ mod tests {
         // FastPreview weights only blur + exposure, so composition/technical are ignored.
         let fast = QualityValidator::with_profile(QualityProfile::FastPreview);
         let rf = fast.validate_frame(&frame);
-        let expected = (rf.score.blur + rf.score.exposure) / 2.0;
+        let expected = f32::midpoint(rf.score.blur, rf.score.exposure);
         assert!((rf.score.overall - expected).abs() < 1e-3);
 
         // Standard uses all four components and reports a profile of Standard.

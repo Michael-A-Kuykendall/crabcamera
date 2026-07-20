@@ -196,7 +196,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             if recorder.write_rgb_frame(&data, rec_w, rec_h).is_ok() {
                 frame_count += 1;
-                if frame_count % 10 == 0 {
+                if frame_count.is_multiple_of(10) {
                     print!(".");
                 }
             }

@@ -57,8 +57,8 @@ fn test_device_enumeration_comprehensive() {
             );
 
             // If we have devices, at least one should be default OR we should be able to get default
-            if !devices.is_empty() {
-                if default_devices.is_empty() {
+            if !devices.is_empty()
+                && default_devices.is_empty() {
                     // Try to get default device explicitly
                     match get_default_audio_device() {
                         Ok(default) => {
@@ -73,7 +73,6 @@ fn test_device_enumeration_comprehensive() {
                         }
                     }
                 }
-            }
         }
         Err(e) => {
             println!(
@@ -232,7 +231,7 @@ fn test_capture_format_handling() {
                     actual_rate
                 );
                 assert!(
-                    actual_channels >= 1 && actual_channels <= 2,
+                    (1..=2).contains(&actual_channels),
                     "Channels should be 1 or 2: {}",
                     actual_channels
                 );
@@ -308,7 +307,7 @@ fn test_audio_frame_properties() {
                             sample
                         );
                         assert!(
-                            sample >= -2.0 && sample <= 2.0,
+                            (-2.0..=2.0).contains(&sample),
                             "Sample {} should be in reasonable range: {}",
                             j,
                             sample

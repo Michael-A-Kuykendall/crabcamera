@@ -4,7 +4,7 @@
 //! quality thresholds, storage preferences, and other runtime options.
 
 use crate::errors::CameraError;
-use crate::constants::*;
+use crate::constants::{DEFAULT_RESOLUTION_WIDTH, DEFAULT_RESOLUTION_HEIGHT, DEFAULT_FPS, DEFAULT_RECONNECT_ATTEMPTS, DEFAULT_RECONNECT_DELAY_MS, DEFAULT_MAX_RETRY_ATTEMPTS, DEFAULT_BLUR_THRESHOLD, DEFAULT_EXPOSURE_THRESHOLD, DEFAULT_OVERALL_THRESHOLD, DEFAULT_RETRY_DELAY_MS, DEFAULT_OUTPUT_DIRECTORY, DEFAULT_DATE_FORMAT, DEFAULT_IMAGE_FORMAT, DEFAULT_JPEG_QUALITY, DEFAULT_FOCUS_STACK_STEPS, DEFAULT_HDR_BRACKETS};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -126,19 +126,19 @@ impl CrabCameraConfig {
         let path = path.as_ref();
 
         if !path.exists() {
-            log::info!("Config file not found at {:?}, using defaults", path);
+            log::info!("Config file not found at {path:?}, using defaults");
             return Ok(Self::default());
         }
 
         let contents = fs::read_to_string(path).map_err(|e| {
-            CameraError::InitializationError(format!("Failed to read config file: {}", e))
+            CameraError::InitializationError(format!("Failed to read config file: {e}"))
         })?;
 
         let config: CrabCameraConfig = toml::from_str(&contents).map_err(|e| {
-            CameraError::InitializationError(format!("Failed to parse config file: {}", e))
+            CameraError::InitializationError(format!("Failed to parse config file: {e}"))
         })?;
 
-        log::info!("Loaded configuration from {:?}", path);
+        log::info!("Loaded configuration from {path:?}");
         Ok(config)
     }
 
@@ -150,21 +150,20 @@ impl CrabCameraConfig {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(|e| {
                 CameraError::InitializationError(format!(
-                    "Failed to create config directory: {}",
-                    e
+                    "Failed to create config directory: {e}"
                 ))
             })?;
         }
 
         let toml_string = toml::to_string_pretty(self).map_err(|e| {
-            CameraError::InitializationError(format!("Failed to serialize config: {}", e))
+            CameraError::InitializationError(format!("Failed to serialize config: {e}"))
         })?;
 
         fs::write(path, toml_string).map_err(|e| {
-            CameraError::InitializationError(format!("Failed to write config file: {}", e))
+            CameraError::InitializationError(format!("Failed to write config file: {e}"))
         })?;
 
-        log::info!("Saved configuration to {:?}", path);
+        log::info!("Saved configuration to {path:?}");
         Ok(())
     }
 
@@ -176,7 +175,7 @@ impl CrabCameraConfig {
     /// Load from default location or create with defaults
     pub fn load_or_default() -> Self {
         Self::load_from_file(Self::default_path()).unwrap_or_else(|e| {
-            log::warn!("Failed to load config, using defaults: {}", e);
+            log::warn!("Failed to load config, using defaults: {e}");
             Self::default()
         })
     }

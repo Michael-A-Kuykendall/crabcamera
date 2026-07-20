@@ -1,19 +1,19 @@
 use serde::Serialize;
 use crate::quality::QualityReport;
 
-/// Event emitted by PreviewStream for each captured frame.
+/// Event emitted by `PreviewStream` for each captured frame.
 /// Carries a JPEG-compressed preview frame alongside quality metadata.
 #[derive(Debug, Clone, Serialize)]
 pub struct PreviewFrameEvent {
     /// JPEG-compressed frame data (Vec<u8> for Tauri serialization)
     pub jpeg_data: Vec<u8>,
-    /// Quality report from SmartTrigger. None = still analyzing first frames.
+    /// Quality report from `SmartTrigger`. None = still analyzing first frames.
     pub quality: Option<QualityReport>,
     /// True when the quality report was sampled from a prior frame, not the current one.
     pub stale: bool,
     /// Which frame number the (possibly stale) quality data came from.
     pub last_sampled_frame: u64,
-    /// SmartTrigger reports Ready when conditions are stable for capture.
+    /// `SmartTrigger` reports Ready when conditions are stable for capture.
     pub is_smart_trigger_ready: bool,
     /// Monotonic UTC timestamp of frame capture.
     pub timestamp: chrono::DateTime<chrono::Utc>,
@@ -21,7 +21,7 @@ pub struct PreviewFrameEvent {
     pub frame_number: u64,
 }
 
-/// Configuration for a PreviewStream session.
+/// Configuration for a `PreviewStream` session.
 #[derive(Debug, Clone)]
 pub struct PreviewConfig {
     /// Target frames per second (1-60).

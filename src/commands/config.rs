@@ -17,7 +17,7 @@ pub async fn get_config() -> Result<CrabCameraConfig, String> {
 #[command]
 pub async fn update_config(new_config: CrabCameraConfig) -> Result<(), String> {
     // Validate first
-    new_config.validate().map_err(|e| e.to_string())?;
+    new_config.validate().map_err(|e| e.clone())?;
 
     {
         let mut config = GLOBAL_CONFIG.write().map_err(|e| e.to_string())?;
@@ -40,7 +40,7 @@ pub async fn reset_config() -> Result<CrabCameraConfig, String> {
     {
         let mut config = GLOBAL_CONFIG
             .write()
-            .map_err(|e| format!("Failed to write config: {}", e))?;
+            .map_err(|e| format!("Failed to write config: {e}"))?;
         *config = default_config.clone();
     }
 
@@ -88,7 +88,7 @@ pub async fn update_camera_config(
     let mut config = GLOBAL_CONFIG.write().map_err(|e| e.to_string())?;
     config.camera = camera_config;
 
-    config.validate().map_err(|e| e.to_string())?;
+    config.validate().map_err(|e| e.clone())?;
 
     config
         .save_to_file(CrabCameraConfig::default_path())
@@ -105,7 +105,7 @@ pub async fn update_full_quality_config(
     let mut config = GLOBAL_CONFIG.write().map_err(|e| e.to_string())?;
     config.quality = quality_config;
 
-    config.validate().map_err(|e| e.to_string())?;
+    config.validate().map_err(|e| e.clone())?;
 
     config
         .save_to_file(CrabCameraConfig::default_path())
@@ -122,7 +122,7 @@ pub async fn update_storage_config(
     let mut config = GLOBAL_CONFIG.write().map_err(|e| e.to_string())?;
     config.storage = storage_config;
 
-    config.validate().map_err(|e| e.to_string())?;
+    config.validate().map_err(|e| e.clone())?;
 
     config
         .save_to_file(CrabCameraConfig::default_path())
@@ -139,7 +139,7 @@ pub async fn update_advanced_config(
     let mut config = GLOBAL_CONFIG.write().map_err(|e| e.to_string())?;
     config.advanced = advanced_config;
 
-    config.validate().map_err(|e| e.to_string())?;
+    config.validate().map_err(|e| e.clone())?;
 
     config
         .save_to_file(CrabCameraConfig::default_path())

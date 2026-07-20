@@ -1,5 +1,5 @@
 use super::FocusStackError;
-use crate::constants::*;
+use crate::constants::{ALIGNMENT_SIGNIFICANT_ROTATION, ALIGNMENT_SIGNIFICANT_SCALE, ALIGNMENT_SAMPLING_STEP, LUMA_R, LUMA_G, LUMA_B};
 /// Image alignment module for focus stacking
 ///
 /// Aligns images to compensate for camera movement between captures.
@@ -56,7 +56,7 @@ pub fn align_frames(frames: &[CameraFrame]) -> Result<Vec<AlignmentResult>, Focu
 
     // Align remaining frames to reference
     for (idx, frame) in frames.iter().enumerate().skip(1) {
-        log::debug!("Aligning frame {} to reference", idx);
+        log::debug!("Aligning frame {idx} to reference");
 
         // Validate dimensions match
         if frame.width != reference.width || frame.height != reference.height {
@@ -174,9 +174,9 @@ fn compute_center_of_mass(frame: &CameraFrame) -> (f32, f32) {
 
             if idx + 2 < frame.data.len() {
                 // Use luminance as weight
-                let r = frame.data[idx] as f32;
-                let g = frame.data[idx + 1] as f32;
-                let b = frame.data[idx + 2] as f32;
+                let r = f32::from(frame.data[idx]);
+                let g = f32::from(frame.data[idx + 1]);
+                let b = f32::from(frame.data[idx + 2]);
                 let weight = LUMA_R * r + LUMA_G * g + LUMA_B * b;
 
                 sum_x += x as f32 * weight;

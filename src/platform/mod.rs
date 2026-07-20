@@ -5,7 +5,7 @@
 //! optimizations and features.
 
 use crate::errors::CameraError;
-use crate::constants::*;
+use crate::constants::{MOCK_SLOW_CAPTURE_DELAY_MS, DEFAULT_RESOLUTION_WIDTH, DEFAULT_RESOLUTION_HEIGHT, HIGH_FPS, MIN_ISO, MAX_ISO, MOCK_CAPTURE_LATENCY_MS, MOCK_PROCESSING_TIME_MS, MOCK_MEMORY_USAGE_MB, MOCK_FPS, MOCK_QUALITY_SCORE};
 use crate::types::{CameraDeviceInfo, CameraFormat, CameraFrame, CameraInitParams, ControlApplicationResult, Platform};
 
 // Type alias for frame callback to reduce complexity
@@ -629,7 +629,7 @@ impl CameraSystem {
 pub struct PlatformInfo {
     /// The operating system platform.
     pub platform: Platform,
-    /// The camera backend in use (e.g. "MediaFoundation", "V4L2").
+    /// The camera backend in use (e.g. "`MediaFoundation`", "V4L2").
     pub backend: String,
     /// List of supported camera features.
     pub features: Vec<String>,
@@ -661,7 +661,7 @@ pub enum CameraTestResult {
 
 /// Platform-specific optimizations and utilities
 pub mod optimizations {
-    use super::*;
+    use super::{CameraFormat, Platform, CameraInitParams};
 
     /// Get recommended format for high-quality photography on current platform
     pub fn get_photography_format() -> CameraFormat {
@@ -800,7 +800,7 @@ mod tests {
                     || result
                         .as_ref()
                         .err()
-                        .map_or(false, |e| e.to_string().contains("camera")
+                        .is_some_and(|e| e.to_string().contains("camera")
                             || e.to_string().contains("device")
                             || e.to_string().contains("init"))
             ),

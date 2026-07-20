@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use crate::constants::*;
+use crate::constants::{FORMAT_RGB, DEFAULT_RESOLUTION_WIDTH, DEFAULT_RESOLUTION_HEIGHT, DEFAULT_FPS, FALLBACK_RESOLUTION_WIDTH, FALLBACK_RESOLUTION_HEIGHT, MIN_RESOLUTION_WIDTH, MIN_RESOLUTION_HEIGHT};
 
 /// Platform enumeration
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -329,7 +329,7 @@ pub struct BurstConfig {
     pub focus_stacking: bool,
     /// Whether to automatically save all frames to disk.
     pub auto_save: bool,
-    /// Directory to save frames if auto_save is enabled.
+    /// Directory to save frames if `auto_save` is enabled.
     pub save_directory: Option<String>,
 }
 

@@ -44,7 +44,7 @@ pub struct CaptureOptions {
 pub struct CaptureResult {
     /// Captured frame(s)
     pub frames: Vec<CameraFrame>,
-    /// Mode string identifier ("single", "sequence", or "quality_retry")
+    /// Mode string identifier ("single", "sequence", or "`quality_retry`")
     pub mode: String,
     /// Quality score from quality retry mode (None for other modes)
     pub quality_score: Option<f32>,
@@ -97,7 +97,7 @@ pub async fn capture_single_photo(
     device_id: Option<String>,
     format: Option<CameraFormat>,
 ) -> Result<CameraFrame, String> {
-    log::info!("Capturing single photo from camera: {:?}", device_id);
+    log::info!("Capturing single photo from camera: {device_id:?}");
 
     // Use default camera if none specified
     let camera_id = device_id.unwrap_or_else(|| "0".to_string());
@@ -115,8 +115,8 @@ pub async fn capture_single_photo(
             Ok(frame)
         }
         Err(e) => {
-            log::error!("Failed to capture frame: {}", e);
-            Err(format!("Failed to capture frame: {}", e))
+            log::error!("Failed to capture frame: {e}");
+            Err(format!("Failed to capture frame: {e}"))
         }
     }
 }
@@ -133,10 +133,7 @@ pub async fn capture_photo_sequence(
     format: Option<CameraFormat>,
 ) -> Result<Vec<CameraFrame>, String> {
     log::info!(
-        "Capturing {} photos from camera {} with {}ms interval",
-        count,
-        device_id,
-        interval_ms
+        "Capturing {count} photos from camera {device_id} with {interval_ms}ms interval"
     );
 
     if count == 0 || count > 20 {
@@ -155,12 +152,12 @@ pub async fn capture_photo_sequence(
         tokio::task::spawn_blocking(move || {
             if let Ok(mut camera_guard) = camera_clone.lock() {
                 if let Err(e) = camera_guard.start_stream() {
-                    log::warn!("Failed to start camera stream: {}", e);
+                    log::warn!("Failed to start camera stream: {e}");
                 }
             }
         })
         .await
-        .map_err(|e| format!("Task join error: {}", e))?;
+        .map_err(|e| format!("Task join error: {e}"))?;
     }
 
     let mut frames = Vec::new();
@@ -175,16 +172,16 @@ pub async fn capture_photo_sequence(
                 .map_err(|_| "Mutex poisoned".to_string())?;
             camera_guard
                 .capture_frame()
-                .map_err(|e| format!("Failed to capture frame: {}", e))
+                .map_err(|e| format!("Failed to capture frame: {e}"))
         })
         .await
-        .map_err(|e| format!("Task join error: {}", e))??;
+        .map_err(|e| format!("Task join error: {e}"))??;
 
         frames.push(frame);
 
         // Wait between captures (except for the last one)
         if i < count - 1 {
-            tokio::time::sleep(tokio::time::Duration::from_millis(interval_ms as u64)).await;
+            tokio::time::sleep(tokio::time::Duration::from_millis(u64::from(interval_ms))).await;
         }
     }
 
@@ -209,10 +206,7 @@ pub async fn capture_with_quality_retry(
     let capture_format = format.unwrap_or_else(CameraFormat::standard);
 
     log::info!(
-        "Starting quality capture: camera={}, max_attempts={}, min_quality={}",
-        camera_id,
-        attempts,
-        quality_threshold
+        "Starting quality capture: camera={camera_id}, max_attempts={attempts}, min_quality={quality_threshold}"
     );
 
     let camera = match get_or_create_camera(camera_id.clone(), capture_format).await {
@@ -226,12 +220,12 @@ pub async fn capture_with_quality_retry(
         tokio::task::spawn_blocking(move || {
             if let Ok(mut camera_guard) = camera_clone.lock() {
                 if let Err(e) = camera_guard.start_stream() {
-                    log::warn!("Failed to start camera stream: {}", e);
+                    log::warn!("Failed to start camera stream: {e}");
                 }
             }
         })
         .await
-        .map_err(|e| format!("Task join error: {}", e))?;
+        .map_err(|e| format!("Task join error: {e}"))?;
     }
 
     let validator = QualityValidator::default();
@@ -248,7 +242,7 @@ pub async fn capture_with_quality_retry(
                 camera_guard.capture_frame().map_err(|e| e.to_string())
             })
             .await
-            .map_err(|e| format!("Task join error: {}", e))??
+            .map_err(|e| format!("Task join error: {e}"))??
         };
 
         // Validate quality
@@ -264,17 +258,14 @@ pub async fn capture_with_quality_retry(
         );
 
         // Update best frame if this one is better
-        if best_frame.as_ref().map_or(true, |b| score > b.1) {
+        if best_frame.as_ref().is_none_or(|b| score > b.1) {
             best_frame = Some((frame.clone(), score));
         }
 
         // Check if quality threshold met
         if score >= quality_threshold {
             log::info!(
-                "Quality threshold met on attempt {}: score={:.3} >= {:.3}",
-                attempt,
-                score,
-                quality_threshold
+                "Quality threshold met on attempt {attempt}: score={score:.3} >= {quality_threshold:.3}"
             );
             return Ok(frame);
         }
@@ -288,15 +279,12 @@ pub async fn capture_with_quality_retry(
     // If we didn't meet threshold, return best frame we got
     if let Some((frame, score)) = best_frame {
         log::warn!(
-            "Quality threshold not met after {} attempts. Returning best frame: score={:.3}",
-            attempts,
-            score
+            "Quality threshold not met after {attempts} attempts. Returning best frame: score={score:.3}"
         );
         Ok(frame)
     } else {
         Err(format!(
-            "Failed to capture any valid frames after {} attempts",
-            attempts
+            "Failed to capture any valid frames after {attempts} attempts"
         ))
     }
 }
@@ -313,7 +301,7 @@ pub async fn set_frame_callback(
     device_id: String,
     format: Option<CameraFormat>,
 ) -> Result<String, String> {
-    log::info!("Setting frame callback for device: {}", device_id);
+    log::info!("Setting frame callback for device: {device_id}");
 
     let capture_format = format.unwrap_or_else(CameraFormat::standard);
     let camera = match get_or_create_camera(device_id.clone(), capture_format).await {
@@ -342,15 +330,14 @@ pub async fn set_frame_callback(
 
         camera_guard.frame_callback(callback).map_err(|e| {
             format!(
-                "Failed to set frame callback for device {}: {}",
-                device_id_clone, e
+                "Failed to set frame callback for device {device_id_clone}: {e}"
             )
         })
     })
     .await
-    .map_err(|e| format!("Task join error: {}", e))??;
+    .map_err(|e| format!("Task join error: {e}"))??;
 
-    Ok(format!("Frame callback set for device: {}", device_id))
+    Ok(format!("Frame callback set for device: {device_id}"))
 }
 
 /// Start continuous capture from a camera (for live preview)
@@ -359,7 +346,7 @@ pub async fn start_camera_preview(
     device_id: String,
     format: Option<CameraFormat>,
 ) -> Result<String, String> {
-    log::info!("Starting camera preview for device: {}", device_id);
+    log::info!("Starting camera preview for device: {device_id}");
 
     let capture_format = format.unwrap_or_else(CameraFormat::standard);
     let camera = match get_or_create_camera(device_id.clone(), capture_format).await {
@@ -374,24 +361,24 @@ pub async fn start_camera_preview(
             .lock()
             .map_err(|_| "Mutex poisoned".to_string())?;
         match camera_guard.start_stream() {
-            Ok(_) => {
-                log::info!("Camera preview started for device: {}", device_id_clone);
-                Ok(format!("Preview started for camera {}", device_id_clone))
+            Ok(()) => {
+                log::info!("Camera preview started for device: {device_id_clone}");
+                Ok(format!("Preview started for camera {device_id_clone}"))
             }
             Err(e) => {
-                log::error!("Failed to start camera preview: {}", e);
-                Err(format!("Failed to start camera preview: {}", e))
+                log::error!("Failed to start camera preview: {e}");
+                Err(format!("Failed to start camera preview: {e}"))
             }
         }
     })
     .await
-    .map_err(|e| format!("Task join error: {}", e))?
+    .map_err(|e| format!("Task join error: {e}"))?
 }
 
 /// Stop camera preview
 #[command]
 pub async fn stop_camera_preview(device_id: String) -> Result<String, String> {
-    log::info!("Stopping camera preview for device: {}", device_id);
+    log::info!("Stopping camera preview for device: {device_id}");
 
     if let Some(camera) = get_existing_camera(&device_id).await {
         let camera_clone = camera.clone();
@@ -401,21 +388,21 @@ pub async fn stop_camera_preview(device_id: String) -> Result<String, String> {
                 .lock()
                 .map_err(|_| "Mutex poisoned".to_string())?;
             match camera_guard.stop_stream() {
-                Ok(_) => {
-                    log::info!("Camera preview stopped for device: {}", device_id_clone);
-                    Ok(format!("Preview stopped for camera {}", device_id_clone))
+                Ok(()) => {
+                    log::info!("Camera preview stopped for device: {device_id_clone}");
+                    Ok(format!("Preview stopped for camera {device_id_clone}"))
                 }
                 Err(e) => {
-                    log::error!("Failed to stop camera preview: {}", e);
-                    Err(format!("Failed to stop camera preview: {}", e))
+                    log::error!("Failed to stop camera preview: {e}");
+                    Err(format!("Failed to stop camera preview: {e}"))
                 }
             }
         })
         .await
-        .map_err(|e| format!("Task join error: {}", e))?
+        .map_err(|e| format!("Task join error: {e}"))?
     } else {
-        let msg = format!("No active camera found with ID: {}", device_id);
-        log::warn!("{}", msg);
+        let msg = format!("No active camera found with ID: {device_id}");
+        log::warn!("{msg}");
         Err(msg)
     }
 }
@@ -437,11 +424,11 @@ pub async fn get_capture_stats(device_id: String) -> Result<CaptureStats, String
             Ok::<CaptureStats, String>(CaptureStats {
                 device_id: device_id_clone,
                 is_active,
-                device_info: device_id_opt.map(|s| s.to_string()),
+                device_info: device_id_opt.map(std::string::ToString::to_string),
             })
         })
         .await
-        .map_err(|e| format!("Task join error: {}", e))??;
+        .map_err(|e| format!("Task join error: {e}"))??;
         Ok(stats)
     } else {
         Ok(CaptureStats {
@@ -480,16 +467,16 @@ pub async fn save_frame_to_disk(frame: CameraFrame, file_path: String) -> Result
     })
     .await
     {
-        Ok(Ok(_)) => {
-            log::info!("Frame saved successfully to: {}", file_path);
-            Ok(format!("Frame saved to {}", file_path))
+        Ok(Ok(())) => {
+            log::info!("Frame saved successfully to: {file_path}");
+            Ok(format!("Frame saved to {file_path}"))
         }
         Ok(Err(e)) => {
-            log::error!("Failed to save frame: {}", e);
-            Err(format!("Failed to save frame: {}", e))
+            log::error!("Failed to save frame: {e}");
+            Err(format!("Failed to save frame: {e}"))
         }
         Err(e) => {
-            log::error!("Task join error: {}", e);
+            log::error!("Task join error: {e}");
             Err("Failed to execute save task".to_string())
         }
     }
@@ -525,16 +512,16 @@ pub async fn save_frame_compressed(
     })
     .await
     {
-        Ok(Ok(_)) => {
-            log::info!("Compressed frame saved to: {}", file_path);
-            Ok(format!("Compressed frame saved to {}", file_path))
+        Ok(Ok(())) => {
+            log::info!("Compressed frame saved to: {file_path}");
+            Ok(format!("Compressed frame saved to {file_path}"))
         }
         Ok(Err(e)) => {
-            log::error!("Failed to save compressed frame: {}", e);
-            Err(format!("Failed to save compressed frame: {}", e))
+            log::error!("Failed to save compressed frame: {e}");
+            Err(format!("Failed to save compressed frame: {e}"))
         }
         Err(e) => {
-            log::error!("Task join error: {}", e);
+            log::error!("Task join error: {e}");
             Err("Failed to execute save task".to_string())
         }
     }
@@ -701,18 +688,18 @@ mod tests {
 
         // First frame: best is None → map_or yields true → should store
         let score_a = 0.5_f32;
-        assert!(best.as_ref().map_or(true, |b| score_a > b.1));
+        assert!(best.as_ref().is_none_or(|b| score_a > b.1));
         best = Some(("frame_a".to_string(), score_a));
 
         // Lower score: map_or yields false → should NOT replace
         let score_lower = 0.3_f32;
-        assert!(!best.as_ref().map_or(true, |b| score_lower > b.1));
+        assert!(!best.as_ref().is_none_or(|b| score_lower > b.1));
 
         // Higher score: map_or yields true → should replace
         let score_higher = 0.8_f32;
-        assert!(best.as_ref().map_or(true, |b| score_higher > b.1));
+        assert!(best.as_ref().is_none_or(|b| score_higher > b.1));
 
         // Equal score: strictly-greater comparison → should NOT replace
-        assert!(!best.as_ref().map_or(true, |b| score_a > b.1));
+        assert!(!best.as_ref().is_none_or(|b| score_a > b.1));
     }
 }

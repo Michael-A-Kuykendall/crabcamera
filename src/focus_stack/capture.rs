@@ -1,6 +1,6 @@
 use super::{FocusStackConfig, FocusStackError};
 use crate::platform::capture_with_reconnect;
-use crate::constants::*;
+use crate::constants::{FOCUS_STACK_MIN_STEPS, FOCUS_STACK_MIN_DIST, FOCUS_STACK_MAX_DIST, CAPTURE_RETRY_COUNT, FOCUS_STACK_MIN_BRACKETS, FOCUS_STACK_MAX_BRACKETS, FOCUS_STACK_MIN_SHOTS, FOCUS_STACK_MAX_SHOTS};
 /// Focus stack capture module
 ///
 /// Handles capturing multiple images at different focus distances
@@ -11,16 +11,16 @@ use crate::types::{CameraFormat, CameraFrame};
 ///
 /// This function captures multiple images with varying focus distances.
 /// For cameras without programmable focus, user must manually adjust focus
-/// between captures (using step_delay_ms for time to adjust).
+/// between captures (using `step_delay_ms` for time to adjust).
 pub async fn capture_focus_sequence(
     device_id: String,
     config: FocusStackConfig,
     format: Option<CameraFormat>,
 ) -> Result<Vec<CameraFrame>, FocusStackError> {
     // Validate config
-    if config.num_steps < FOCUS_STACK_MIN_STEPS as u32 {
+    if config.num_steps < FOCUS_STACK_MIN_STEPS {
         return Err(FocusStackError::InvalidConfig(
-            format!("num_steps must be at least {}", FOCUS_STACK_MIN_STEPS),
+            format!("num_steps must be at least {FOCUS_STACK_MIN_STEPS}"),
         ));
     }
 
@@ -30,7 +30,7 @@ pub async fn capture_focus_sequence(
         || config.focus_end > FOCUS_STACK_MAX_DIST
     {
         return Err(FocusStackError::InvalidConfig(
-            format!("focus_start and focus_end must be between {:.1} and {:.1}", FOCUS_STACK_MIN_DIST, FOCUS_STACK_MAX_DIST),
+            format!("focus_start and focus_end must be between {FOCUS_STACK_MIN_DIST:.1} and {FOCUS_STACK_MAX_DIST:.1}"),
         ));
     }
 
@@ -95,7 +95,7 @@ pub async fn capture_focus_sequence(
         // Delay before next capture (except for last frame)
         if step < config.num_steps - 1 {
             tokio::time::sleep(tokio::time::Duration::from_millis(
-                config.step_delay_ms as u64,
+                u64::from(config.step_delay_ms),
             ))
             .await;
         }
@@ -133,20 +133,18 @@ pub async fn capture_focus_brackets(
 ) -> Result<Vec<CameraFrame>, FocusStackError> {
     if !(FOCUS_STACK_MIN_BRACKETS..=FOCUS_STACK_MAX_BRACKETS).contains(&brackets) {
         return Err(FocusStackError::InvalidConfig(
-            format!("brackets must be between {} and {}", FOCUS_STACK_MIN_BRACKETS, FOCUS_STACK_MAX_BRACKETS),
+            format!("brackets must be between {FOCUS_STACK_MIN_BRACKETS} and {FOCUS_STACK_MAX_BRACKETS}"),
         ));
     }
 
     if !(FOCUS_STACK_MIN_SHOTS..=FOCUS_STACK_MAX_SHOTS).contains(&shots_per_bracket) {
         return Err(FocusStackError::InvalidConfig(
-            format!("shots_per_bracket must be between {} and {}", FOCUS_STACK_MIN_SHOTS, FOCUS_STACK_MAX_SHOTS),
+            format!("shots_per_bracket must be between {FOCUS_STACK_MIN_SHOTS} and {FOCUS_STACK_MAX_SHOTS}"),
         ));
     }
 
     log::info!(
-        "Capturing {} brackets with {} shots each",
-        brackets,
-        shots_per_bracket
+        "Capturing {brackets} brackets with {shots_per_bracket} shots each"
     );
 
     let mut all_frames = Vec::new();

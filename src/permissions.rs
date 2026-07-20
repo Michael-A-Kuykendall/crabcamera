@@ -85,7 +85,7 @@ fn check_permission_windows() -> PermissionInfo {
         },
         Err(e) => PermissionInfo {
             status: PermissionStatus::Denied,
-            message: format!("Camera access denied: {}", e),
+            message: format!("Camera access denied: {e}"),
             can_request: true,
         },
     }

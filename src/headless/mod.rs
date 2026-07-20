@@ -41,8 +41,8 @@ pub fn list_controls(_device_id: &str) -> Result<Vec<ControlInfo>, HeadlessError
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::headless::types::{AudioMode, BufferPolicy, CaptureConfig};
-    use crate::types::CameraFormat;
+    
+    
 
     #[test]
     fn test_list_controls_returns_schema() {

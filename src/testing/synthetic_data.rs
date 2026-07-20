@@ -133,10 +133,9 @@ mod tests {
         // Should have non-zero signal (0.3 amplitude sine wave)
         assert!(
             max_level > 0.1,
-            "Audio should have signal, got {}",
-            max_level
+            "Audio should have signal, got {max_level}"
         );
-        assert!(max_level < 0.5, "Audio shouldn't clip, got {}", max_level);
+        assert!(max_level < 0.5, "Audio shouldn't clip, got {max_level}");
     }
 
     #[cfg(feature = "audio")]

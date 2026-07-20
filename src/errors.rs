@@ -41,25 +41,25 @@ impl fmt::Display for CameraError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             CameraError::InitializationError(msg) => {
-                write!(f, "Camera initialization error: {}", msg)
+                write!(f, "Camera initialization error: {msg}")
             }
-            CameraError::PermissionDenied(msg) => write!(f, "Permission denied error: {}", msg),
-            CameraError::CaptureError(msg) => write!(f, "Capture error: {}", msg),
-            CameraError::ControlError(msg) => write!(f, "Camera control error: {}", msg),
-            CameraError::StreamError(msg) => write!(f, "Stream error: {}", msg),
-            CameraError::UnsupportedOperation(msg) => write!(f, "Unsupported operation: {}", msg),
+            CameraError::PermissionDenied(msg) => write!(f, "Permission denied error: {msg}"),
+            CameraError::CaptureError(msg) => write!(f, "Capture error: {msg}"),
+            CameraError::ControlError(msg) => write!(f, "Camera control error: {msg}"),
+            CameraError::StreamError(msg) => write!(f, "Stream error: {msg}"),
+            CameraError::UnsupportedOperation(msg) => write!(f, "Unsupported operation: {msg}"),
             #[cfg(feature = "recording")]
-            CameraError::EncodingError(msg) => write!(f, "Encoding error: {}", msg),
+            CameraError::EncodingError(msg) => write!(f, "Encoding error: {msg}"),
             #[cfg(feature = "recording")]
-            CameraError::MuxingError(msg) => write!(f, "Muxing error: {}", msg),
+            CameraError::MuxingError(msg) => write!(f, "Muxing error: {msg}"),
             #[cfg(feature = "recording")]
-            CameraError::IoError(msg) => write!(f, "IO error: {}", msg),
+            CameraError::IoError(msg) => write!(f, "IO error: {msg}"),
             #[cfg(feature = "audio")]
-            CameraError::AudioError(msg) => write!(f, "Audio error: {}", msg),
-            CameraError::AccessError(msg) => write!(f, "Access error: {}", msg),
-            CameraError::ConnectionError(msg) => write!(f, "Connection error: {}", msg),
-            CameraError::SystemError(msg) => write!(f, "System error: {}", msg),
-            CameraError::ConfigError(msg) => write!(f, "Configuration error: {}", msg),
+            CameraError::AudioError(msg) => write!(f, "Audio error: {msg}"),
+            CameraError::AccessError(msg) => write!(f, "Access error: {msg}"),
+            CameraError::ConnectionError(msg) => write!(f, "Connection error: {msg}"),
+            CameraError::SystemError(msg) => write!(f, "System error: {msg}"),
+            CameraError::ConfigError(msg) => write!(f, "Configuration error: {msg}"),
         }
     }
 }

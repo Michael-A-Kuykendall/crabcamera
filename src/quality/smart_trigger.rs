@@ -1,6 +1,6 @@
 use crate::quality::{QualityReport, QualityScore, QualityValidator};
 use crate::types::CameraFrame;
-use crate::constants::*;
+use crate::constants::{TRIGGER_MIN_QUALITY, TRIGGER_STABILITY_MS, TRIGGER_TIMEOUT_SECS, TRIGGER_CONSECUTIVE_FRAMES, TRIGGER_HISTORY_SIZE};
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
@@ -158,8 +158,7 @@ impl SmartTrigger {
             }
 
             let stability_duration = self.last_good_frame_time
-                .map(|t| t.elapsed())
-                .unwrap_or(Duration::ZERO);
+                .map_or(Duration::ZERO, |t| t.elapsed());
 
             if self.good_frame_streak >= self.config.required_consecutive_good_frames 
                && stability_duration >= self.config.min_stability_duration 

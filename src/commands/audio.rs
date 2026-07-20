@@ -17,7 +17,7 @@ use crate::audio::{list_audio_devices as enumerate_audio_devices, AudioDevice};
 
 /// Audio device information exposed to Tauri frontend
 ///
-/// Per #TauriAudioCommands: ! list_audio_devices_returns_structured_data
+/// Per #`TauriAudioCommands`: ! `list_audio_devices_returns_structured_data`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AudioDeviceInfo {
@@ -47,10 +47,10 @@ impl From<AudioDevice> for AudioDeviceInfo {
 
 /// List all available audio input devices
 ///
-/// Per #TauriAudioCommands:
-/// - ! list_audio_devices_returns_structured_data
-/// - ! user_safe_error_strings  
-/// - - leaking_internal_error_types
+/// Per #`TauriAudioCommands`:
+/// - ! `list_audio_devices_returns_structured_data`
+/// - ! `user_safe_error_strings`  
+/// - - `leaking_internal_error_types`
 ///
 /// # Returns
 /// List of audio devices, sorted with default device first
@@ -59,7 +59,7 @@ pub fn list_audio_devices() -> Result<Vec<AudioDeviceInfo>, String> {
     enumerate_audio_devices()
         .map(|devices| devices.into_iter().map(AudioDeviceInfo::from).collect())
         .map_err(|e| {
-            log::error!("Failed to enumerate audio devices: {:?}", e);
+            log::error!("Failed to enumerate audio devices: {e:?}");
             "Unable to list audio devices. Please check that your audio drivers are installed correctly.".to_string()
         })
 }
@@ -73,7 +73,7 @@ pub fn get_default_audio_device() -> Result<AudioDeviceInfo, String> {
     crate::audio::get_default_audio_device()
         .map(AudioDeviceInfo::from)
         .map_err(|e| {
-            log::error!("Failed to get default audio device: {:?}", e);
+            log::error!("Failed to get default audio device: {e:?}");
             "No default audio input device available. Please connect a microphone.".to_string()
         })
 }

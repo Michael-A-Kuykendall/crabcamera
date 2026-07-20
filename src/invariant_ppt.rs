@@ -15,8 +15,10 @@ use std::thread_local;
 
 /// Categories of invariants for granular analysis
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum InvariantType {
     /// Correctness of data structures and algorithms
+    #[default]
     Correctness,
     /// Memory safety, boundary checks, valid pointers
     Safety,
@@ -26,11 +28,6 @@ pub enum InvariantType {
     State,
 }
 
-impl Default for InvariantType {
-    fn default() -> Self {
-        Self::Correctness
-    }
-}
 
 /// A record of a checked invariant
 #[derive(Debug, Clone)]
@@ -96,7 +93,7 @@ pub fn __assert_invariant_impl(
     });
 
     // In the future: Dump history here
-    assert!(condition, "INVARIANT VIOLATION [{}]: {}", ctx, message);
+    assert!(condition, "INVARIANT VIOLATION [{ctx}]: {message}");
 }
 
 /// Check that specific invariants were verified during test execution.

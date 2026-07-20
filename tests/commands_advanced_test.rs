@@ -20,7 +20,6 @@ use crabcamera::commands::advanced::{
 use crabcamera::types::{BurstConfig, CameraControls, WhiteBalance};
 use std::time::{Duration, Instant};
 use tokio::sync::Mutex as AsyncMutex;
-use tokio;
 
 /// Test synchronization lock to prevent concurrent camera control tests
 /// This ensures only one test modifies camera controls at a time

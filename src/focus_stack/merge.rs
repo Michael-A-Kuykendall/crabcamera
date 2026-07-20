@@ -1,5 +1,5 @@
 use super::FocusStackError;
-use crate::constants::*;
+use crate::constants::{LUMA_R, LUMA_G, LUMA_B, PYRAMID_POOLING_SIZE, PYRAMID_POOLING_AREA};
 /// Image merging module for focus stacking
 ///
 /// Merges aligned images by selecting sharp regions from each frame.
@@ -67,7 +67,7 @@ pub fn merge_frames(
 
     // Validate all frames have valid data
     let expected_data_size = (width * height * 3) as usize;
-    for frame in frames.iter() {
+    for frame in frames {
         if frame.data.len() != expected_data_size {
             return Err(FocusStackError::DataCorruption {
                 frame_size: frame.data.len(),
@@ -141,7 +141,7 @@ fn merge_with_pyramid_blending(
     let width = frames[0].width as usize;
     let height = frames[0].height as usize;
 
-    log::debug!("Pyramid blending with {} levels", levels);
+    log::debug!("Pyramid blending with {levels} levels");
 
     // Create weight maps (normalized sharpness)
     let weight_maps = create_weight_maps(sharpness_maps);
@@ -246,7 +246,7 @@ fn compute_sharpness_map(frame: &CameraFrame) -> SharpnessMap {
 
 /// Convert RGB to luminance (Rec. 601)
 fn luminance(rgb: &[u8]) -> f32 {
-    LUMA_R * rgb[0] as f32 + LUMA_G * rgb[1] as f32 + LUMA_B * rgb[2] as f32
+    LUMA_R * f32::from(rgb[0]) + LUMA_G * f32::from(rgb[1]) + LUMA_B * f32::from(rgb[2])
 }
 
 /// Create normalized weight maps from sharpness maps
@@ -333,9 +333,9 @@ fn downsample(data: &[u8], width: usize, height: usize) -> (Vec<u8>, usize, usiz
                     let src_idx = (src_y * width + src_x) * 3;
 
                     if src_idx + 2 < data.len() {
-                        sum[0] += data[src_idx] as u32;
-                        sum[1] += data[src_idx + 1] as u32;
-                        sum[2] += data[src_idx + 2] as u32;
+                        sum[0] += u32::from(data[src_idx]);
+                        sum[1] += u32::from(data[src_idx + 1]);
+                        sum[2] += u32::from(data[src_idx + 2]);
                     }
                 }
             }
@@ -410,9 +410,9 @@ fn build_laplacian_pyramid(
     let mut laplacian = Vec::with_capacity(levels);
 
     for i in 0..levels.saturating_sub(1) {
-        let cur: Vec<f32> = gaussian[i].0.iter().map(|b| *b as f32).collect();
+        let cur: Vec<f32> = gaussian[i].0.iter().map(|b| f32::from(*b)).collect();
         let (next_f32, next_w, next_h) = (
-            gaussian[i + 1].0.iter().map(|b| *b as f32).collect::<Vec<f32>>(),
+            gaussian[i + 1].0.iter().map(|b| f32::from(*b)).collect::<Vec<f32>>(),
             gaussian[i + 1].1,
             gaussian[i + 1].2,
         );
@@ -427,7 +427,7 @@ fn build_laplacian_pyramid(
 
     // Coarsest level: residual Gaussian (no finer level to subtract from)
     laplacian.push((
-        gaussian[levels - 1].0.iter().map(|b| *b as f32).collect(),
+        gaussian[levels - 1].0.iter().map(|b| f32::from(*b)).collect(),
         gaussian[levels - 1].1,
         gaussian[levels - 1].2,
     ));

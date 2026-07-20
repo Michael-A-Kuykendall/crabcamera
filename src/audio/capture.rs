@@ -21,7 +21,7 @@ use cpal::{Stream, StreamConfig};
 use crate::timing::PTSClock;
 use super::device::find_audio_device;
 use crate::errors::CameraError;
-use crate::constants::*;
+use crate::constants::{AUDIO_BUFFER_FRAMES, AUDIO_DEVICE_DEFAULT, AUDIO_SAMPLE_RATE_48K, AUDIO_SAMPLE_RATE_44K};
 
 /// Maximum number of audio frames to buffer before dropping oldest.
 /// At 48kHz with 20ms frames (960 samples), this allows ~5 seconds of buffering.
