@@ -34,35 +34,43 @@ pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
         if let Ok(dev) = Device::with_path(&path) {
             if let Ok(format_iter) = dev.enum_formats() {
                 for fmt_desc in format_iter {
-                    // Get resolutions for this format
-                    if let Ok(frames) = dev.enum_framesize(fmt_desc.fourcc) {
+                    if let Ok(frames) = dev.enum_framesizes(fmt_desc.fourcc) {
                         for frame in frames {
-                            for stepwise in frame.size.to_stepwise() {
-                                // For each resolution, get frame intervals (fps)
-                                if let Ok(intervals) = dev.enum_frameintervals(fmt_desc.fourcc, stepwise.max_width, stepwise.max_height) {
+                            let sizes = match &frame.size {
+                                v4l::framesize::FrameSizeEnum::Discrete(d) => {
+                                    vec![(d.width, d.height)]
+                                }
+                                v4l::framesize::FrameSizeEnum::Stepwise(s) => {
+                                    vec![(s.max_width, s.max_height)]
+                                }
+                            };
+                            for (width, height) in sizes {
+                                if let Ok(intervals) = dev.enum_frameintervals(fmt_desc.fourcc, width, height) {
                                     for interval in intervals {
-                                        // v4l returns interval as fraction (numerator/denominator)
-                                        // fps = denominator / numerator
-                                        let fps = if interval.interval.numerator != 0 {
-                                             interval.interval.denominator as f32 / interval.interval.numerator as f32
-                                        } else {
-                                            DEFAULT_FPS // Default fallback
+                                        let fps = match &interval.interval {
+                                            v4l::frameinterval::FrameIntervalEnum::Discrete(f) => {
+                                                if f.numerator != 0 {
+                                                    f.denominator as f32 / f.numerator as f32
+                                                } else {
+                                                    DEFAULT_FPS
+                                                }
+                                            }
+                                            _ => DEFAULT_FPS,
                                         };
 
-                                        // Try to map FourCC to format string
                                         let format_str = match &fmt_desc.fourcc.repr {
                                             b"YUYV" => "YUYV",
-                                            b"MJPG" => "MJPEG", 
+                                            b"MJPG" => "MJPEG",
                                             b"RGB3" => "RGB",
                                             other => std::str::from_utf8(other).unwrap_or("UNKNOWN"),
                                         }.to_string();
 
                                         let cf = CameraFormat::new(
-                                            stepwise.max_width, 
-                                            stepwise.max_height, 
+                                            width,
+                                            height,
                                             fps
                                         ).with_format_type(format_str);
-                                        
+
                                         formats.push(cf);
                                     }
                                 }
@@ -207,15 +215,28 @@ impl LinuxCamera {
         let mut formats = Vec::new();
         if let Ok(format_iter) = dev.enum_formats() {
             for fmt_desc in format_iter {
-                if let Ok(frames) = dev.enum_framesize(fmt_desc.fourcc) {
+                if let Ok(frames) = dev.enum_framesizes(fmt_desc.fourcc) {
                     for frame in frames {
-                        for stepwise in frame.size.to_stepwise() {
-                            if let Ok(intervals) = dev.enum_frameintervals(fmt_desc.fourcc, stepwise.max_width, stepwise.max_height) {
+                        let sizes = match &frame.size {
+                            v4l::framesize::FrameSizeEnum::Discrete(d) => {
+                                vec![(d.width, d.height)]
+                            }
+                            v4l::framesize::FrameSizeEnum::Stepwise(s) => {
+                                vec![(s.max_width, s.max_height)]
+                            }
+                        };
+                        for (width, height) in sizes {
+                            if let Ok(intervals) = dev.enum_frameintervals(fmt_desc.fourcc, width, height) {
                                 for interval in intervals {
-                                    let fps = if interval.interval.numerator != 0 {
-                                        interval.interval.denominator as f32 / interval.interval.numerator as f32
-                                    } else {
-                                        crate::constants::DEFAULT_FPS
+                                    let fps = match &interval.interval {
+                                        v4l::frameinterval::FrameIntervalEnum::Discrete(f) => {
+                                            if f.numerator != 0 {
+                                                f.denominator as f32 / f.numerator as f32
+                                            } else {
+                                                crate::constants::DEFAULT_FPS
+                                            }
+                                        }
+                                        _ => crate::constants::DEFAULT_FPS,
                                     };
                                     let format_str = match &fmt_desc.fourcc.repr {
                                         b"YUYV" => "YUYV",
@@ -224,7 +245,7 @@ impl LinuxCamera {
                                         other => std::str::from_utf8(other).unwrap_or("UNKNOWN"),
                                     }.to_string();
                                     formats.push(
-                                        CameraFormat::new(stepwise.max_width, stepwise.max_height, fps)
+                                        CameraFormat::new(width, height, fps)
                                             .with_format_type(format_str),
                                     );
                                 }

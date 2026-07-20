@@ -15,6 +15,24 @@ use objc::runtime::{Object, Class, YES, NO};
 
 /// List available cameras on macOS
 pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
+    // system_profiler reads IORegistry (safe, no AVFoundation hardware init)
+    // Use it as a gate before touching nokhwa, which can C-abort on headless CI.
+    #[allow(unused_mut)]
+    let mut has_camera = false;
+    if let Ok(output) = std::process::Command::new("system_profiler")
+        .arg("SPCameraDataType")
+        .output()
+    {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        has_camera = stdout.contains("Camera")
+            || stdout.contains("camera")
+            || stdout.contains("FaceTime")
+            || stdout.contains("Built-in");
+    }
+    if !has_camera {
+        return Ok(Vec::new());
+    }
+
     let cameras = query(nokhwa::utils::ApiBackend::AVFoundation)
         .map_err(|e| CameraError::InitializationError(format!("Failed to query cameras: {}", e)))?;
 

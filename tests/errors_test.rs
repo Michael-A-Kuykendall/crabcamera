@@ -537,6 +537,11 @@ mod error_tests {
 
                 #[cfg(feature = "audio")]
                 CameraError::AudioError(msg) => format!("Audio: {}", msg),
+
+                CameraError::AccessError(msg) => format!("Access: {}", msg),
+                CameraError::ConnectionError(msg) => format!("Connection: {}", msg),
+                CameraError::SystemError(msg) => format!("System: {}", msg),
+                CameraError::ConfigError(msg) => format!("Config: {}", msg),
             }
         }
 

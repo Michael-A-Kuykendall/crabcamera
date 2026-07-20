@@ -160,11 +160,11 @@ mod platform_linux_tests {
                     let has_yuyv = camera
                         .supports_formats
                         .iter()
-                        .any(|f| f.format_type.as_ref().map_or(false, |ft| ft == "YUYV"));
+                        .any(|f| f.format_type == "YUYV");
                     let has_mjpeg = camera
                         .supports_formats
                         .iter()
-                        .any(|f| f.format_type.as_ref().map_or(false, |ft| ft == "MJPEG"));
+                        .any(|f| f.format_type == "MJPEG");
 
                     assert!(
                         has_yuyv || has_mjpeg,
@@ -295,7 +295,7 @@ mod platform_linux_tests {
 
                             // Should be converted to RGB8 in our implementation
                             assert!(
-                                frame.format.as_ref().map_or(true, |f| f == "RGB8"),
+                                frame.format == "RGB8",
                                 "Frame should be converted to RGB8"
                             );
 
@@ -375,10 +375,10 @@ mod platform_linux_tests {
                         // Verify common Linux formats are present
                         let has_yuyv = formats
                             .iter()
-                            .any(|f| f.format_type.as_ref().map_or(false, |ft| ft == "YUYV"));
+                            .any(|f| f.format_type == "YUYV");
                         let has_mjpeg = formats
                             .iter()
-                            .any(|f| f.format_type.as_ref().map_or(false, |ft| ft == "MJPEG"));
+                            .any(|f| f.format_type == "MJPEG");
 
                         assert!(
                             has_yuyv || has_mjpeg,
@@ -688,10 +688,8 @@ mod platform_linux_tests {
                     assert_eq!(camera.get_format().fps, format.fps);
 
                     // Verify format type is preserved
-                    if let Some(expected_type) = &format.format_type {
-                        // Format might be converted internally, but should be tracked
+                    let expected_type = &format.format_type;
                         println!("Testing format type: {}", expected_type);
-                    }
                 }
                 Err(CameraError::InitializationError(_)) => {
                     // Expected if camera or format not supported
@@ -772,9 +770,7 @@ mod platform_linux_tests {
                     // Should support V4L2-specific formats
                     let formats = &camera.supports_formats;
                     let has_linux_format = formats.iter().any(|f| {
-                        f.format_type
-                            .as_ref()
-                            .map_or(false, |ft| ft == "YUYV" || ft == "MJPEG")
+                        f.format_type == "YUYV" || f.format_type == "MJPEG"
                     });
 
                     if !has_linux_format && !formats.is_empty() {

@@ -18,6 +18,7 @@ fn main() {
         min_stability_duration: Duration::from_millis(100),
         timeout: Some(Duration::from_secs(2)),
         required_consecutive_good_frames: 3,
+        lock_after_ready: true,
     };
 
     let mut trigger = SmartTrigger::new(config);

@@ -215,6 +215,15 @@ pub async fn get_system_diagnostics() -> Result<SystemDiagnostics, String> {
             (vec![], Some(e.to_string()))
         }
     };
+
+    let (cameras, camera_enumeration_error) = match CameraSystem::list_cameras() {
+        Ok(cams) => (cams, None),
+        Err(e) => {
+            let msg = e.to_string();
+            log::warn!("Camera enumeration failed: {}", msg);
+            (vec![], Some(msg))
+        }
+    };
     let camera_count = cameras.len();
 
     // Build camera summaries
