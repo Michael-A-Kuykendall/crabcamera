@@ -32,6 +32,14 @@ impl PreviewStream {
         self.tx.subscribe()
     }
 
+    /// Start streaming preview frames from the camera.
+    ///
+    /// # Errors
+    /// Returns an `Err` if the provided [`PreviewConfig`] fails validation.
+    ///
+    /// # Panics
+    /// Panics if the shared camera mutex is poisoned (the internal
+    /// `expect("camera lock")`).
     pub async fn start<R: Runtime>(
         &self,
         camera: Arc<StdMutex<PlatformCamera>>,

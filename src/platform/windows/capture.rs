@@ -9,6 +9,10 @@ use nokhwa::{
 };
 
 /// List available cameras on Windows  
+///
+/// # Errors
+/// Returns a [`CameraError::InitializationError`] if no cameras are found
+/// on any query backend.
 pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
     let mut all_cameras = Vec::new();
 
@@ -85,6 +89,10 @@ pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
 /// The `format` parameter is currently not applied because nokhwa's `MediaFoundation`
 /// backend works best with `AbsoluteHighestResolution` mode. Format negotiation happens
 /// at the frame capture level via MJPEG decoding.
+///
+/// # Errors
+/// Returns a [`CameraError::InitializationError`] if the `device_id`
+/// cannot be parsed, or if the `nokhwa` camera cannot be created.
 pub fn initialize_camera(device_id: &str, format: CameraFormat) -> Result<Camera, CameraError> {
     log::debug!(
         "Requested format: {}x{} @ {}fps (note: nokhwa will use highest resolution)",
@@ -112,6 +120,10 @@ pub fn initialize_camera(device_id: &str, format: CameraFormat) -> Result<Camera
 /// Capture frame from Windows camera
 /// Note: nokhwa returns MJPEG data even when `RgbFormat` is requested,
 /// so we need to decode it manually to RGB
+///
+/// # Errors
+/// Returns a [`CameraError::CaptureError`] if the `nokhwa` frame
+/// cannot be obtained or, for MJPEG data, if it cannot be decoded.
 pub fn capture_frame(camera: &mut Camera, device_id: &str) -> Result<CameraFrame, CameraError> {
     let frame = camera
         .frame()

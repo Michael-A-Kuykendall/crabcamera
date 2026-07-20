@@ -122,6 +122,10 @@ impl Default for CrabCameraConfig {
 
 impl CrabCameraConfig {
     /// Load configuration from TOML file
+    ///
+    /// # Errors
+    /// Returns a [`CameraError::InitializationError`] if the config file
+    /// cannot be read or if its contents cannot be parsed as TOML.
     pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Self, CameraError> {
         let path = path.as_ref();
 
@@ -143,6 +147,11 @@ impl CrabCameraConfig {
     }
 
     /// Save configuration to TOML file
+    ///
+    /// # Errors
+    /// Returns a [`CameraError::InitializationError`] if the parent directory
+    /// cannot be created, if the config cannot be serialized to TOML, or if the
+    /// file cannot be written.
     pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), CameraError> {
         let path = path.as_ref();
 
@@ -181,6 +190,11 @@ impl CrabCameraConfig {
     }
 
     /// Validate configuration values
+    ///
+    /// # Errors
+    /// Returns an `Err` describing the first invalid value if any resolution,
+    /// FPS, quality threshold, JPEG quality, focus-stack step count, or HDR
+    /// bracket count is out of its allowed range.
     pub fn validate(&self) -> Result<(), String> {
         // Validate camera config
         if self.camera.default_resolution[0] == 0 || self.camera.default_resolution[1] == 0 {

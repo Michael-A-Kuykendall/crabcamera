@@ -13,6 +13,11 @@ use std::time::Instant;
 use tauri::command;
 
 /// Capture and merge a focus stack
+///
+/// # Errors
+/// Returns an `Err` if capturing the focus sequence fails, if frame alignment
+/// fails (when enabled) or applying an alignment transform fails, or if merging
+/// the frames fails.
 #[command]
 pub async fn capture_focus_stack(
     device_id: String,
@@ -82,6 +87,10 @@ pub async fn capture_focus_stack(
 /// ## Deprecation
 /// Prefer [`capture_focus_stack`] with a [`FocusStackConfig`] instead.
 /// This granular command is retained for backward compatibility.
+///
+/// # Errors
+/// Returns an `Err` if capturing the focus brackets fails, if frame alignment
+/// fails, or if merging the frames fails.
 #[command]
 pub async fn capture_focus_brackets_command(
     device_id: String,
@@ -131,6 +140,10 @@ pub fn get_default_focus_config() -> FocusStackConfig {
 }
 
 /// Validate focus stack configuration
+///
+/// # Errors
+/// Returns an `Err` if `num_steps`, `focus_start`, `focus_end`,
+/// `sharpness_threshold`, or `blend_levels` fall outside their allowed ranges.
 #[command]
 pub fn validate_focus_config(config: FocusStackConfig) -> Result<String, String> {
     if config.num_steps < FOCUS_STACK_MIN_STEPS {

@@ -52,6 +52,11 @@ impl DeviceMonitor {
     }
 
     /// Start monitoring for device changes
+    ///
+    /// # Errors
+    /// Returns a [`CameraError::InitializationError`] if the current platform
+    /// is unknown or unsupported for monitoring, or propagates any error from the
+    /// platform-specific monitor start (e.g. a device enumeration failure).
     pub async fn start_monitoring(&self) -> Result<(), CameraError> {
         let mut is_monitoring = self.is_monitoring.write().await;
         if *is_monitoring {
@@ -80,6 +85,10 @@ impl DeviceMonitor {
     }
 
     /// Stop monitoring for device changes
+    ///
+    /// # Errors
+    /// This function always returns `Ok`; stopping a non-active monitor is a
+    /// no-op rather than an error.
     pub async fn stop_monitoring(&self) -> Result<(), CameraError> {
         let mut is_monitoring = self.is_monitoring.write().await;
         if !*is_monitoring {

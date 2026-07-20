@@ -11,6 +11,9 @@ pub async fn get_system_manifest() -> Vec<FeatureManifest> {
 }
 
 /// Initialize the camera system for the current platform
+///
+/// # Errors
+/// Returns an `Err` if the camera system fails to initialize.
 #[command]
 pub async fn initialize_camera_system() -> Result<String, String> {
     match CameraSystem::initialize() {
@@ -26,6 +29,9 @@ pub async fn initialize_camera_system() -> Result<String, String> {
 }
 
 /// Get list of available cameras on the current platform
+///
+/// # Errors
+/// Returns an `Err` if the camera system fails to enumerate cameras.
 #[command]
 pub async fn get_available_cameras() -> Result<Vec<CameraDeviceInfo>, String> {
     match CameraSystem::list_cameras() {
@@ -49,6 +55,9 @@ pub async fn get_available_cameras() -> Result<Vec<CameraDeviceInfo>, String> {
 }
 
 /// Get platform-specific information
+///
+/// # Errors
+/// Returns an `Err` if the platform information cannot be retrieved.
 #[command]
 pub async fn get_platform_info() -> Result<PlatformInfo, String> {
     match CameraSystem::get_platform_info() {
@@ -68,6 +77,9 @@ pub async fn get_platform_info() -> Result<PlatformInfo, String> {
 }
 
 /// Test camera system functionality
+///
+/// # Errors
+/// Returns an `Err` if the camera system test fails to run.
 #[command]
 pub async fn test_camera_system() -> Result<SystemTestResult, String> {
     log::info!("Running camera system test...");
@@ -107,6 +119,9 @@ pub async fn test_camera_system() -> Result<SystemTestResult, String> {
 }
 
 /// Get the current platform information
+///
+/// # Errors
+/// This function always succeeds and never returns an `Err`.
 #[command]
 pub async fn get_current_platform() -> Result<String, String> {
     let platform = Platform::current();
@@ -114,6 +129,9 @@ pub async fn get_current_platform() -> Result<String, String> {
 }
 
 /// Check if a specific camera is available
+///
+/// # Errors
+/// Returns an `Err` if the camera system fails to enumerate cameras.
 #[command]
 pub async fn check_camera_availability(device_id: String) -> Result<bool, String> {
     match CameraSystem::list_cameras() {
@@ -134,6 +152,10 @@ pub async fn check_camera_availability(device_id: String) -> Result<bool, String
 }
 
 /// Get supported formats for a specific camera
+///
+/// # Errors
+/// Returns an `Err` if the camera system fails to enumerate cameras, or if no
+/// camera with the given `device_id` is found.
 #[command]
 pub async fn get_camera_formats(device_id: String) -> Result<Vec<CameraFormat>, String> {
     match CameraSystem::list_cameras() {
@@ -159,6 +181,9 @@ pub async fn get_camera_formats(device_id: String) -> Result<Vec<CameraFormat>, 
 }
 
 /// Get recommended format for high-quality photography
+///
+/// # Errors
+/// This function always succeeds and never returns an `Err`.
 #[command]
 pub async fn get_recommended_format() -> Result<CameraFormat, String> {
     let format = crate::platform::optimizations::get_photography_format();
@@ -173,6 +198,9 @@ pub async fn get_recommended_format() -> Result<CameraFormat, String> {
 }
 
 /// Get optimal camera settings for high-quality capture
+///
+/// # Errors
+/// This function always succeeds and never returns an `Err`.
 #[command]
 pub async fn get_optimal_settings() -> Result<crate::types::CameraInitParams, String> {
     let params = crate::platform::optimizations::get_optimal_settings();
@@ -190,6 +218,10 @@ pub async fn get_optimal_settings() -> Result<crate::types::CameraInitParams, St
 ///
 /// Returns detailed information about the camera system state,
 /// useful for debugging issues and verifying setup.
+///
+/// # Errors
+/// This function always returns a diagnostics report and never returns an `Err`;
+/// individual subsystem failures are captured in the report's error fields.
 #[command]
 pub async fn get_system_diagnostics() -> Result<SystemDiagnostics, String> {
     log::info!("Running system diagnostics...");

@@ -35,6 +35,11 @@ pub struct WindowsCamera {
 
 impl WindowsCamera {
     /// Create new Windows camera with both capture and control capabilities
+    ///
+    /// # Errors
+    /// Returns a [`CameraError::InitializationError`] if the `device_id`
+    /// cannot be parsed, or propagates any error from the `nokhwa` camera
+    /// initialization or the `MediaFoundation` controls creation.
     pub fn new(device_id: String, format: CameraFormat) -> Result<Self, CameraError> {
         log::info!(
             "Initializing Windows camera {device_id} with MediaFoundation controls"
@@ -59,6 +64,11 @@ impl WindowsCamera {
     }
 
     /// Capture a frame using nokhwa
+    ///
+    /// # Errors
+    /// Returns a [`CameraError::InitializationError`] if the callback mutex
+    /// is poisoned, or propagates any error from the underlying `nokhwa`
+    /// capture.
     pub fn capture_frame(&mut self) -> Result<CameraFrame, CameraError> {
         let start = std::time::Instant::now();
         let frame = match capture::capture_frame(&mut self.nokhwa_camera, &self.device_id) {
@@ -114,6 +124,10 @@ impl WindowsCamera {
     }
 
     /// Apply camera controls using `MediaFoundation`
+    ///
+    /// # Errors
+    /// Propagates any error from the underlying `MediaFoundation`
+    /// controls application.
     pub fn apply_controls(
         &mut self,
         controls: &CameraControls,
@@ -122,16 +136,27 @@ impl WindowsCamera {
     }
 
     /// Get current camera control values
+    ///
+    /// # Errors
+    /// Propagates any error from the underlying `MediaFoundation` controls read.
     pub fn get_controls(&self) -> Result<CameraControls, CameraError> {
         self.mf_controls.get_controls()
     }
 
     /// Test camera capabilities
+    ///
+    /// # Errors
+    /// Propagates any error from the underlying `MediaFoundation` capability
+    /// query.
     pub fn test_capabilities(&self) -> Result<CameraCapabilities, CameraError> {
         self.mf_controls.get_capabilities()
     }
 
     /// Start camera stream - must be called before `capture_frame`
+    ///
+    /// # Errors
+    /// Returns a [`CameraError::StreamError`] if the underlying `nokhwa`
+    /// stream cannot be opened.
     pub fn start_stream(&mut self) -> Result<(), CameraError> {
         log::debug!("Opening camera stream for device {}", self.device_id);
         self.nokhwa_camera
@@ -140,6 +165,10 @@ impl WindowsCamera {
     }
 
     /// Stop camera stream
+    ///
+    /// # Errors
+    /// Returns a [`CameraError::StreamError`] if the underlying `nokhwa`
+    /// stream cannot be stopped.
     pub fn stop_stream(&mut self) -> Result<(), CameraError> {
         log::debug!("Stopping camera stream for device {}", self.device_id);
         self.nokhwa_camera
@@ -163,6 +192,10 @@ impl WindowsCamera {
     }
 
     /// Set frame callback for real-time processing
+    ///
+    /// # Errors
+    /// Returns a [`CameraError::InitializationError`] if the callback mutex
+    /// is poisoned.
     pub fn set_callback<F>(&self, callback: F) -> Result<(), CameraError>
     where
         F: Fn(CameraFrame) + Send + 'static,

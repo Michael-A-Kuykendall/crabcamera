@@ -223,6 +223,10 @@ impl SessionHandle {
     /// * `HeadlessError::AlreadyStarted`: If the session is already running.
     /// * `HeadlessError::AlreadyClosed`: If the session has been permanently closed.
     /// * `HeadlessError::InvalidArgument`: If thread spawning fails.
+    ///
+    /// # Panics
+    /// Panics if any internal mutex is poisoned (the `expect("lock poisoned")`
+    /// calls on the session state, capture-thread, and audio-thread guards).
     pub fn start(&self) -> Result<(), HeadlessError> {
         let mut state = self.inner.state.lock().expect("lock poisoned");
         match *state {
@@ -280,6 +284,10 @@ impl SessionHandle {
     /// * `HeadlessError::AlreadyClosed`: If the session has already been closed.
     /// * `HeadlessError::AlreadyStopped`: If the session is already stopped.
     /// * `HeadlessError::ThreadJoin`: If the capture thread panics or times out.
+    ///
+    /// # Panics
+    /// Panics if any internal mutex is poisoned (the `expect("lock poisoned")`
+    /// calls on the session state, capture-thread, and audio-thread guards).
     pub fn stop(&self, join_timeout: Duration) -> Result<(), HeadlessError> {
         let state = self.inner.state.lock().expect("lock poisoned");
         match *state {
@@ -365,6 +373,10 @@ impl SessionHandle {
     ///
     /// * `HeadlessError::AlreadyClosed`: If the session has already been closed.
     /// * `HeadlessError`: Propagates any error encountered during `stop()`.
+    ///
+    /// # Panics
+    /// Panics if any internal mutex is poisoned (the `expect("lock poisoned")`
+    /// calls on the session state, camera, and capture-thread guards).
     pub fn close(&self, join_timeout: Duration) -> Result<(), HeadlessError> {
         {
             let state = *self.inner.state.lock().expect("lock poisoned");
@@ -415,6 +427,10 @@ impl SessionHandle {
     /// * `HeadlessError::Closed`: If called on a closed session.
     /// * `HeadlessError::Stopped`: If called on a stopped session.
     /// * `HeadlessError::InvalidArgument`: If called on a session that has not been started.
+    ///
+    /// # Panics
+    /// Panics if the session state mutex is poisoned (the `expect("lock poisoned")`
+    /// call).
     pub fn get_frame(&self, timeout: Duration) -> Result<Option<Frame>, HeadlessError> {
         self.ensure_not_closed()?;
         let state = *self.inner.state.lock().expect("lock poisoned");
@@ -446,6 +462,10 @@ impl SessionHandle {
     /// * `HeadlessError::Closed`: If called on a closed session.
     /// * `HeadlessError::Stopped`: If called on a stopped session.
     /// * `HeadlessError::InvalidArgument`: If called on a session that has not been started.
+    ///
+    /// # Panics
+    /// Panics if the session state mutex is poisoned (the `expect("lock poisoned")`
+    /// call).
     pub fn get_audio_packet(
         &self,
         timeout: Duration,
@@ -490,6 +510,10 @@ impl SessionHandle {
     /// * `HeadlessError::BackendError`: If the camera backend rejects the setting.
     /// * `HeadlessError::InvalidControl`: If the value is out of range or incorrect type.
     /// * `HeadlessError::Closed`: If the session is closed.
+    ///
+    /// # Panics
+    /// Panics if the camera mutex is poisoned (the `expect("lock poisoned")`
+    /// call).
     pub fn set_control(
         &self,
         control_id: ControlId,
@@ -519,6 +543,10 @@ impl SessionHandle {
     ///
     /// * `HeadlessError::BackendError`: If the query fails.
     /// * `HeadlessError::Closed`: If the session is closed.
+    ///
+    /// # Panics
+    /// Panics if the camera mutex is poisoned (the `expect("lock poisoned")`
+    /// call).
     pub fn get_controls(&self) -> Result<CameraControls, HeadlessError> {
         self.ensure_not_closed()?;
         let camera_guard = self.inner.camera.lock().expect("lock poisoned");

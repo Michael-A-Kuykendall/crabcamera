@@ -5,6 +5,11 @@ use std::time::Instant;
 use tauri::command;
 
 /// Apply advanced camera controls
+///
+/// # Errors
+/// Returns an `Err` if the camera cannot be created or retrieved, if the
+/// camera mutex is poisoned, if the blocking task fails to join, or if
+/// applying the controls to the camera fails.
 #[command]
 pub async fn set_camera_controls(
     device_id: String,
@@ -40,6 +45,11 @@ pub async fn set_camera_controls(
 }
 
 /// Get current camera controls
+///
+/// # Errors
+/// Returns an `Err` if the camera cannot be obtained, if the camera mutex
+/// is poisoned, if the blocking task fails to join, or if reading the
+/// controls from the camera fails.
 #[command]
 pub async fn get_camera_controls(device_id: String) -> Result<CameraControls, String> {
     log::info!("Getting camera controls for device: {device_id}");
@@ -69,6 +79,14 @@ pub async fn get_camera_controls(device_id: String) -> Result<CameraControls, St
 }
 
 /// Capture burst sequence with advanced controls
+///
+/// # Errors
+/// Returns an `Err` if `config.count` is `0` or greater than `50`, if focus
+/// stacking is requested with fewer than `2` frames, or if exposure
+/// bracketing is misconfigured (empty stops or a non-positive base
+/// exposure). Also returns an `Err` if the camera cannot be obtained, the
+/// mutex is poisoned, the blocking task fails to join, a frame capture
+/// fails, or an auto-save fails.
 #[command]
 pub async fn capture_burst_sequence(
     device_id: String,
@@ -240,6 +258,12 @@ pub struct CameraSettingsInput {
 /// call. Individual granular commands (`set_manual_focus`,
 /// `set_manual_exposure`, `set_white_balance`) remain available for
 /// backward compatibility.
+///
+/// # Errors
+/// Returns an `Err` if `focus_distance` is outside `[0.0, 1.0]`,
+/// `exposure_time` is outside `(0.0, 10.0]`, or `iso_sensitivity` is
+/// outside the supported range. Otherwise propagates any error from
+/// [`set_camera_controls`].
 #[command]
 pub async fn apply_camera_settings(
     settings: CameraSettingsInput,
@@ -305,6 +329,10 @@ pub async fn apply_camera_settings(
 /// ## Deprecation
 /// Prefer the consolidated [`apply_camera_settings`] command
 /// which can batch multiple settings in a single call.
+///
+/// # Errors
+/// Returns an `Err` if `focus_distance` is outside `[0.0, 1.0]`.
+/// Otherwise propagates any error from [`set_camera_controls`].
 #[command]
 pub async fn set_manual_focus(device_id: String, focus_distance: f32) -> Result<ControlApplicationResult, String> {
     if !(0.0..=1.0).contains(&focus_distance) {
@@ -325,6 +353,11 @@ pub async fn set_manual_focus(device_id: String, focus_distance: f32) -> Result<
 /// ## Deprecation
 /// Prefer the consolidated [`apply_camera_settings`] command
 /// which can batch multiple settings in a single call.
+///
+/// # Errors
+/// Returns an `Err` if `exposure_time` is outside `(0.0, 10.0]` or if
+/// `iso_sensitivity` is outside the supported range. Otherwise propagates
+/// any error from [`set_camera_controls`].
 #[command]
 pub async fn set_manual_exposure(
     device_id: String,
@@ -354,6 +387,9 @@ pub async fn set_manual_exposure(
 /// ## Deprecation
 /// Prefer the consolidated [`apply_camera_settings`] command
 /// which can batch multiple settings in a single call.
+///
+/// # Errors
+/// Propagates any error from [`set_camera_controls`].
 #[command]
 pub async fn set_white_balance(
     device_id: String,
@@ -368,6 +404,10 @@ pub async fn set_white_balance(
 }
 
 /// Enable HDR mode with automatic exposure bracketing
+///
+/// # Errors
+/// Propagates any error from [`capture_burst_sequence`] (including invalid
+/// burst configuration) or from obtaining the camera.
 #[command]
 pub async fn capture_hdr_sequence(device_id: String) -> Result<Vec<CameraFrame>, String> {
     log::info!("Capturing HDR sequence from device: {device_id}");
@@ -377,6 +417,11 @@ pub async fn capture_hdr_sequence(device_id: String) -> Result<Vec<CameraFrame>,
 }
 
 /// Capture focus stacked sequence for macro photography (legacy - use `focus_stack` module)
+///
+/// # Errors
+/// Returns an `Err` if `stack_count` is outside `3..=20`. Otherwise
+/// propagates any error from [`capture_burst_sequence`] or from obtaining
+/// the camera.
 #[command]
 pub async fn capture_focus_stack_legacy(
     device_id: String,
@@ -403,6 +448,11 @@ pub async fn capture_focus_stack_legacy(
 }
 
 /// Get camera performance metrics
+///
+/// # Errors
+/// Returns an `Err` if the camera cannot be obtained, if the camera mutex
+/// is poisoned, if the blocking task fails to join, or if reading the
+/// performance metrics from the camera fails.
 #[command]
 pub async fn get_camera_performance(
     device_id: String,
@@ -437,6 +487,11 @@ pub async fn get_camera_performance(
 }
 
 /// Test camera capabilities and return supported features
+///
+/// # Errors
+/// Returns an `Err` if the camera cannot be obtained, if the camera mutex
+/// is poisoned, if the blocking task fails to join, or if querying the
+/// camera capabilities fails.
 #[command]
 pub async fn test_camera_capabilities(
     device_id: String,

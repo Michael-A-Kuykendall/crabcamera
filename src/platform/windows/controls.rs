@@ -47,6 +47,11 @@ pub struct MediaFoundationControls {
 
 impl MediaFoundationControls {
     /// Create new `MediaFoundation` controls interface for device
+    ///
+    /// # Errors
+    /// Returns a [`CameraError::InitializationError`] if COM initialization
+    /// fails, if the `MediaFoundation` device source cannot be found, or if
+    /// caching the control ranges fails.
     pub fn new(device_index: u32) -> Result<Self, CameraError> {
         log::debug!(
             "Initializing MediaFoundation controls for device {device_index}"
@@ -99,6 +104,11 @@ impl MediaFoundationControls {
     }
 
     /// Apply camera controls using `MediaFoundation` APIs
+    ///
+    /// # Errors
+    /// This function always returns `Ok` containing the lists of applied and
+    /// rejected controls; unsupported controls are reported as rejections rather
+    /// than as an `Err`.
     pub fn apply_controls(
         &mut self,
         controls: &CameraControls,
@@ -217,6 +227,10 @@ impl MediaFoundationControls {
     }
 
     /// Get current camera control values
+    ///
+    /// # Errors
+    /// This function always returns `Ok` with the current control values;
+    /// unavailable control interfaces simply yield default values.
     pub fn get_controls(&self) -> Result<CameraControls, CameraError> {
         let mut controls = CameraControls::default();
 
@@ -291,6 +305,10 @@ impl MediaFoundationControls {
     }
 
     /// Test camera capabilities and return supported features
+    ///
+    /// # Errors
+    /// This function always returns `Ok` with the detected capabilities;
+    /// unavailable control interfaces simply yield `false`/default capabilities.
     pub fn get_capabilities(&self) -> Result<CameraCapabilities, CameraError> {
         let mut capabilities = CameraCapabilities {
             supports_auto_focus: false,

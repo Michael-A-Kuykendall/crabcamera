@@ -17,6 +17,10 @@ pub async fn get_existing_camera(device_id: &str) -> Option<Arc<SyncMutex<Platfo
 }
 
 /// Release a camera (stop and remove from registry)
+///
+/// # Errors
+/// This function always returns `Ok` (a message); releasing a non-active
+/// camera is reported as a successful message rather than an error.
 pub async fn release_camera(device_id: &str) -> Result<String, CameraError> {
     log::info!("Releasing camera: {device_id}");
 
@@ -42,6 +46,10 @@ pub async fn release_camera(device_id: &str) -> Result<String, CameraError> {
 }
 
 /// Get existing camera or create new one
+///
+/// # Errors
+/// Returns a [`CameraError`] if the platform camera cannot be created
+/// (e.g. an unsupported platform or an initialization failure).
 pub async fn get_or_create_camera(
     device_id: String,
     format: CameraFormat,
@@ -137,6 +145,12 @@ pub async fn reconnect_camera(
 }
 
 /// Capture with automatic reconnection on failure
+///
+/// # Errors
+/// Returns a [`CameraError::AccessError`] if the camera mutex is poisoned, a
+/// [`CameraError::CaptureError`] if the frame capture fails (even after
+/// reconnection), a [`CameraError::SystemError`] if the blocking task fails to
+/// join, or propagates any error from [`reconnect_camera`].
 pub async fn capture_with_reconnect(
     device_id: String,
     format: CameraFormat,

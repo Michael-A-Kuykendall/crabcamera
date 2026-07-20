@@ -13,6 +13,10 @@ static QUALITY_VALIDATOR: LazyLock<Arc<RwLock<QualityValidator>>> =
     LazyLock::new(|| Arc::new(RwLock::new(QualityValidator::default())));
 
 /// Validate quality of a captured frame
+///
+/// # Errors
+/// Returns an `Err` if the frame cannot be captured (propagated from the
+/// underlying capture).
 #[command]
 pub async fn validate_frame_quality(
     device_id: Option<String>,
@@ -31,6 +35,9 @@ pub async fn validate_frame_quality(
 }
 
 /// Validate quality of provided frame data
+///
+/// # Errors
+/// This function always succeeds and never returns an `Err`.
 #[command]
 pub async fn validate_provided_frame(frame: CameraFrame) -> Result<QualityReport, String> {
     log::info!(
@@ -46,6 +53,10 @@ pub async fn validate_provided_frame(frame: CameraFrame) -> Result<QualityReport
 }
 
 /// Analyze blur in a captured frame
+///
+/// # Errors
+/// Returns an `Err` if the frame cannot be captured (propagated from the
+/// underlying capture).
 #[command]
 pub async fn analyze_frame_blur(
     device_id: Option<String>,
@@ -64,6 +75,10 @@ pub async fn analyze_frame_blur(
 }
 
 /// Analyze exposure in a captured frame
+///
+/// # Errors
+/// Returns an `Err` if the frame cannot be captured (propagated from the
+/// underlying capture).
 #[command]
 pub async fn analyze_frame_exposure(
     device_id: Option<String>,
@@ -82,6 +97,9 @@ pub async fn analyze_frame_exposure(
 }
 
 /// Update quality validation configuration
+///
+/// # Errors
+/// This function always succeeds and never returns an `Err`.
 #[command]
 pub async fn update_quality_config(config: ValidationConfigDto) -> Result<String, String> {
     log::info!("Updating quality validation configuration");
@@ -102,6 +120,9 @@ pub async fn update_quality_config(config: ValidationConfigDto) -> Result<String
 }
 
 /// Get current quality validation configuration
+///
+/// # Errors
+/// This function always succeeds and never returns an `Err`.
 #[command]
 pub async fn get_quality_config() -> Result<ValidationConfigDto, String> {
     let validator = QUALITY_VALIDATOR.read().await;
@@ -118,6 +139,9 @@ pub async fn get_quality_config() -> Result<ValidationConfigDto, String> {
 }
 
 /// Capture and validate multiple frames, return best quality
+///
+/// # Errors
+/// Returns an `Err` if no valid frame could be captured across all attempts.
 #[command]
 pub async fn capture_best_quality_frame(
     device_id: Option<String>,
@@ -176,6 +200,10 @@ pub async fn capture_best_quality_frame(
 }
 
 /// Auto-capture with quality threshold
+///
+/// # Errors
+/// Returns an `Err` if the overall timeout elapses or if no frame meeting the
+/// quality threshold is captured within the maximum number of attempts.
 #[command]
 pub async fn auto_capture_with_quality(
     device_id: Option<String>,
@@ -243,6 +271,10 @@ pub async fn auto_capture_with_quality(
 }
 
 /// Analyze quality trends over multiple captures
+///
+/// # Errors
+/// Returns an `Err` if no valid samples could be captured for the trend
+/// analysis.
 #[command]
 pub async fn analyze_quality_trends(
     device_id: Option<String>,

@@ -51,6 +51,11 @@ struct RecordingSession {
 ///
 /// # Returns
 /// * Session ID for tracking the recording
+///
+/// # Errors
+/// Returns an `Err` if the camera cannot be initialized or its stream cannot
+/// be started, if the camera mutex is poisoned, or if the [`Recorder`] cannot
+/// be created.
 #[allow(clippy::too_many_arguments)]
 #[command]
 pub async fn start_recording(
@@ -173,6 +178,11 @@ pub async fn start_recording(
 ///
 /// This should be called repeatedly to capture frames.
 /// Returns the number of frames recorded so far.
+///
+/// # Errors
+/// Returns an `Err` if the recording session is not found, if the session or
+/// camera mutex is poisoned, if recording is not running, if the camera frame
+/// capture fails, if no recorder is available, or if writing the frame fails.
 #[command]
 pub async fn record_frame(session_id: String) -> Result<u64, String> {
     let session_arc = {
@@ -218,6 +228,11 @@ pub async fn record_frame(session_id: String) -> Result<u64, String> {
 ///
 /// # Returns
 /// * Recording statistics (frames, duration, file size, etc.)
+///
+/// # Errors
+/// Returns an `Err` if the recording session is not found, if the session or
+/// camera mutex is poisoned, if the recorder has already been taken, or if
+/// finalizing the recording fails.
 #[command]
 pub async fn stop_recording(session_id: String) -> Result<RecordingStats, String> {
     // Remove session from registry
@@ -261,6 +276,10 @@ pub async fn stop_recording(session_id: String) -> Result<RecordingStats, String
 }
 
 /// Get the status of an active recording
+///
+/// # Errors
+/// Returns an `Err` if the recording session is not found, or if the session
+/// or camera mutex is poisoned, or if no recorder is available.
 #[command]
 pub async fn get_recording_status(session_id: String) -> Result<RecordingStatus, String> {
     let session_arc = {
@@ -303,6 +322,9 @@ pub async fn get_recording_status(session_id: String) -> Result<RecordingStatus,
 }
 
 /// List all active recording sessions
+///
+/// # Errors
+/// This function always succeeds and never returns an `Err`.
 #[command]
 pub async fn list_recording_sessions() -> Result<Vec<String>, String> {
     let registry = RECORDER_REGISTRY.read().await;

@@ -15,6 +15,10 @@ pub use types::{
 };
 
 /// List all available camera devices.
+///
+/// # Errors
+/// Returns a [`HeadlessError::backend`] if the underlying platform fails to
+/// enumerate cameras.
 pub fn list_devices() -> Result<Vec<DeviceInfo>, HeadlessError> {
     crate::platform::CameraSystem::list_cameras().map_err(HeadlessError::backend)
 }
@@ -22,6 +26,10 @@ pub fn list_devices() -> Result<Vec<DeviceInfo>, HeadlessError> {
 /// List formats for the given device.
 ///
 /// Note: currently sourced from the platform-provided device info list.
+///
+/// # Errors
+/// Returns a [`HeadlessError::backend`] if device enumeration fails, or a
+/// [`HeadlessError::not_found`] error if no device with the given id exists.
 pub fn list_formats(device_id: &str) -> Result<Vec<FormatInfo>, HeadlessError> {
     let devices = list_devices()?;
     let device = devices
@@ -33,6 +41,9 @@ pub fn list_formats(device_id: &str) -> Result<Vec<FormatInfo>, HeadlessError> {
 }
 
 /// List deterministic control descriptors (schema-level, not hardware-probed).
+///
+/// # Errors
+/// This function always succeeds and never returns an `Err`.
 pub fn list_controls(_device_id: &str) -> Result<Vec<ControlInfo>, HeadlessError> {
     // Hardware support varies; deterministic listing is the schema we support.
     Ok(controls::all_controls())

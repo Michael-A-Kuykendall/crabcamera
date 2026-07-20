@@ -7,6 +7,11 @@ use crate::preview::{PreviewConfig, PreviewStream};
 static PREVIEW_HANDLE: tokio::sync::RwLock<Option<Arc<PreviewStream>>> =
     tokio::sync::RwLock::const_new(None);
 
+/// Start a live preview stream for the given camera device.
+///
+/// # Errors
+/// Returns an `Err` if the camera cannot be obtained or if starting the
+/// preview stream fails.
 #[command]
 pub async fn start_preview_stream<R: Runtime>(
     device_id: String,
@@ -48,6 +53,10 @@ pub async fn start_preview_stream<R: Runtime>(
     Ok("preview_started".to_string())
 }
 
+/// Stop the currently active live preview stream.
+///
+/// # Errors
+/// Returns an `Err` if there is no active preview stream.
 #[command]
 pub async fn stop_preview_stream() -> Result<String, String> {
     let mut guard = PREVIEW_HANDLE.write().await;

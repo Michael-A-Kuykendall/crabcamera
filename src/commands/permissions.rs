@@ -6,6 +6,10 @@ use crate::permissions::{check_permission_detailed, PermissionInfo, PermissionSt
 use tauri::command;
 
 /// Request camera permission (platform-specific)
+///
+/// # Errors
+/// Returns an `Err` if the current platform is not supported, or, on macOS,
+/// if `AVFoundation` is unavailable or the permission request times out.
 #[command]
 pub async fn request_camera_permission() -> Result<PermissionInfo, String> {
     log::info!("Requesting camera permission");
@@ -115,6 +119,9 @@ async fn request_permission_macos() -> Result<PermissionInfo, String> {
 }
 
 /// Check camera permission status
+///
+/// # Errors
+/// This function always succeeds and never returns an `Err`.
 #[command]
 pub async fn check_camera_permission_status() -> Result<PermissionInfo, String> {
     log::debug!("Checking camera permission status");

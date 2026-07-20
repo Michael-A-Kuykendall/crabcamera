@@ -40,6 +40,11 @@ pub struct PreviewConfig {
 
 impl PreviewConfig {
     /// Validate that all config fields are within acceptable bounds.
+    ///
+    /// # Errors
+    /// Returns an `Err` describing the first out-of-range field if
+    /// `fps_target`, `downscale`, `quality_sample_rate`, or `jpeg_quality`
+    /// falls outside its allowed range.
     pub fn validate(&self) -> Result<(), String> {
         if !(1..=60).contains(&self.fps_target) {
             return Err("fps_target must be 1-60".into());

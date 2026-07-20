@@ -57,6 +57,11 @@ pub struct CaptureResult {
 /// The individual granular commands (`capture_single_photo`,
 /// `capture_photo_sequence`, `capture_with_quality_retry`) remain available
 /// for backward compatibility.
+///
+/// # Errors
+/// Propagates any error returned by the selected capture routine
+/// ([`capture_single_photo`], [`capture_photo_sequence`], or
+/// [`capture_with_quality_retry`]).
 #[command]
 pub async fn capture(options: CaptureOptions) -> Result<CaptureResult, String> {
     match options.mode {
@@ -92,6 +97,10 @@ pub async fn capture(options: CaptureOptions) -> Result<CaptureResult, String> {
 ///
 /// ## Deprecation
 /// Prefer the consolidated [`capture`] command with `CaptureMode::Single`.
+///
+/// # Errors
+/// Returns an `Err` if the underlying capture (with automatic reconnection)
+/// fails to acquire and capture a frame.
 #[command]
 pub async fn capture_single_photo(
     device_id: Option<String>,
@@ -125,6 +134,11 @@ pub async fn capture_single_photo(
 ///
 /// ## Deprecation
 /// Prefer the consolidated [`capture`] command with `CaptureMode::Sequence`.
+///
+/// # Errors
+/// Returns an `Err` if `count` is `0` or greater than `20`. Also returns an
+/// `Err` if the camera cannot be obtained, the mutex is poisoned, the blocking
+/// task fails to join, or a frame capture fails.
 #[command]
 pub async fn capture_photo_sequence(
     device_id: String,
@@ -193,6 +207,12 @@ pub async fn capture_photo_sequence(
 ///
 /// ## Deprecation
 /// Prefer the consolidated [`capture`] command with `CaptureMode::QualityRetry`.
+///
+/// # Errors
+/// Returns an `Err` if no valid frame could be captured after the maximum
+/// number of attempts. Also returns an `Err` if the camera cannot be obtained,
+/// the mutex is poisoned, the blocking task fails to join, or a frame capture
+/// fails.
 #[command]
 pub async fn capture_with_quality_retry(
     device_id: Option<String>,
@@ -290,12 +310,19 @@ pub async fn capture_with_quality_retry(
 }
 
 /// Release a camera (stop and remove from registry)
+///
+/// # Errors
+/// Propagates any error from [`crate::platform::release_camera`].
 #[command]
 pub async fn release_camera(device_id: String) -> Result<String, String> {
     crate::platform::release_camera(&device_id).await.map_err(|e| e.to_string())
 }
 
 /// Set a callback for real-time frame processing
+///
+/// # Errors
+/// Returns an `Err` if the camera cannot be obtained, the mutex is poisoned,
+/// the blocking task fails to join, or the callback cannot be registered.
 #[command]
 pub async fn set_frame_callback(
     device_id: String,
@@ -341,6 +368,10 @@ pub async fn set_frame_callback(
 }
 
 /// Start continuous capture from a camera (for live preview)
+///
+/// # Errors
+/// Returns an `Err` if the camera cannot be obtained, the mutex is poisoned,
+/// the blocking task fails to join, or starting the camera stream fails.
 #[command]
 pub async fn start_camera_preview(
     device_id: String,
@@ -376,6 +407,11 @@ pub async fn start_camera_preview(
 }
 
 /// Stop camera preview
+///
+/// # Errors
+/// Returns an `Err` if no active camera exists for `device_id`, if the mutex
+/// is poisoned, if the blocking task fails to join, or if stopping the camera
+/// stream fails.
 #[command]
 pub async fn stop_camera_preview(device_id: String) -> Result<String, String> {
     log::info!("Stopping camera preview for device: {device_id}");
@@ -408,6 +444,10 @@ pub async fn stop_camera_preview(device_id: String) -> Result<String, String> {
 }
 
 /// Get capture statistics for a camera
+///
+/// # Errors
+/// Returns an `Err` if the camera mutex is poisoned or the blocking task fails
+/// to join (only when an active camera exists for `device_id`).
 #[command]
 pub async fn get_capture_stats(device_id: String) -> Result<CaptureStats, String> {
     if let Some(camera) = get_existing_camera(&device_id).await {
@@ -441,6 +481,10 @@ pub async fn get_capture_stats(device_id: String) -> Result<CaptureStats, String
 
 /// Save captured frame to disk as a proper image file
 /// Supports PNG (lossless) based on file extension
+///
+/// # Errors
+/// Returns an `Err` if the frame data cannot be converted into an image or if
+/// writing the image file fails (including a blocking task join failure).
 #[command]
 pub async fn save_frame_to_disk(frame: CameraFrame, file_path: String) -> Result<String, String> {
     log::info!("Saving frame {} to disk: {}", frame.id, file_path);
@@ -483,6 +527,11 @@ pub async fn save_frame_to_disk(frame: CameraFrame, file_path: String) -> Result
 }
 
 /// Save frame with compression for smaller file sizes
+///
+/// # Errors
+/// Returns an `Err` if the frame data cannot be converted into an image, if the
+/// output file cannot be created, or if encoding/writing the compressed image
+/// fails (including a blocking task join failure).
 #[command]
 pub async fn save_frame_compressed(
     frame: CameraFrame,

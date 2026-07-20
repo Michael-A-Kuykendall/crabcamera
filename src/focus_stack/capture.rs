@@ -12,6 +12,11 @@ use crate::types::{CameraFormat, CameraFrame};
 /// This function captures multiple images with varying focus distances.
 /// For cameras without programmable focus, user must manually adjust focus
 /// between captures (using `step_delay_ms` for time to adjust).
+///
+/// # Errors
+/// Returns a [`FocusStackError::InvalidConfig`] if `num_steps` or the focus
+/// range is invalid, a [`FocusStackError::MergeFailed`] if a capture fails, or
+/// a [`FocusStackError::DimensionMismatch`] if captured frames differ in size.
 pub async fn capture_focus_sequence(
     device_id: String,
     config: FocusStackConfig,
@@ -125,6 +130,11 @@ pub async fn capture_focus_sequence(
 ///
 /// This captures overlapping focus ranges for better coverage.
 /// Uses a bracketing approach: near, mid, far with overlap.
+///
+/// # Errors
+/// Returns a [`FocusStackError::InvalidConfig`] if the bracket or shots-per-
+/// bracket counts are out of range, or propagates any error from
+/// [`capture_focus_sequence`].
 pub async fn capture_focus_brackets(
     device_id: String,
     brackets: u32,

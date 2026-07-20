@@ -54,6 +54,9 @@ impl From<AudioDevice> for AudioDeviceInfo {
 ///
 /// # Returns
 /// List of audio devices, sorted with default device first
+///
+/// # Errors
+/// Returns an `Err` if the audio devices cannot be enumerated.
 #[command]
 pub fn list_audio_devices() -> Result<Vec<AudioDeviceInfo>, String> {
     enumerate_audio_devices()
@@ -68,6 +71,9 @@ pub fn list_audio_devices() -> Result<Vec<AudioDeviceInfo>, String> {
 ///
 /// # Returns
 /// The default audio device, or an error if none available
+///
+/// # Errors
+/// Returns an `Err` if no default audio input device is available.
 #[command]
 pub fn get_default_audio_device() -> Result<AudioDeviceInfo, String> {
     crate::audio::get_default_audio_device()

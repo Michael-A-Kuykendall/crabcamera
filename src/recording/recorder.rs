@@ -374,6 +374,11 @@ impl Recorder {
     }
 
     /// Write raw RGB data as a frame
+    ///
+    /// # Errors
+    /// Returns a [`CameraError::EncodingError`] if the supplied frame
+    /// dimensions do not match the recording config, or a
+    /// [`CameraError::MuxingError`] if encoding or writing the frame fails.
     pub fn write_rgb_frame(
         &mut self,
         rgb_data: &[u8],
@@ -432,6 +437,10 @@ impl Recorder {
     }
 
     /// Finish the recording and return statistics
+    ///
+    /// # Errors
+    /// Returns a [`CameraError::MuxingError`] if the underlying muxer
+    /// cannot be finalized.
     #[allow(unused_mut)]
     pub fn finish(mut self) -> Result<RecordingStats, CameraError> {
         // Stop audio capture and flush remaining audio

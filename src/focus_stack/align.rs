@@ -38,6 +38,11 @@ impl Default for AlignmentResult {
 /// Returns alignment transforms for each frame relative to reference.
 /// Uses simple center-of-mass alignment as a starting point.
 /// For production, would use feature detection (SIFT/ORB) + RANSAC.
+///
+/// # Errors
+/// Returns a [`FocusStackError::InsufficientImages`] if fewer than two frames
+/// are provided, or a [`FocusStackError::DimensionMismatch`] if any frame does
+/// not match the reference frame's dimensions.
 pub fn align_frames(frames: &[CameraFrame]) -> Result<Vec<AlignmentResult>, FocusStackError> {
     if frames.len() < 2 {
         return Err(FocusStackError::InsufficientImages {
@@ -89,6 +94,9 @@ pub fn align_frames(frames: &[CameraFrame]) -> Result<Vec<AlignmentResult>, Focu
 ///
 /// Transforms frame data according to alignment result.
 /// Returns new frame with aligned data.
+///
+/// # Errors
+/// This function always succeeds and never returns an `Err`.
 pub fn apply_alignment(
     frame: &CameraFrame,
     alignment: &AlignmentResult,

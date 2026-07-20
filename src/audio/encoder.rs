@@ -67,6 +67,11 @@ impl OpusEncoder {
     /// * `sample_rate` - Must be 48000 (Opus requirement)
     /// * `channels` - 1 for mono, 2 for stereo
     /// * `bitrate` - Target bitrate in bits per second (e.g., 128000)
+    ///
+    /// # Errors
+    /// Returns a [`CameraError::AudioError`] if `sample_rate` is not the
+    /// required Opus rate, if `channels` is not `1` or `2`, or if the
+    /// underlying Opus encoder cannot be created.
     pub fn new(sample_rate: u32, channels: u16, bitrate: u32) -> Result<Self, CameraError> {
         if sample_rate != OPUS_SAMPLE_RATE {
             return Err(CameraError::AudioError(

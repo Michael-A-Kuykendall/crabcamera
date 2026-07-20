@@ -7,6 +7,9 @@ static GLOBAL_MONITOR: LazyLock<Arc<RwLock<Option<DeviceMonitor>>>> =
     LazyLock::new(|| Arc::new(RwLock::new(None)));
 
 /// Start device monitoring
+///
+/// # Errors
+/// Returns an `Err` if the underlying device monitor fails to start.
 #[command]
 pub async fn start_device_monitoring() -> Result<String, String> {
     let mut monitor_guard = GLOBAL_MONITOR.write().await;
@@ -25,6 +28,9 @@ pub async fn start_device_monitoring() -> Result<String, String> {
 }
 
 /// Stop device monitoring
+///
+/// # Errors
+/// Returns an `Err` if the underlying device monitor fails to stop.
 #[command]
 pub async fn stop_device_monitoring() -> Result<String, String> {
     let mut monitor_guard = GLOBAL_MONITOR.write().await;
@@ -42,6 +48,9 @@ pub async fn stop_device_monitoring() -> Result<String, String> {
 }
 
 /// Poll for device events (non-blocking)
+///
+/// # Errors
+/// Returns an `Err` if device monitoring has not been started.
 #[command]
 pub async fn poll_device_event() -> Result<Option<DeviceEventInfo>, String> {
     let monitor_guard = GLOBAL_MONITOR.read().await;
@@ -58,6 +67,9 @@ pub async fn poll_device_event() -> Result<Option<DeviceEventInfo>, String> {
 }
 
 /// Get list of currently active devices
+///
+/// # Errors
+/// Returns an `Err` if device monitoring has not been started.
 #[command]
 pub async fn get_monitored_devices() -> Result<Vec<crate::types::CameraDeviceInfo>, String> {
     let monitor_guard = GLOBAL_MONITOR.read().await;

@@ -22,6 +22,11 @@ pub struct SharpnessMap {
 ///
 /// For each pixel, selects the value from the sharpest source image.
 /// Uses pyramid blending to avoid harsh transitions.
+///
+/// # Errors
+/// Returns a [`FocusStackError::InsufficientImages`] if no frames are provided,
+/// or a [`FocusStackError::DimensionMismatch`] if the frames do not all share
+/// the same dimensions.
 pub fn merge_frames(
     frames: &[CameraFrame],
     sharpness_threshold: f32,
