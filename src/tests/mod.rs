@@ -157,9 +157,9 @@ pub fn init_test_env() {
 
 // Mock camera mode storage for testing
 use std::collections::HashMap;
-lazy_static::lazy_static! {
-    static ref MOCK_CAMERA_MODES: Arc<Mutex<HashMap<String, MockCaptureMode>>> = Arc::new(Mutex::new(HashMap::new()));
-}
+use std::sync::LazyLock;
+static MOCK_CAMERA_MODES: LazyLock<Arc<Mutex<HashMap<String, MockCaptureMode>>>> =
+    LazyLock::new(|| Arc::new(Mutex::new(HashMap::new())));
 
 /// Set mock camera mode for testing
 ///

@@ -1,10 +1,9 @@
 use crate::config::CrabCameraConfig;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, LazyLock, RwLock};
 use tauri::command;
 
-lazy_static::lazy_static! {
-    static ref GLOBAL_CONFIG: Arc<RwLock<CrabCameraConfig>> = Arc::new(RwLock::new(CrabCameraConfig::load_or_default()));
-}
+static GLOBAL_CONFIG: LazyLock<Arc<RwLock<CrabCameraConfig>>> =
+    LazyLock::new(|| Arc::new(RwLock::new(CrabCameraConfig::load_or_default())));
 
 /// Get the current configuration
 #[command]

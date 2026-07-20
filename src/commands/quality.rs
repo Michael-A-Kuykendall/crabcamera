@@ -4,14 +4,13 @@ use crate::constants::*;
 use crate::quality::{BlurDetector, BlurMetrics, ExposureAnalyzer, ExposureMetrics};
 use crate::quality::{QualityReport, QualityValidator, ValidationConfig};
 use crate::types::CameraFrame;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 use tauri::command;
 use tokio::sync::RwLock;
 
 // Global quality validator
-lazy_static::lazy_static! {
-    static ref QUALITY_VALIDATOR: Arc<RwLock<QualityValidator>> = Arc::new(RwLock::new(QualityValidator::default()));
-}
+static QUALITY_VALIDATOR: LazyLock<Arc<RwLock<QualityValidator>>> =
+    LazyLock::new(|| Arc::new(RwLock::new(QualityValidator::default())));
 
 /// Validate quality of a captured frame
 #[command]

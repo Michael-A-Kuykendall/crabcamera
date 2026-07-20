@@ -3,7 +3,7 @@
 //! These commands provide an interface for recording video from cameras.
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex as SyncMutex};
+use std::sync::{Arc, LazyLock, Mutex as SyncMutex};
 use tauri::command;
 use tokio::sync::RwLock;
 
@@ -19,10 +19,8 @@ use crate::recording::{Recorder, RecordingConfig, RecordingQuality, RecordingSta
 use crate::types::CameraFormat;
 
 // Global recorder registry
-lazy_static::lazy_static! {
-    static ref RECORDER_REGISTRY: Arc<RwLock<HashMap<String, Arc<SyncMutex<RecordingSession>>>>> =
-        Arc::new(RwLock::new(HashMap::new()));
-}
+static RECORDER_REGISTRY: LazyLock<Arc<RwLock<HashMap<String, Arc<SyncMutex<RecordingSession>>>>>> =
+    LazyLock::new(|| Arc::new(RwLock::new(HashMap::new())));
 
 /// Active recording session combining camera and recorder
 struct RecordingSession {

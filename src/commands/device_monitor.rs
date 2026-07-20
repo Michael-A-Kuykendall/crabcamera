@@ -1,11 +1,10 @@
 use crate::platform::{DeviceEvent, DeviceMonitor};
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 use tauri::command;
 use tokio::sync::RwLock;
 
-lazy_static::lazy_static! {
-    static ref GLOBAL_MONITOR: Arc<RwLock<Option<DeviceMonitor>>> = Arc::new(RwLock::new(None));
-}
+static GLOBAL_MONITOR: LazyLock<Arc<RwLock<Option<DeviceMonitor>>>> =
+    LazyLock::new(|| Arc::new(RwLock::new(None)));
 
 /// Start device monitoring
 #[command]

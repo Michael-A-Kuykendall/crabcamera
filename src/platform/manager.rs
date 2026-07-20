@@ -3,13 +3,12 @@ use crate::types::{CameraFormat, CameraFrame, CameraInitParams};
 use crate::errors::CameraError;
 use crate::constants::{CONNECTION_BACKOFF_INITIAL_MS, CONNECTION_BACKOFF_MAX_MS, CAPTURE_WARMUP_FRAMES, CAPTURE_WARMUP_DELAY_MS, CAPTURE_RECONNECT_WARMUP_FRAMES, CAPTURE_RECONNECT_WARMUP_DELAY_MS};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex as SyncMutex};
+use std::sync::{Arc, LazyLock, Mutex as SyncMutex};
 use tokio::sync::RwLock;
 
 // Global camera registry with async-friendly locking for the map, but sync locking for the camera
-lazy_static::lazy_static! {
-    static ref CAMERA_REGISTRY: Arc<RwLock<HashMap<String, Arc<SyncMutex<PlatformCamera>>>>> = Arc::new(RwLock::new(HashMap::new()));
-}
+static CAMERA_REGISTRY: LazyLock<Arc<RwLock<HashMap<String, Arc<SyncMutex<PlatformCamera>>>>>> =
+    LazyLock::new(|| Arc::new(RwLock::new(HashMap::new())));
 
 /// Get existing camera without creating if it doesn't exist
 pub async fn get_existing_camera(device_id: &str) -> Option<Arc<SyncMutex<PlatformCamera>>> {
