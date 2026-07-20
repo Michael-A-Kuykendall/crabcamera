@@ -24,6 +24,9 @@ pub mod linux;
 // Device monitoring module
 pub mod device_monitor;
 
+// Shared real performance tracking
+pub mod metrics;
+
 pub use device_monitor::{DeviceEvent, DeviceMonitor};
 
 /// Camera manager module for handling device lifecycle.
@@ -469,16 +472,7 @@ impl PlatformCamera {
     ) -> Result<crate::types::CameraPerformanceMetrics, CameraError> {
         match self {
             #[cfg(target_os = "windows")]
-            PlatformCamera::Windows(_camera) => Ok(crate::types::CameraPerformanceMetrics {
-                // Estimated baseline values until per-frame timing hooks are wired on Windows.
-                capture_latency_ms: MOCK_CAPTURE_LATENCY_MS,
-                processing_time_ms: MOCK_PROCESSING_TIME_MS,
-                memory_usage_mb: MOCK_MEMORY_USAGE_MB,
-                fps_actual: MOCK_FPS,
-                dropped_frames: 0,
-                buffer_overruns: 0,
-                quality_score: MOCK_QUALITY_SCORE,
-            }),
+            PlatformCamera::Windows(camera) => camera.get_performance_metrics(),
 
             #[cfg(target_os = "macos")]
             PlatformCamera::MacOS(camera) => camera.get_performance_metrics(),

@@ -203,6 +203,9 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::focus_stack::capture_focus_brackets_command,
             commands::focus_stack::get_default_focus_config,
             commands::focus_stack::validate_focus_config,
+            // Preview stream commands
+            commands::preview::start_preview_stream,
+            commands::preview::stop_preview_stream,
         ])
         .build()
 }

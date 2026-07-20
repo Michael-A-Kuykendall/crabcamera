@@ -11,8 +11,10 @@ pub mod controls;
 
 use self::controls::MediaFoundationControls;
 use crate::errors::CameraError;
+use crate::platform::metrics::PerfTracker;
 use crate::types::{CameraCapabilities, CameraControls, ControlApplicationResult, CameraFormat, CameraFrame};
 use nokhwa::Camera;
+use std::sync::Arc;
 
 /// Type alias for frame callback to reduce complexity
 type FrameCallback = Box<dyn Fn(CameraFrame) + Send + 'static>;
@@ -27,6 +29,8 @@ pub struct WindowsCamera {
     pub device_id: String,
     /// Frame callback
     pub callback: std::sync::Mutex<Option<FrameCallback>>,
+    /// Real performance tracker, updated on every capture.
+    pub perf: Arc<std::sync::Mutex<PerfTracker>>,
 }
 
 impl WindowsCamera {
@@ -51,19 +55,63 @@ impl WindowsCamera {
             mf_controls,
             device_id,
             callback: std::sync::Mutex::new(None),
+            perf: Arc::new(std::sync::Mutex::new(PerfTracker::new())),
         })
     }
 
     /// Capture a frame using nokhwa
     pub fn capture_frame(&mut self) -> Result<CameraFrame, CameraError> {
-        let frame = capture::capture_frame(&mut self.nokhwa_camera, &self.device_id)?;
+        let start = std::time::Instant::now();
+        let frame = match capture::capture_frame(&mut self.nokhwa_camera, &self.device_id) {
+            Ok(f) => f,
+            Err(e) => {
+                if let Ok(mut perf) = self.perf.lock() {
+                    perf.record_drop();
+                }
+                return Err(e);
+            }
+        };
+        let latency_ms = start.elapsed().as_secs_f32() * 1000.0;
 
+        let process_start = std::time::Instant::now();
         // Call callback if set
         if let Some(ref cb) = *self.callback.lock().map_err(|_| CameraError::InitializationError("Mutex poisoned".to_string()))? {
             cb(frame.clone());
         }
+        let processing_ms = process_start.elapsed().as_secs_f32() * 1000.0;
+
+        if let Ok(mut perf) = self.perf.lock() {
+            perf.record_capture(
+                latency_ms,
+                processing_ms,
+                Some((
+                    frame.data.clone(),
+                    frame.width,
+                    frame.height,
+                    format!("{:?}", frame.format),
+                )),
+            );
+        }
 
         Ok(frame)
+    }
+
+    /// Return real performance metrics for this camera session.
+    ///
+    /// # Errors
+    /// Returns [`CameraError::CaptureError`] if the shared perf tracker mutex is
+    /// poisoned.
+    pub fn get_performance_metrics(
+        &self,
+    ) -> Result<crate::types::CameraPerformanceMetrics, CameraError> {
+        let perf = self
+            .perf
+            .lock()
+            .map_err(|_| CameraError::CaptureError("Perf tracker mutex poisoned".to_string()))?;
+        Ok(crate::platform::metrics::build_metrics(
+            &perf,
+            &self.device_id,
+        ))
     }
 
     /// Apply camera controls using MediaFoundation

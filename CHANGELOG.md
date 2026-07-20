@@ -5,6 +5,29 @@ All notable changes to CrabCamera will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.1] - 2026-07-20
+
+### Added
+- **Preview-stream commands wired**: `start_preview_stream` / `stop_preview_stream` are
+  now registered in the Tauri `generate_handler!`. `PreviewStream::start` and the command
+  were made generic over `Runtime` so they compile into the plugin's generic `init`.
+
+### Fixed
+- **Cross-platform performance metrics implemented for real**: `get_performance_metrics`
+  previously returned `Err(UnsupportedOperation)` on macOS and Linux and returned fabricated
+  mock values on Windows. All three platforms now return genuine measurements from a shared
+  `PerfTracker`:
+  - Capture latency and processing time are timed around the actual `frame()` call and frame
+    construction.
+  - FPS is derived from the interval between successive captures; a zero-interval capture is
+    counted as a buffer overrun.
+  - Dropped frames are counted on capture failure.
+  - Memory usage is read from the OS — `/proc/self/statm` (RSS) on Linux,
+    `task_info` with `MACH_TASK_BASIC_INFO` (resident_size) on macOS, and
+    `GetProcessMemoryInfo` working-set size on Windows.
+  - The quality score is computed on demand from the last captured frame via the existing
+    blur detector, rather than returning a placeholder.
+
 ## [0.9.0] - 2026-07-19
 
 ### Added

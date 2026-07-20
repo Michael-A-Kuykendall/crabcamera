@@ -6,6 +6,7 @@ use tokio_util::sync::CancellationToken;
 
 #[cfg(feature = "tauri")]
 use tauri::Emitter;
+use tauri::Runtime;
 
 use crate::platform::PlatformCamera;
 use crate::preview::encode::{downsample_frame, encode_frame_jpeg};
@@ -31,12 +32,12 @@ impl PreviewStream {
         self.tx.subscribe()
     }
 
-    pub async fn start(
+    pub async fn start<R: Runtime>(
         &self,
         camera: Arc<StdMutex<PlatformCamera>>,
         config: PreviewConfig,
         mut trigger: SmartTrigger,
-        #[cfg(feature = "tauri")] app: Option<tauri::AppHandle>,
+        #[cfg(feature = "tauri")] app: Option<tauri::AppHandle<R>>,
     ) -> Result<(), String> {
         config.validate()?;
 

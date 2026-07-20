@@ -1,4 +1,5 @@
 use crate::errors::CameraError;
+use crate::platform::metrics::PerfTracker;
 use crate::types::{CameraDeviceInfo, CameraFormat, CameraFrame, CameraInitParams};
 use crate::constants::*;
 use nokhwa::{
@@ -119,6 +120,7 @@ pub fn initialize_camera(params: CameraInitParams) -> Result<LinuxCamera, Camera
         device_id: params.device_id,
         format: params.format,
         callback: Arc::new(Mutex::new(None)),
+        perf: Arc::new(Mutex::new(PerfTracker::new())),
     })
 }
 
@@ -128,6 +130,8 @@ pub struct LinuxCamera {
     device_id: String,
     format: CameraFormat,
     callback: Arc<Mutex<Option<Box<dyn Fn(CameraFrame) + Send + 'static>>>>,
+    /// Real performance tracker, updated on every capture.
+    perf: Arc<Mutex<PerfTracker>>,
 }
 
 impl LinuxCamera {
@@ -138,10 +142,22 @@ impl LinuxCamera {
             .lock()
             .map_err(|_| CameraError::CaptureError("Failed to lock camera".to_string()))?;
 
-        let frame = camera
+        let start = std::time::Instant::now();
+        let frame = match camera
             .frame()
-            .map_err(|e| CameraError::CaptureError(format!("Failed to capture frame: {}", e)))?;
+            .map_err(|e| CameraError::CaptureError(format!("Failed to capture frame: {}", e)))
+        {
+            Ok(f) => f,
+            Err(e) => {
+                if let Ok(mut perf) = self.perf.lock() {
+                    perf.record_drop();
+                }
+                return Err(e);
+            }
+        };
+        let latency_ms = start.elapsed().as_secs_f32() * 1000.0;
 
+        let process_start = std::time::Instant::now();
         let camera_frame = CameraFrame::new(
             frame.buffer_bytes().to_vec(),
             frame.resolution().width_x,
@@ -154,6 +170,20 @@ impl LinuxCamera {
         // Call callback if set
         if let Some(ref cb) = *self.callback.lock().unwrap() {
             cb(camera_frame.clone());
+        }
+        let processing_ms = process_start.elapsed().as_secs_f32() * 1000.0;
+
+        if let Ok(mut perf) = self.perf.lock() {
+            perf.record_capture(
+                latency_ms,
+                processing_ms,
+                Some((
+                    frame.buffer_bytes().to_vec(),
+                    camera_frame.width,
+                    camera_frame.height,
+                    format!("{:?}", self.format),
+                )),
+            );
         }
 
         Ok(camera_frame)
@@ -530,11 +560,22 @@ impl LinuxCamera {
         Ok(caps)
     }
 
-    /// Get performance metrics (Not implemented)
+    /// Get real performance metrics for this camera session.
+    ///
+    /// # Errors
+    /// Returns [`CameraError::CaptureError`] if the shared perf tracker mutex is
+    /// poisoned.
     pub fn get_performance_metrics(
         &self,
     ) -> Result<crate::types::CameraPerformanceMetrics, CameraError> {
-        Err(CameraError::UnsupportedOperation("Performance metrics not yet implemented on Linux".to_string()))
+        let perf = self
+            .perf
+            .lock()
+            .map_err(|_| CameraError::CaptureError("Perf tracker mutex poisoned".to_string()))?;
+        Ok(crate::platform::metrics::build_metrics(
+            &perf,
+            &self.device_id,
+        ))
     }
 
     /// Set frame callback for real-time processing

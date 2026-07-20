@@ -1,5 +1,6 @@
 use std::sync::Arc;
 use tauri::command;
+use tauri::Runtime;
 
 use crate::preview::{PreviewConfig, PreviewStream};
 
@@ -7,12 +8,12 @@ static PREVIEW_HANDLE: tokio::sync::RwLock<Option<Arc<PreviewStream>>> =
     tokio::sync::RwLock::const_new(None);
 
 #[command]
-pub async fn start_preview_stream(
+pub async fn start_preview_stream<R: Runtime>(
     device_id: String,
     fps_target: u32,
     downscale: f32,
     jpeg_quality: u8,
-    app: tauri::AppHandle,
+    app: tauri::AppHandle<R>,
 ) -> Result<String, String> {
     let config = PreviewConfig {
         fps_target,
