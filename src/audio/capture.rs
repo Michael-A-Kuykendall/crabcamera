@@ -270,6 +270,10 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(
+        target_os = "windows",
+        ignore = "Opens a real audio device via cpal/WASAPI; COM stream setup can hard-abort (STATUS_ACCESS_VIOLATION) on headless CI runners - run manually"
+    )]
     fn test_start_stop_idempotent() {
         // This test will only work if audio device is available
         let clock = PTSClock::new();

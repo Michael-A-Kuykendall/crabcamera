@@ -23,6 +23,10 @@ use crabcamera::audio::{
 
 /// Test audio device enumeration is safe and returns valid data
 #[test]
+#[cfg_attr(
+    target_os = "windows",
+    ignore = "Enumerates/opens real audio endpoints via cpal/WASAPI; COM calls can hard-abort (STATUS_ACCESS_VIOLATION) on headless CI runners - run manually"
+)]
 fn test_device_enumeration_comprehensive() {
     match list_audio_devices() {
         Ok(devices) => {
@@ -89,6 +93,10 @@ fn test_device_enumeration_comprehensive() {
 
 /// Test getting default audio device
 #[test]
+#[cfg_attr(
+    target_os = "windows",
+    ignore = "Enumerates/opens real audio endpoints via cpal/WASAPI; COM calls can hard-abort (STATUS_ACCESS_VIOLATION) on headless CI runners - run manually"
+)]
 fn test_default_device_handling() {
     match get_default_audio_device() {
         Ok(device) => {
@@ -123,6 +131,10 @@ fn test_default_device_handling() {
 
 /// Test audio capture creation and basic lifecycle
 #[test]
+#[cfg_attr(
+    target_os = "windows",
+    ignore = "Enumerates/opens real audio endpoints via cpal/WASAPI; COM calls can hard-abort (STATUS_ACCESS_VIOLATION) on headless CI runners - run manually"
+)]
 fn test_capture_lifecycle_comprehensive() {
     let clock = PTSClock::new();
 
@@ -201,6 +213,10 @@ fn test_capture_lifecycle_comprehensive() {
 
 /// Test audio capture with different sample rates and channels
 #[test]
+#[cfg_attr(
+    target_os = "windows",
+    ignore = "Enumerates/opens real audio endpoints via cpal/WASAPI; COM calls can hard-abort (STATUS_ACCESS_VIOLATION) on headless CI runners - run manually"
+)]
 fn test_capture_format_handling() {
     let clock = PTSClock::new();
 
@@ -251,6 +267,10 @@ fn test_capture_format_handling() {
 
 /// Test audio frame structure and validation
 #[test]
+#[cfg_attr(
+    target_os = "windows",
+    ignore = "Enumerates/opens real audio endpoints via cpal/WASAPI; COM calls can hard-abort (STATUS_ACCESS_VIOLATION) on headless CI runners - run manually"
+)]
 fn test_audio_frame_properties() {
     let clock = PTSClock::new();
 
@@ -433,6 +453,10 @@ fn test_pts_clock_synchronization() {
 
 /// Test error handling with invalid device IDs
 #[test]
+#[cfg_attr(
+    target_os = "windows",
+    ignore = "Enumerates/opens real audio endpoints via cpal/WASAPI; COM calls can hard-abort (STATUS_ACCESS_VIOLATION) on headless CI runners - run manually"
+)]
 fn test_invalid_device_handling() {
     let clock = PTSClock::new();
 
@@ -470,6 +494,10 @@ fn test_invalid_device_handling() {
 
 /// Test error handling with invalid sample rates and channels
 #[test]
+#[cfg_attr(
+    target_os = "windows",
+    ignore = "Enumerates/opens real audio endpoints via cpal/WASAPI; COM calls can hard-abort (STATUS_ACCESS_VIOLATION) on headless CI runners - run manually"
+)]
 fn test_invalid_format_handling() {
     let clock = PTSClock::new();
 
@@ -521,6 +549,10 @@ fn test_invalid_format_handling() {
 
 /// Test audio capture performance and resource usage
 #[test]
+#[cfg_attr(
+    target_os = "windows",
+    ignore = "Enumerates/opens real audio endpoints via cpal/WASAPI; COM calls can hard-abort (STATUS_ACCESS_VIOLATION) on headless CI runners - run manually"
+)]
 fn test_capture_performance() {
     let clock = PTSClock::new();
 
@@ -599,6 +631,10 @@ fn test_capture_performance() {
 
 /// Test memory usage and buffer management
 #[test]
+#[cfg_attr(
+    target_os = "windows",
+    ignore = "Enumerates/opens real audio endpoints via cpal/WASAPI; COM calls can hard-abort (STATUS_ACCESS_VIOLATION) on headless CI runners - run manually"
+)]
 fn test_buffer_management() {
     let clock = PTSClock::new();
 
@@ -628,6 +664,10 @@ fn test_buffer_management() {
 
 /// Test concurrent access patterns
 #[test]
+#[cfg_attr(
+    target_os = "windows",
+    ignore = "Enumerates/opens real audio endpoints via cpal/WASAPI; COM calls can hard-abort (STATUS_ACCESS_VIOLATION) on headless CI runners - run manually"
+)]
 fn test_concurrent_access_safety() {
     let clock = PTSClock::new();
 
@@ -673,6 +713,10 @@ fn test_concurrent_access_safety() {
 
 /// Test full audio pipeline: capture -> encode
 #[test]
+#[cfg_attr(
+    target_os = "windows",
+    ignore = "Enumerates/opens real audio endpoints via cpal/WASAPI; COM calls can hard-abort (STATUS_ACCESS_VIOLATION) on headless CI runners - run manually"
+)]
 fn test_capture_to_encode_pipeline() {
     let clock = PTSClock::new();
 

@@ -140,12 +140,20 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg_attr(
+        target_os = "windows",
+        ignore = "Enumerates real audio endpoints via cpal/WASAPI; COM enumeration can hard-abort (STATUS_ACCESS_VIOLATION) on headless CI runners - run manually"
+    )]
     fn test_list_audio_devices_no_panic() {
         // Should not panic even if no devices
         let _ = list_audio_devices();
     }
 
     #[test]
+    #[cfg_attr(
+        target_os = "windows",
+        ignore = "Enumerates real audio endpoints via cpal/WASAPI; COM enumeration can hard-abort (STATUS_ACCESS_VIOLATION) on headless CI runners - run manually"
+    )]
     fn test_default_device_is_first() {
         if let Ok(devices) = list_audio_devices() {
             if !devices.is_empty() {
@@ -159,6 +167,10 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(
+        target_os = "windows",
+        ignore = "Enumerates real audio endpoints via cpal/WASAPI; COM enumeration can hard-abort (STATUS_ACCESS_VIOLATION) on headless CI runners - run manually"
+    )]
     fn test_find_device_default() {
         if let Ok(device) = find_audio_device("default") {
             assert!(device.is_default);
@@ -166,6 +178,10 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(
+        target_os = "windows",
+        ignore = "Enumerates real audio endpoints via cpal/WASAPI; COM enumeration can hard-abort (STATUS_ACCESS_VIOLATION) on headless CI runners - run manually"
+    )]
     fn test_find_device_empty_string() {
         if let Ok(device) = find_audio_device("") {
             assert!(device.is_default);
