@@ -92,6 +92,11 @@ jobs:
     - name: 🦀 Setup Rust toolchain
       uses: dtolnay/rust-toolchain@stable
 
+    - name: Install Linux dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libasound2-dev
+
     - name: 🎯 Test publish (dry run)
       run: cargo publish --dry-run
 
