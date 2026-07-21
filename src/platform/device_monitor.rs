@@ -199,6 +199,7 @@ impl DeviceMonitor {
     }
 
     #[cfg(not(target_os = "windows"))]
+    #[allow(clippy::unused_async)]
     async fn start_windows_monitoring(&self) -> Result<(), CameraError> {
         Err(CameraError::InitializationError(
             "Not on Windows".to_string(),
@@ -232,7 +233,7 @@ impl DeviceMonitor {
 
                     for old_id in &old_ids {
                         if !new_ids.contains(old_id) {
-                            log::info!("Device disconnected: {}", old_id);
+                            log::info!("Device disconnected: {old_id}");
                             let _ = event_sender.send(DeviceEvent::Disconnected(old_id.clone()));
                         }
                     }
@@ -286,7 +287,7 @@ impl DeviceMonitor {
 
                     for old_id in &old_ids {
                         if !new_ids.contains(old_id) {
-                            log::info!("Device disconnected: {}", old_id);
+                            log::info!("Device disconnected: {old_id}");
                             let _ = event_sender.send(DeviceEvent::Disconnected(old_id.clone()));
                         }
                     }
@@ -356,7 +357,7 @@ impl DeviceMonitor {
         use nokhwa::query;
 
         let cameras = query(nokhwa::utils::ApiBackend::Auto).map_err(|e| {
-            CameraError::InitializationError(format!("Failed to query cameras: {}", e))
+            CameraError::InitializationError(format!("Failed to query cameras: {e}"))
         })?;
 
         Ok(cameras
@@ -364,7 +365,7 @@ impl DeviceMonitor {
             .map(|info| {
                 CameraDeviceInfo::new(
                     format!("{}", info.index().as_index().unwrap_or(0)),
-                    info.human_name().to_string(),
+                    info.human_name(),
                 )
             })
             .collect())
@@ -383,7 +384,7 @@ impl DeviceMonitor {
         use nokhwa::query;
 
         let cameras = query(nokhwa::utils::ApiBackend::Auto).map_err(|e| {
-            CameraError::InitializationError(format!("Failed to query cameras: {}", e))
+            CameraError::InitializationError(format!("Failed to query cameras: {e}"))
         })?;
 
         Ok(cameras
@@ -391,7 +392,7 @@ impl DeviceMonitor {
             .map(|info| {
                 CameraDeviceInfo::new(
                     format!("{}", info.index().as_index().unwrap_or(0)),
-                    info.human_name().to_string(),
+                    info.human_name(),
                 )
             })
             .collect())

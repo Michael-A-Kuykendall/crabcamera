@@ -76,9 +76,14 @@ async fn request_permission_macos() -> Result<PermissionInfo, String> {
         let av_capture_device_class =
             Class::get("AVCaptureDevice").ok_or("AVFoundation not available")?;
 
-        let av_media_type_video = CString::new(AV_MEDIA_TYPE_VIDEO).unwrap();
+        // Build an NSString for the video media type (AVMediaTypeVideo == @"vide").
+        // AVCaptureDevice has no `mediaTypeForString:` selector; sending it raises
+        // an unrecognized-selector NSException which aborts the process.
+        let ns_string_class = Class::get("NSString").ok_or("Foundation not available")?;
+        let av_media_type_video =
+            CString::new(AV_MEDIA_TYPE_VIDEO).map_err(|_| "Invalid media type string")?;
         let media_type: *mut Object =
-            msg_send![av_capture_device_class, mediaTypeForString: av_media_type_video.as_ptr()];
+            msg_send![ns_string_class, stringWithUTF8String: av_media_type_video.as_ptr()];
 
         let (tx, rx) = mpsc::channel();
 

@@ -125,9 +125,10 @@ pub fn current_process_memory_mb() -> f32 {
             .and_then(|contents| {
                 // statm columns: size resident shared text data ... (all in pages)
                 let rss_pages: u64 = contents.split_whitespace().nth(1)?.parse().ok()?;
-                // Standard page size on essentially all x86/arm Linux targets.
-                const PAGE_SIZE: u64 = 4096;
-                Some((rss_pages * PAGE_SIZE) as f32 / (1024.0 * 1024.0))
+                // Standard page size on essentially all x86/arm Linux targets (4096 bytes).
+                #[allow(clippy::cast_precision_loss)]
+                let mb = (rss_pages * 4096) as f32 / (1024.0 * 1024.0);
+                Some(mb)
             })
             .unwrap_or(0.0)
     }

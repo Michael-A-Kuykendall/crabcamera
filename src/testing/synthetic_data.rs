@@ -25,7 +25,8 @@ pub fn synthetic_video_frame(frame_number: u64, width: u32, height: u32) -> Came
             // RGB gradient that varies by position and frame
             data[idx] = base.wrapping_add(u8::try_from(x % 256).unwrap_or(u8::MAX)); // R
             data[idx + 1] = base.wrapping_add(u8::try_from(y % 256).unwrap_or(u8::MAX)); // G
-            data[idx + 2] = base.wrapping_add(u8::try_from((x + y) % 256).unwrap_or(u8::MAX)); // B
+            data[idx + 2] = base.wrapping_add(u8::try_from((x + y) % 256).unwrap_or(u8::MAX));
+            // B
         }
     }
 

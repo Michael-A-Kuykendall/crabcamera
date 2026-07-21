@@ -218,7 +218,11 @@ fn compute_sharpness_map(frame: &CameraFrame) -> SharpnessMap {
                 #[allow(clippy::cast_possible_wrap)]
                 let nx = i32::try_from(x).unwrap_or(i32::MAX) + dx;
                 #[allow(clippy::cast_possible_wrap)]
-                if ny >= 0 && ny < i32::try_from(height).unwrap_or(i32::MAX) && nx >= 0 && nx < i32::try_from(width).unwrap_or(i32::MAX) {
+                if ny >= 0
+                    && ny < i32::try_from(height).unwrap_or(i32::MAX)
+                    && nx >= 0
+                    && nx < i32::try_from(width).unwrap_or(i32::MAX)
+                {
                     let ny = usize::try_from(ny).unwrap_or(0);
                     let nx = usize::try_from(nx).unwrap_or(0);
                     let neighbor_idx = (ny * width + nx) * 3;
@@ -607,7 +611,12 @@ mod tests {
         let height = 100;
         let data = vec![128u8; width * height * 3];
 
-        let frame = CameraFrame::new(data, u32::try_from(width).unwrap_or(u32::MAX), u32::try_from(height).unwrap_or(u32::MAX), "test_device".to_string());
+        let frame = CameraFrame::new(
+            data,
+            u32::try_from(width).unwrap_or(u32::MAX),
+            u32::try_from(height).unwrap_or(u32::MAX),
+            "test_device".to_string(),
+        );
 
         let sharpness = compute_sharpness_map(&frame);
 

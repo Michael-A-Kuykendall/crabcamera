@@ -297,8 +297,9 @@ impl MediaFoundationControls {
                     controls.white_balance = Some(WhiteBalance::Auto);
                 } else {
                     // i32→u32: white balance values from the API are always non-negative
-                    controls.white_balance =
-                        Some(WhiteBalance::Custom(u32::try_from(value).unwrap_or(u32::MAX)));
+                    controls.white_balance = Some(WhiteBalance::Custom(
+                        u32::try_from(value).unwrap_or(u32::MAX),
+                    ));
                 }
             }
         }
@@ -1091,8 +1092,7 @@ mod tests {
         // handle is invalid and exercising controls dereferences bad native
         // pointers (STATUS_ACCESS_VIOLATION). Only run the native path when a
         // real camera is present; otherwise this test is a no-op.
-        let has_camera = crate::platform::windows::list_cameras()
-            .is_ok_and(|c| !c.is_empty());
+        let has_camera = crate::platform::windows::list_cameras().is_ok_and(|c| !c.is_empty());
         if !has_camera {
             return;
         }

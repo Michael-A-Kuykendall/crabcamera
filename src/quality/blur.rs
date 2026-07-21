@@ -171,7 +171,8 @@ impl BlurDetector {
 
                         // Bounds check not strictly necessary due to loop limits but safe
                         if let Some(&val) = grayscale.get(pixel_index) {
-                            let kernel_value = laplacian_kernel[usize::try_from(ky * 3 + kx).unwrap_or(0)];
+                            let kernel_value =
+                                laplacian_kernel[usize::try_from(ky * 3 + kx).unwrap_or(0)];
                             sum += i32::from(val) * kernel_value;
                         }
                     }

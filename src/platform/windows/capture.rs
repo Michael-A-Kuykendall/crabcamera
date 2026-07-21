@@ -202,6 +202,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "Touches real Media Foundation devices; nokhwa can hard-abort (STATUS_ACCESS_VIOLATION) on headless CI runners - run manually"]
     fn test_list_cameras_returns_result_type() {
         // Environment-dependent; this validates the function executes and returns structured result.
         let result = list_cameras();
@@ -209,6 +210,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "Opens real camera hardware; nokhwa can hard-abort (STATUS_ACCESS_VIOLATION) on headless CI runners - run manually"]
     fn test_initialize_camera_numeric_id_best_effort() {
         // May fail if no device is available, but should still execute the numeric-id path.
         let result = initialize_camera("0", &CameraFormat::standard());

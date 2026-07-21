@@ -482,13 +482,17 @@ impl QualityValidator {
             saturation_sum += saturation;
         }
 
-        #[allow(clippy::cast_precision_loss)] // u64 sum / pixel_count in 0..1e6 range, f32 mantissa sufficient
+        #[allow(clippy::cast_precision_loss)]
+        // u64 sum / pixel_count in 0..1e6 range, f32 mantissa sufficient
         let red_mean = red_sum as f32 / (pixel_count as f32 * 255.0);
-        #[allow(clippy::cast_precision_loss)] // u64 sum / pixel_count in 0..1e6 range, f32 mantissa sufficient
+        #[allow(clippy::cast_precision_loss)]
+        // u64 sum / pixel_count in 0..1e6 range, f32 mantissa sufficient
         let green_mean = green_sum as f32 / (pixel_count as f32 * 255.0);
-        #[allow(clippy::cast_precision_loss)] // u64 sum / pixel_count in 0..1e6 range, f32 mantissa sufficient
+        #[allow(clippy::cast_precision_loss)]
+        // u64 sum / pixel_count in 0..1e6 range, f32 mantissa sufficient
         let blue_mean = blue_sum as f32 / (pixel_count as f32 * 255.0);
-        #[allow(clippy::cast_precision_loss)] // pixel_count in 0..1e6 range, f32 mantissa sufficient
+        #[allow(clippy::cast_precision_loss)]
+        // pixel_count in 0..1e6 range, f32 mantissa sufficient
         let saturation_mean = saturation_sum / pixel_count as f32;
 
         // Calculate color balance score (how balanced are the R, G, B channels)
@@ -549,8 +553,13 @@ impl QualityValidator {
             }
         }
 
-        CameraFrame::new(out, u32::try_from(new_w).unwrap_or(u32::MAX), u32::try_from(new_h).unwrap_or(u32::MAX), frame.device_id.clone())
-            .with_format(frame.format.clone())
+        CameraFrame::new(
+            out,
+            u32::try_from(new_w).unwrap_or(u32::MAX),
+            u32::try_from(new_h).unwrap_or(u32::MAX),
+            frame.device_id.clone(),
+        )
+        .with_format(frame.format.clone())
     }
 
     /// Analyze composition quality

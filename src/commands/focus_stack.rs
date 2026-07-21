@@ -47,32 +47,32 @@ pub async fn capture_focus_stack(
         // usize→f32: alignment count is small, no precision loss
         let avg_error = alignments.iter().map(|a| a.error).sum::<f32>() / alignments.len() as f32;
 
-    log::info!("Alignment complete, avg error: {avg_error:.3} pixels");
+        log::info!("Alignment complete, avg error: {avg_error:.3} pixels");
 
-    // Apply alignment transforms to frames
-    let mut aligned = Vec::with_capacity(frames.len());
-    for (frame, alignment) in frames.iter().zip(alignments.iter()) {
-        let aligned_frame = crate::focus_stack::align::apply_alignment(frame, alignment)
-            .map_err(|e| e.to_string())?;
-        aligned.push(aligned_frame);
-    }
+        // Apply alignment transforms to frames
+        let mut aligned = Vec::with_capacity(frames.len());
+        for (frame, alignment) in frames.iter().zip(alignments.iter()) {
+            let aligned_frame = crate::focus_stack::align::apply_alignment(frame, alignment)
+                .map_err(|e| e.to_string())?;
+            aligned.push(aligned_frame);
+        }
 
-    (aligned, avg_error)
-} else {
-    (frames, 0.0)
-};
+        (aligned, avg_error)
+    } else {
+        (frames, 0.0)
+    };
 
-log::info!("Starting merge with {} blend levels", config.blend_levels);
+    log::info!("Starting merge with {} blend levels", config.blend_levels);
 
-// Merge frames
-let merged_frame = merge_frames(
-    &aligned_frames,
-    config.sharpness_threshold,
-    config.blend_levels,
-)
-.map_err(|e| e.to_string())?;
+    // Merge frames
+    let merged_frame = merge_frames(
+        &aligned_frames,
+        config.sharpness_threshold,
+        config.blend_levels,
+    )
+    .map_err(|e| e.to_string())?;
 
-let processing_time_ms = u64::try_from(start_time.elapsed().as_millis()).unwrap_or(u64::MAX);
+    let processing_time_ms = u64::try_from(start_time.elapsed().as_millis()).unwrap_or(u64::MAX);
 
     log::info!("Focus stack complete in {processing_time_ms}ms");
 

@@ -267,7 +267,10 @@ mod platform_windows_tests {
                         // Stream started successfully
                         assert!(camera.is_stream_open(), "Stream should be open");
                         // Availability tracks the open stream across platforms
-                        assert!(camera.is_available(), "Camera should be available while streaming");
+                        assert!(
+                            camera.is_available(),
+                            "Camera should be available while streaming"
+                        );
 
                         // Test stopping stream
                         let stop_result = camera.stop_stream();

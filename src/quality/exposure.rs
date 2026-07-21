@@ -149,7 +149,9 @@ impl ExposureAnalyzer {
 
             // ITU-R BT.709 luminance weights
             #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-            let y = (0.2126 * r + 0.7152 * g + 0.0722 * b).round().clamp(0.0, 255.0) as u8;
+            let y = (0.2126 * r + 0.7152 * g + 0.0722 * b)
+                .round()
+                .clamp(0.0, 255.0) as u8;
             luminance.push(y);
         }
 

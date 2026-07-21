@@ -19,12 +19,15 @@ use crate::types::{
 type FrameCallback = Box<dyn Fn(CameraFrame) + Send + 'static>;
 
 // Platform-specific modules
+/// Windows-specific camera backend (Media Foundation via nokhwa).
 #[cfg(target_os = "windows")]
 pub mod windows;
 
+/// macOS-specific camera backend (AVFoundation).
 #[cfg(target_os = "macos")]
 pub mod macos;
 
+/// Linux-specific camera backend (V4L2).
 #[cfg(target_os = "linux")]
 pub mod linux;
 

@@ -1,4 +1,8 @@
-use crate::constants::*;
+use crate::constants::{
+    DEFAULT_FORMAT_TYPE, DEFAULT_FPS, DEFAULT_RESOLUTION_HEIGHT, DEFAULT_RESOLUTION_WIDTH,
+    FALLBACK_RESOLUTION_HEIGHT, FALLBACK_RESOLUTION_WIDTH, LINUX_VIDEO_DEVICE_PREFIX,
+    MIN_RESOLUTION_HEIGHT, MIN_RESOLUTION_WIDTH,
+};
 use crate::errors::CameraError;
 use crate::platform::metrics::PerfTracker;
 use crate::types::{CameraDeviceInfo, CameraFormat, CameraFrame, CameraInitParams};
@@ -14,11 +18,40 @@ use std::sync::{Arc, Mutex};
 use v4l::video::Capture;
 use v4l::Device;
 
-/// List available cameras on Linux using both nokhwa for device discovery and v4l for detailed format enumeration
+/// Boxed frame callback invoked for each captured frame.
+type FrameCallback = Box<dyn Fn(CameraFrame) + Send + 'static>;
+
+// Standard V4L2 control IDs (from videodev2.h).
+const V4L2_CID_BRIGHTNESS: u32 = 0x0098_0900;
+const V4L2_CID_CONTRAST: u32 = 0x0098_0901;
+const V4L2_CID_SATURATION: u32 = 0x0098_0902;
+const V4L2_CID_HUE: u32 = 0x0098_0903;
+const V4L2_CID_GAMMA: u32 = 0x0098_0910;
+const V4L2_CID_SHARPNESS: u32 = 0x0098_091b;
+const V4L2_CID_ZOOM_ABSOLUTE: u32 = 0x009a_090d;
+const V4L2_CID_FOCUS_AUTO: u32 = 0x009a_090c;
+const V4L2_CID_FOCUS_ABSOLUTE: u32 = 0x009a_090a;
+const V4L2_CID_EXPOSURE_AUTO: u32 = 0x009a_0901;
+const V4L2_CID_EXPOSURE_ABSOLUTE: u32 = 0x009a_0902;
+
+/// Convert a V4L2 discrete frame interval to frames-per-second.
+#[allow(clippy::cast_precision_loss)]
+fn interval_to_fps(numerator: u32, denominator: u32) -> f32 {
+    if numerator == 0 {
+        DEFAULT_FPS
+    } else {
+        denominator as f32 / numerator as f32
+    }
+}
+
+/// List available cameras on Linux using both nokhwa for device discovery and v4l for detailed format enumeration.
+///
+/// # Errors
+/// Returns [`CameraError::InitializationError`] if querying the V4L2 backend fails.
 pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
     // Queries via nokhwa first to get base list
     let cameras = query(nokhwa::utils::ApiBackend::Video4Linux)
-        .map_err(|e| CameraError::InitializationError(format!("Failed to query cameras: {}", e)))?;
+        .map_err(|e| CameraError::InitializationError(format!("Failed to query cameras: {e}")))?;
 
     let mut device_list = Vec::new();
     for camera_info in cameras {
@@ -30,7 +63,7 @@ pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
         // Use v4l crate to get real supported formats
         let mut formats = Vec::new();
         let device_index = camera_info.index().as_index().unwrap_or(0);
-        let path = format!("{}{}", LINUX_VIDEO_DEVICE_PREFIX, device_index);
+        let path = format!("{LINUX_VIDEO_DEVICE_PREFIX}{device_index}");
 
         if let Ok(dev) = Device::with_path(&path) {
             if let Ok(format_iter) = dev.enum_formats() {
@@ -52,13 +85,11 @@ pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
                                     for interval in intervals {
                                         let fps = match &interval.interval {
                                             v4l::frameinterval::FrameIntervalEnum::Discrete(f) => {
-                                                if f.numerator != 0 {
-                                                    f.denominator as f32 / f.numerator as f32
-                                                } else {
-                                                    DEFAULT_FPS
-                                                }
+                                                interval_to_fps(f.numerator, f.denominator)
                                             }
-                                            _ => DEFAULT_FPS,
+                                            v4l::frameinterval::FrameIntervalEnum::Stepwise(_) => {
+                                                DEFAULT_FPS
+                                            }
                                         };
 
                                         let format_str = match &fmt_desc.fourcc.repr {
@@ -86,7 +117,7 @@ pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
 
         // Fallback to defaults if real enumeration failed (e.g. permission error) but warn
         if formats.is_empty() {
-            log::warn!("Could not enumerate formats for {}, using defaults", path);
+            log::warn!("Could not enumerate formats for {path}, using defaults");
             formats = vec![
                 CameraFormat::new(
                     DEFAULT_RESOLUTION_WIDTH,
@@ -112,7 +143,11 @@ pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
     Ok(device_list)
 }
 
-/// Initialize camera on Linux with V4L2 backend
+/// Initialize camera on Linux with V4L2 backend.
+///
+/// # Errors
+/// Returns [`CameraError::InitializationError`] if the device ID is invalid or the
+/// camera cannot be opened.
 pub fn initialize_camera(params: CameraInitParams) -> Result<LinuxCamera, CameraError> {
     let device_index = params
         .device_id
@@ -126,7 +161,7 @@ pub fn initialize_camera(params: CameraInitParams) -> Result<LinuxCamera, Camera
         nokhwa::utils::CameraIndex::Index(device_index),
         requested_format,
     )
-    .map_err(|e| CameraError::InitializationError(format!("Failed to initialize camera: {}", e)))?;
+    .map_err(|e| CameraError::InitializationError(format!("Failed to initialize camera: {e}")))?;
 
     Ok(LinuxCamera {
         camera: Arc::new(Mutex::new(camera)),
@@ -142,13 +177,17 @@ pub struct LinuxCamera {
     camera: Arc<Mutex<Camera>>,
     device_id: String,
     format: CameraFormat,
-    callback: Arc<Mutex<Option<Box<dyn Fn(CameraFrame) + Send + 'static>>>>,
+    callback: Arc<Mutex<Option<FrameCallback>>>,
     /// Real performance tracker, updated on every capture.
     perf: Arc<Mutex<PerfTracker>>,
 }
 
 impl LinuxCamera {
-    /// Capture frame from Linux camera using V4L2
+    /// Capture frame from Linux camera using V4L2.
+    ///
+    /// # Errors
+    /// Returns [`CameraError::CaptureError`] if the camera mutex is poisoned or the
+    /// underlying V4L2 capture fails.
     pub fn capture_frame(&self) -> Result<CameraFrame, CameraError> {
         let mut camera = self
             .camera
@@ -158,7 +197,7 @@ impl LinuxCamera {
         let start = std::time::Instant::now();
         let frame = match camera
             .frame()
-            .map_err(|e| CameraError::CaptureError(format!("Failed to capture frame: {}", e)))
+            .map_err(|e| CameraError::CaptureError(format!("Failed to capture frame: {e}")))
         {
             Ok(f) => f,
             Err(e) => {
@@ -181,8 +220,10 @@ impl LinuxCamera {
         let camera_frame = camera_frame.with_format(format!("{:?}", self.format));
 
         // Call callback if set
-        if let Some(ref cb) = *self.callback.lock().unwrap() {
-            cb(camera_frame.clone());
+        if let Ok(guard) = self.callback.lock() {
+            if let Some(ref cb) = *guard {
+                cb(camera_frame.clone());
+            }
         }
         let processing_ms = process_start.elapsed().as_secs_f32() * 1000.0;
 
@@ -214,13 +255,14 @@ impl LinuxCamera {
 
     /// Check if camera is available
     pub fn is_available(&self) -> bool {
-        self.camera
-            .lock()
-            .map(|c| c.is_stream_open())
-            .unwrap_or(false)
+        self.camera.lock().map_or(false, |c| c.is_stream_open())
     }
 
-    /// Start camera stream
+    /// Start camera stream.
+    ///
+    /// # Errors
+    /// Returns [`CameraError::InitializationError`] if the camera mutex is poisoned
+    /// or the stream cannot be opened.
     pub fn start_stream(&self) -> Result<(), CameraError> {
         let mut camera = self
             .camera
@@ -228,37 +270,39 @@ impl LinuxCamera {
             .map_err(|_| CameraError::InitializationError("Failed to lock camera".to_string()))?;
 
         camera.open_stream().map_err(|e| {
-            CameraError::InitializationError(format!("Failed to start stream: {}", e))
+            CameraError::InitializationError(format!("Failed to start stream: {e}"))
         })?;
 
         Ok(())
     }
 
-    /// Stop camera stream
+    /// Stop camera stream.
+    ///
+    /// # Errors
+    /// Returns [`CameraError::InitializationError`] if the camera mutex is poisoned
+    /// or the stream cannot be stopped.
     pub fn stop_stream(&self) -> Result<(), CameraError> {
         let mut camera = self
             .camera
             .lock()
             .map_err(|_| CameraError::InitializationError("Failed to lock camera".to_string()))?;
 
-        camera.stop_stream().map_err(|e| {
-            CameraError::InitializationError(format!("Failed to stop stream: {}", e))
-        })?;
+        camera
+            .stop_stream()
+            .map_err(|e| CameraError::InitializationError(format!("Failed to stop stream: {e}")))?;
 
         Ok(())
     }
 
-    /// Get supported V4L2 formats for this device
+    /// Get supported V4L2 formats for this device.
+    ///
+    /// # Errors
+    /// Returns [`CameraError::InitializationError`] if the V4L2 device cannot be opened.
     pub fn get_supported_formats(&self) -> Result<Vec<CameraFormat>, CameraError> {
         let device_index = self.device_id.parse::<usize>().unwrap_or(0);
-        let path = format!(
-            "{}{}",
-            crate::constants::LINUX_VIDEO_DEVICE_PREFIX,
-            device_index
-        );
-        let dev = Device::with_path(&path).map_err(|e| {
-            CameraError::InitializationError(format!("Failed to open device: {}", e))
-        })?;
+        let path = format!("{LINUX_VIDEO_DEVICE_PREFIX}{device_index}");
+        let dev = Device::with_path(&path)
+            .map_err(|e| CameraError::InitializationError(format!("Failed to open device: {e}")))?;
 
         let mut formats = Vec::new();
         if let Ok(format_iter) = dev.enum_formats() {
@@ -280,13 +324,11 @@ impl LinuxCamera {
                                 for interval in intervals {
                                     let fps = match &interval.interval {
                                         v4l::frameinterval::FrameIntervalEnum::Discrete(f) => {
-                                            if f.numerator != 0 {
-                                                f.denominator as f32 / f.numerator as f32
-                                            } else {
-                                                crate::constants::DEFAULT_FPS
-                                            }
+                                            interval_to_fps(f.numerator, f.denominator)
                                         }
-                                        _ => crate::constants::DEFAULT_FPS,
+                                        v4l::frameinterval::FrameIntervalEnum::Stepwise(_) => {
+                                            DEFAULT_FPS
+                                        }
                                     };
                                     let format_str = match &fmt_desc.fourcc.repr {
                                         b"YUYV" => "YUYV",
@@ -309,7 +351,7 @@ impl LinuxCamera {
 
         // Fall back to common defaults if enumeration returned nothing
         if formats.is_empty() {
-            log::warn!("Could not enumerate formats for {}, using defaults", path);
+            log::warn!("Could not enumerate formats for {path}, using defaults");
             formats = vec![
                 CameraFormat::new(1920, 1080, 30.0).with_format_type("YUYV".to_string()),
                 CameraFormat::new(1280, 720, 30.0).with_format_type("YUYV".to_string()),
@@ -322,21 +364,16 @@ impl LinuxCamera {
         Ok(formats)
     }
 
-    /// Set camera controls (Linux V4L2 specific)
+    /// Set camera controls (Linux V4L2 specific).
+    ///
+    /// # Errors
+    /// Returns [`CameraError::InitializationError`] if the control is unsupported, the
+    /// device cannot be opened, or the control cannot be set.
     pub fn set_control(&self, control: &str, value: i32) -> Result<(), CameraError> {
         let device_index = self.device_id.parse::<usize>().unwrap_or(0);
-        let path = format!("/dev/video{}", device_index);
-        let dev = Device::with_path(&path).map_err(|e| {
-            CameraError::InitializationError(format!("Failed to open device: {}", e))
-        })?;
-
-        // Standard V4L2 CIDs (from videodev2.h)
-        const V4L2_CID_BRIGHTNESS: u32 = 0x00980900;
-        const V4L2_CID_CONTRAST: u32 = 0x00980901;
-        const V4L2_CID_SATURATION: u32 = 0x00980902;
-        const V4L2_CID_HUE: u32 = 0x00980903;
-        const V4L2_CID_GAMMA: u32 = 0x00980910;
-        const V4L2_CID_SHARPNESS: u32 = 0x0098091b;
+        let path = format!("/dev/video{device_index}");
+        let dev = Device::with_path(&path)
+            .map_err(|e| CameraError::InitializationError(format!("Failed to open device: {e}")))?;
 
         let id = match control {
             "brightness" => V4L2_CID_BRIGHTNESS,
@@ -347,8 +384,7 @@ impl LinuxCamera {
             "sharpness" => V4L2_CID_SHARPNESS,
             _ => {
                 return Err(CameraError::InitializationError(format!(
-                    "Unsupported control: {}",
-                    control
+                    "Unsupported control: {control}"
                 )))
             }
         };
@@ -356,37 +392,30 @@ impl LinuxCamera {
         // Create control struct
         let ctrl = v4l::control::Control {
             id,
-            value: v4l::control::Value::Integer(value as i64),
+            value: v4l::control::Value::Integer(i64::from(value)),
         };
 
         dev.set_control(ctrl).map_err(|e| {
-            CameraError::InitializationError(format!("Failed to set control {}: {}", control, e))
+            CameraError::InitializationError(format!("Failed to set control {control}: {e}"))
         })?;
 
         Ok(())
     }
 
-    /// Get camera controls
+    /// Get camera controls.
+    ///
+    /// # Errors
+    /// Returns [`CameraError`] if reading V4L2 controls fails. Returns default controls
+    /// when the device cannot be opened.
     pub fn get_controls(&self) -> Result<crate::types::CameraControls, CameraError> {
         let device_index = self.device_id.parse::<usize>().unwrap_or(0);
-        let path = format!("/dev/video{}", device_index);
+        let path = format!("/dev/video{device_index}");
 
         // Return default if we can't open device (e.g. if it's busy and driver doesn't support multiple handles)
         // But we should try.
-        let dev = match Device::with_path(&path) {
-            Ok(d) => d,
-            Err(_) => return Ok(crate::types::CameraControls::default()),
+        let Ok(dev) = Device::with_path(&path) else {
+            return Ok(crate::types::CameraControls::default());
         };
-
-        const V4L2_CID_BRIGHTNESS: u32 = 0x00980900;
-        const V4L2_CID_CONTRAST: u32 = 0x00980901;
-        const V4L2_CID_SATURATION: u32 = 0x00980902;
-        const V4L2_CID_ZOOM_ABSOLUTE: u32 = 0x009a090d;
-        const V4L2_CID_FOCUS_AUTO: u32 = 0x009a090c;
-        const V4L2_CID_FOCUS_ABSOLUTE: u32 = 0x009a090a;
-        const V4L2_CID_EXPOSURE_AUTO: u32 = 0x009a0901;
-        const V4L2_CID_EXPOSURE_ABSOLUTE: u32 = 0x009a0902;
-        const V4L2_CID_SHARPNESS: u32 = 0x0098091b;
 
         // Helper to normalize value: (val - min) / (max - min)
         let get_norm = |id: u32| -> Option<f32> {
@@ -400,7 +429,9 @@ impl LinuxCamera {
                                 let min = desc.minimum;
                                 let max = desc.maximum;
                                 if max > min {
-                                    Some((v - min) as f32 / (max - min) as f32)
+                                    #[allow(clippy::cast_precision_loss)]
+                                    let norm = (v - min) as f32 / (max - min) as f32;
+                                    Some(norm)
                                 } else {
                                     Some(0.0)
                                 }
@@ -418,26 +449,19 @@ impl LinuxCamera {
             }
         };
 
-        // Optimized helper that uses query_control directly if v4l exposed it, but we use query_controls list
-        // Actually v4l might not have query_control(id), only query_controls() -> Vec
-
         // Helper to get raw value
         let get_val =
             |id: u32| -> Option<v4l::control::Value> { dev.control(id).map(|c| c.value).ok() };
 
-        let auto_focus = get_val(V4L2_CID_FOCUS_AUTO)
-            .map(|v| match v {
-                v4l::control::Value::Boolean(b) => Some(b),
-                _ => None,
-            })
-            .unwrap_or(None);
+        let auto_focus = get_val(V4L2_CID_FOCUS_AUTO).and_then(|v| match v {
+            v4l::control::Value::Boolean(b) => Some(b),
+            _ => None,
+        });
 
-        let auto_exposure = get_val(V4L2_CID_EXPOSURE_AUTO)
-            .map(|v| match v {
-                v4l::control::Value::Integer(i) => Some(i != 1),
-                _ => None,
-            })
-            .unwrap_or(None); // 1 is manual usually
+        let auto_exposure = get_val(V4L2_CID_EXPOSURE_AUTO).and_then(|v| match v {
+            v4l::control::Value::Integer(i) => Some(i != 1),
+            _ => None,
+        }); // 1 is manual usually
 
         Ok(crate::types::CameraControls {
             auto_focus,
@@ -457,26 +481,19 @@ impl LinuxCamera {
         })
     }
 
-    /// Apply camera controls
+    /// Apply camera controls.
+    ///
+    /// # Errors
+    /// Returns [`CameraError::InitializationError`] if the V4L2 device cannot be opened.
     pub fn apply_controls(
         &mut self,
         controls: &crate::types::CameraControls,
     ) -> Result<crate::types::ControlApplicationResult, CameraError> {
         let device_index = self.device_id.parse::<usize>().unwrap_or(0);
-        let path = format!("/dev/video{}", device_index);
+        let path = format!("/dev/video{device_index}");
         let dev = Device::with_path(&path).map_err(|e| {
-            CameraError::InitializationError(format!("Failed to open device for controls: {}", e))
+            CameraError::InitializationError(format!("Failed to open device for controls: {e}"))
         })?;
-
-        const V4L2_CID_BRIGHTNESS: u32 = 0x00980900;
-        const V4L2_CID_CONTRAST: u32 = 0x00980901;
-        const V4L2_CID_SATURATION: u32 = 0x00980902;
-        const V4L2_CID_ZOOM_ABSOLUTE: u32 = 0x009a090d;
-        const V4L2_CID_FOCUS_AUTO: u32 = 0x009a090c;
-        const V4L2_CID_FOCUS_ABSOLUTE: u32 = 0x009a090a;
-        const V4L2_CID_EXPOSURE_AUTO: u32 = 0x009a0901;
-        const V4L2_CID_EXPOSURE_ABSOLUTE: u32 = 0x009a0902;
-        const V4L2_CID_SHARPNESS: u32 = 0x0098091b;
 
         let mut applied = Vec::new();
         let mut rejected = Vec::new();
@@ -487,19 +504,20 @@ impl LinuxCamera {
                 if let Some(desc) = desc_list.iter().find(|d| d.id == id) {
                     let min = desc.minimum;
                     let max = desc.maximum;
+                    #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
                     let actual = min + (val.clamp(0.0, 1.0) * (max - min) as f32) as i64;
                     let ctrl = v4l::control::Control {
                         id,
                         value: v4l::control::Value::Integer(actual),
                     };
                     match dev.set_control(ctrl) {
-                        Ok(_) => return true,
+                        Ok(()) => return true,
                         Err(e) => {
-                            log::warn!("V4L2 set_control(id=0x{:08x}) failed: {}", id, e);
+                            log::warn!("V4L2 set_control(id=0x{id:08x}) failed: {e}");
                         }
                     }
                 } else {
-                    log::warn!("V4L2 control id=0x{:08x} not found on device", id);
+                    log::warn!("V4L2 control id=0x{id:08x} not found on device");
                 }
             }
             false
@@ -529,9 +547,9 @@ impl LinuxCamera {
                 value: v4l::control::Value::Boolean(af),
             };
             match dev.set_control(ctrl) {
-                Ok(_) => applied.push("auto_focus".to_string()),
+                Ok(()) => applied.push("auto_focus".to_string()),
                 Err(e) => {
-                    log::warn!("V4L2 set auto_focus failed: {}", e);
+                    log::warn!("V4L2 set auto_focus failed: {e}");
                     rejected.push("auto_focus".to_string());
                 }
             }
@@ -548,15 +566,15 @@ impl LinuxCamera {
         }
 
         if let Some(ae) = controls.auto_exposure {
-            let val = if ae { 0 } else { 1 };
+            let val = i64::from(!ae); // 1 is manual usually
             let ctrl = v4l::control::Control {
                 id: V4L2_CID_EXPOSURE_AUTO,
                 value: v4l::control::Value::Integer(val),
             };
             match dev.set_control(ctrl) {
-                Ok(_) => applied.push("auto_exposure".to_string()),
+                Ok(()) => applied.push("auto_exposure".to_string()),
                 Err(e) => {
-                    log::warn!("V4L2 set auto_exposure failed: {}", e);
+                    log::warn!("V4L2 set auto_exposure failed: {e}");
                     rejected.push("auto_exposure".to_string());
                 }
             }
@@ -575,42 +593,34 @@ impl LinuxCamera {
         Ok(crate::types::ControlApplicationResult { applied, rejected })
     }
 
-    /// Get camera capabilities (Linux V4L2)
+    /// Get camera capabilities (Linux V4L2).
+    ///
+    /// # Errors
+    /// Returns [`CameraError::InitializationError`] if the V4L2 device cannot be opened.
     pub fn test_capabilities(&self) -> Result<crate::types::CameraCapabilities, CameraError> {
         let device_index = self.device_id.parse::<usize>().unwrap_or(0);
-        let path = format!("/dev/video{}", device_index);
-        let dev = Device::with_path(&path).map_err(|e| {
-            CameraError::InitializationError(format!("Failed to open device: {}", e))
-        })?;
+        let path = format!("/dev/video{device_index}");
+        let dev = Device::with_path(&path)
+            .map_err(|e| CameraError::InitializationError(format!("Failed to open device: {e}")))?;
 
         let mut caps = crate::types::CameraCapabilities::default();
 
         // Check controls for capabilities
         if let Ok(controls) = dev.query_controls() {
-            // Manual Focus
-            const V4L2_CID_FOCUS_ABSOLUTE: u32 = 0x009a090a;
             caps.supports.manual_focus = controls.iter().any(|c| c.id == V4L2_CID_FOCUS_ABSOLUTE);
-
-            // Manual Exposure
-            const V4L2_CID_EXPOSURE_ABSOLUTE: u32 = 0x009a0902;
             caps.supports.manual_exposure =
                 controls.iter().any(|c| c.id == V4L2_CID_EXPOSURE_ABSOLUTE);
-
-            // Zoom
-            const V4L2_CID_ZOOM_ABSOLUTE: u32 = 0x009a090d;
             caps.supports.zoom = controls.iter().any(|c| c.id == V4L2_CID_ZOOM_ABSOLUTE);
-
-            // Auto Focus/Exposure usually supported if the CID exists for the mode
-            const V4L2_CID_FOCUS_AUTO: u32 = 0x009a090c;
             caps.supports.auto_focus = controls.iter().any(|c| c.id == V4L2_CID_FOCUS_AUTO);
-
-            const V4L2_CID_EXPOSURE_AUTO: u32 = 0x009a0901;
             caps.supports.auto_exposure = controls.iter().any(|c| c.id == V4L2_CID_EXPOSURE_AUTO);
         }
 
         // Get actual ranges/resolutions if possible (requires more complex enumeration)
         if let Ok(formats) = self.get_supported_formats() {
-            if let Some(max) = formats.iter().max_by_key(|f| (f.width * f.height) as u64) {
+            if let Some(max) = formats
+                .iter()
+                .max_by_key(|f| u64::from(f.width) * u64::from(f.height))
+            {
                 caps.max_resolution = (max.width, max.height);
                 caps.max_fps = max.fps;
             }
@@ -637,12 +647,19 @@ impl LinuxCamera {
         ))
     }
 
-    /// Set frame callback for real-time processing
+    /// Set frame callback for real-time processing.
+    ///
+    /// # Errors
+    /// Returns [`CameraError::InitializationError`] if the callback mutex is poisoned.
     pub fn set_callback<F>(&self, callback: F) -> Result<(), CameraError>
     where
         F: Fn(CameraFrame) + Send + 'static,
     {
-        *self.callback.lock().unwrap() = Some(Box::new(callback));
+        let mut guard = self
+            .callback
+            .lock()
+            .map_err(|_| CameraError::InitializationError("Callback mutex poisoned".to_string()))?;
+        *guard = Some(Box::new(callback));
         Ok(())
     }
 }
@@ -662,20 +679,23 @@ unsafe impl Sync for LinuxCamera {}
 
 /// Linux-specific utilities
 pub mod utils {
-    use super::*;
+    use super::CameraError;
 
     /// Check if V4L2 is available on the system
     pub fn is_v4l2_available() -> bool {
         std::path::Path::new("/dev/video0").exists()
     }
 
-    /// List all V4L2 devices in /dev/video*
+    /// List all V4L2 devices in /dev/video*.
+    ///
+    /// # Errors
+    /// Currently infallible, but returns [`CameraError`] for API consistency.
     pub fn list_v4l2_devices() -> Result<Vec<String>, CameraError> {
         let mut devices = Vec::new();
 
         for i in 0..10 {
             // Check video0 through video9
-            let device_path = format!("/dev/video{}", i);
+            let device_path = format!("/dev/video{i}");
             if std::path::Path::new(&device_path).exists() {
                 devices.push(device_path);
             }
@@ -684,7 +704,10 @@ pub mod utils {
         Ok(devices)
     }
 
-    /// Get V4L2 device capabilities
+    /// Get V4L2 device capabilities.
+    ///
+    /// # Errors
+    /// Currently infallible, but returns [`CameraError`] for API consistency.
     pub fn get_device_caps(_device_path: &str) -> Result<Vec<String>, CameraError> {
         // This would typically query V4L2 capabilities
         // For now, return common capabilities

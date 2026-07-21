@@ -110,11 +110,12 @@ impl OpusEncoder {
         // Set bitrate
         let bitrate_i32 = i32::try_from(bitrate)
             .map_err(|_| CameraError::AudioError("bitrate exceeds i32 range".to_string()))?;
-        let bitrate_request = i32::try_from(libopus_sys::OPUS_SET_BITRATE_REQUEST)
-            .map_err(|_| CameraError::AudioError("OPUS_SET_BITRATE_REQUEST exceeds i32".to_string()))?;
-        let result = unsafe {
-            libopus_sys::opus_encoder_ctl(encoder, bitrate_request, bitrate_i32)
-        };
+        let bitrate_request =
+            i32::try_from(libopus_sys::OPUS_SET_BITRATE_REQUEST).map_err(|_| {
+                CameraError::AudioError("OPUS_SET_BITRATE_REQUEST exceeds i32".to_string())
+            })?;
+        let result =
+            unsafe { libopus_sys::opus_encoder_ctl(encoder, bitrate_request, bitrate_i32) };
 
         if result != 0 {
             unsafe { libopus_sys::opus_encoder_destroy(encoder) };
@@ -172,10 +173,10 @@ impl OpusEncoder {
 
         // Use f64::from for safe lossless casting where possible
         let sample_rate_f64 = f64::from(self.sample_rate);
-        let opus_samples_f64 = f64::from(
-            u32::try_from(OPUS_FRAME_SAMPLES)
-                .map_err(|_| CameraError::AudioError("OPUS_FRAME_SAMPLES exceeds u32".to_string()))?,
-        );
+        let opus_samples_f64 =
+            f64::from(u32::try_from(OPUS_FRAME_SAMPLES).map_err(|_| {
+                CameraError::AudioError("OPUS_FRAME_SAMPLES exceeds u32".to_string())
+            })?);
         let frame_duration = opus_samples_f64 / sample_rate_f64;
 
         while self.sample_buffer.len() >= samples_per_frame {
@@ -186,10 +187,12 @@ impl OpusEncoder {
 
             // Encode to Opus
             let mut output = vec![0u8; 4000]; // Max Opus packet size
-            let frame_samples_i32 = i32::try_from(OPUS_FRAME_SAMPLES)
-                .map_err(|_| CameraError::AudioError("OPUS_FRAME_SAMPLES exceeds i32".to_string()))?;
-            let max_bytes = i32::try_from(output.len())
-                .map_err(|_| CameraError::AudioError("output buffer length exceeds i32".to_string()))?;
+            let frame_samples_i32 = i32::try_from(OPUS_FRAME_SAMPLES).map_err(|_| {
+                CameraError::AudioError("OPUS_FRAME_SAMPLES exceeds i32".to_string())
+            })?;
+            let max_bytes = i32::try_from(output.len()).map_err(|_| {
+                CameraError::AudioError("output buffer length exceeds i32".to_string())
+            })?;
             let len = unsafe {
                 libopus_sys::opus_encode_float(
                     self.encoder,
@@ -214,12 +217,13 @@ impl OpusEncoder {
                 duration: frame_duration,
             });
 
-            self.samples_encoded += u64::try_from(OPUS_FRAME_SAMPLES)
-                .map_err(|_| CameraError::AudioError("OPUS_FRAME_SAMPLES exceeds u64".to_string()))?;
-            self.samples_encoded_f64 += f64::from(
-                u32::try_from(OPUS_FRAME_SAMPLES)
-                    .map_err(|_| CameraError::AudioError("OPUS_FRAME_SAMPLES exceeds u32".to_string()))?,
-            );
+            self.samples_encoded += u64::try_from(OPUS_FRAME_SAMPLES).map_err(|_| {
+                CameraError::AudioError("OPUS_FRAME_SAMPLES exceeds u64".to_string())
+            })?;
+            self.samples_encoded_f64 +=
+                f64::from(u32::try_from(OPUS_FRAME_SAMPLES).map_err(|_| {
+                    CameraError::AudioError("OPUS_FRAME_SAMPLES exceeds u32".to_string())
+                })?);
         }
 
         // NOTE: Do NOT update buffer_start_pts here. The samples_encoded counter
@@ -252,10 +256,10 @@ impl OpusEncoder {
         let mut encoded_packets = Vec::new();
         // Use f64::from for safe lossless casting where possible
         let sample_rate_f64 = f64::from(self.sample_rate);
-        let opus_samples_f64 = f64::from(
-            u32::try_from(OPUS_FRAME_SAMPLES)
-                .map_err(|_| CameraError::AudioError("OPUS_FRAME_SAMPLES exceeds u32".to_string()))?,
-        );
+        let opus_samples_f64 =
+            f64::from(u32::try_from(OPUS_FRAME_SAMPLES).map_err(|_| {
+                CameraError::AudioError("OPUS_FRAME_SAMPLES exceeds u32".to_string())
+            })?);
         let frame_duration = opus_samples_f64 / sample_rate_f64;
 
         while self.sample_buffer.len() >= samples_per_frame {
@@ -264,10 +268,12 @@ impl OpusEncoder {
             let pts = self.samples_encoded_f64 / sample_rate_f64;
 
             let mut output = vec![0u8; 4000];
-            let frame_samples_i32 = i32::try_from(OPUS_FRAME_SAMPLES)
-                .map_err(|_| CameraError::AudioError("OPUS_FRAME_SAMPLES exceeds i32".to_string()))?;
-            let max_bytes = i32::try_from(output.len())
-                .map_err(|_| CameraError::AudioError("output buffer length exceeds i32".to_string()))?;
+            let frame_samples_i32 = i32::try_from(OPUS_FRAME_SAMPLES).map_err(|_| {
+                CameraError::AudioError("OPUS_FRAME_SAMPLES exceeds i32".to_string())
+            })?;
+            let max_bytes = i32::try_from(output.len()).map_err(|_| {
+                CameraError::AudioError("output buffer length exceeds i32".to_string())
+            })?;
             let len = unsafe {
                 libopus_sys::opus_encode_float(
                     self.encoder,
@@ -292,12 +298,13 @@ impl OpusEncoder {
                 duration: frame_duration,
             });
 
-            self.samples_encoded += u64::try_from(OPUS_FRAME_SAMPLES)
-                .map_err(|_| CameraError::AudioError("OPUS_FRAME_SAMPLES exceeds u64".to_string()))?;
-            self.samples_encoded_f64 += f64::from(
-                u32::try_from(OPUS_FRAME_SAMPLES)
-                    .map_err(|_| CameraError::AudioError("OPUS_FRAME_SAMPLES exceeds u32".to_string()))?,
-            );
+            self.samples_encoded += u64::try_from(OPUS_FRAME_SAMPLES).map_err(|_| {
+                CameraError::AudioError("OPUS_FRAME_SAMPLES exceeds u64".to_string())
+            })?;
+            self.samples_encoded_f64 +=
+                f64::from(u32::try_from(OPUS_FRAME_SAMPLES).map_err(|_| {
+                    CameraError::AudioError("OPUS_FRAME_SAMPLES exceeds u32".to_string())
+                })?);
         }
 
         Ok(encoded_packets)

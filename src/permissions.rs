@@ -99,22 +99,33 @@ fn check_permission_macos() -> PermissionInfo {
 
     unsafe {
         // Get AVCaptureDevice class
-        let av_capture_device_class = Class::get("AVCaptureDevice");
-
-        if av_capture_device_class.is_none() {
+        let Some(av_capture_device_class) = Class::get("AVCaptureDevice") else {
             return PermissionInfo {
                 status: PermissionStatus::NotDetermined,
                 message: "AVFoundation not available".to_string(),
                 can_request: false,
             };
-        }
+        };
 
-        let av_capture_device_class = av_capture_device_class.unwrap();
-
-        // Get media type for video
-        let av_media_type_video = CString::new("vide").unwrap();
+        // Build an NSString for the video media type (AVMediaTypeVideo == @"vide").
+        // NOTE: AVCaptureDevice has no `mediaTypeForString:` selector; sending it
+        // raises an unrecognized-selector NSException which aborts the process.
+        let Some(ns_string_class) = Class::get("NSString") else {
+            return PermissionInfo {
+                status: PermissionStatus::NotDetermined,
+                message: "Foundation not available".to_string(),
+                can_request: false,
+            };
+        };
+        let Ok(av_media_type_video) = CString::new(crate::constants::AV_MEDIA_TYPE_VIDEO) else {
+            return PermissionInfo {
+                status: PermissionStatus::NotDetermined,
+                message: "Invalid media type string".to_string(),
+                can_request: false,
+            };
+        };
         let media_type: *mut Object =
-            msg_send![av_capture_device_class, mediaTypeForString: av_media_type_video.as_ptr()];
+            msg_send![ns_string_class, stringWithUTF8String: av_media_type_video.as_ptr()];
 
         // Check authorization status
         let auth_status: i64 =
@@ -159,14 +170,14 @@ fn check_permission_linux() -> PermissionInfo {
 
     // Check if any video devices exist
     let video_devices: Vec<_> = (0..10)
-        .map(|i| format!("{}{}", LINUX_VIDEO_DEVICE_PREFIX, i))
+        .map(|i| format!("{LINUX_VIDEO_DEVICE_PREFIX}{i}"))
         .filter(|path| Path::new(path).exists())
         .collect();
 
     if video_devices.is_empty() {
         return PermissionInfo {
             status: PermissionStatus::NotDetermined,
-            message: format!("No video devices found at {}*", LINUX_VIDEO_DEVICE_PREFIX),
+            message: format!("No video devices found at {LINUX_VIDEO_DEVICE_PREFIX}*"),
             can_request: false,
         };
     }
@@ -180,22 +191,21 @@ fn check_permission_linux() -> PermissionInfo {
                 PermissionInfo {
                     status: PermissionStatus::Granted,
                     message: format!(
-                        "Camera access granted (user in video group, {} found)",
-                        first_device
+                        "Camera access granted (user in video group, {first_device} found)"
                     ),
                     can_request: false,
                 }
             } else {
                 PermissionInfo {
                     status: PermissionStatus::Denied,
-                    message: format!("Camera device {} exists but user not in video group - run: sudo usermod -a -G video $USER", first_device),
+                    message: format!("Camera device {first_device} exists but user not in video group - run: sudo usermod -a -G video $USER"),
                     can_request: true,
                 }
             }
         }
         Err(e) => PermissionInfo {
             status: PermissionStatus::Denied,
-            message: format!("Cannot access {}: {}", first_device, e),
+            message: format!("Cannot access {first_device}: {e}"),
             can_request: true,
         },
     }

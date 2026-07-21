@@ -1,4 +1,7 @@
-use crate::constants::*;
+use crate::constants::{
+    DEFAULT_FPS, DEFAULT_RESOLUTION_HEIGHT, DEFAULT_RESOLUTION_WIDTH, FALLBACK_RESOLUTION_HEIGHT,
+    FALLBACK_RESOLUTION_WIDTH, MIN_RESOLUTION_HEIGHT, MIN_RESOLUTION_WIDTH,
+};
 use crate::errors::CameraError;
 use crate::platform::metrics::PerfTracker;
 use crate::types::{CameraDeviceInfo, CameraFormat, CameraFrame, CameraInitParams};
@@ -11,10 +14,16 @@ use nokhwa::{
 use std::sync::{Arc, Mutex};
 
 // Objective-C imports for AVFoundation integration
-use objc::runtime::{Class, Object, NO, YES};
+use objc::runtime::{Class, Object};
 use objc::{msg_send, sel, sel_impl};
 
-/// List available cameras on macOS
+/// Boxed frame callback invoked for each captured frame.
+type FrameCallback = Box<dyn Fn(CameraFrame) + Send + 'static>;
+
+/// List available cameras on macOS.
+///
+/// # Errors
+/// Returns [`CameraError::InitializationError`] if querying the AVFoundation backend fails.
 pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
     // system_profiler reads IORegistry (safe, no AVFoundation hardware init)
     // Use it as a gate before touching nokhwa, which can C-abort on headless CI.
@@ -35,7 +44,7 @@ pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
     }
 
     let cameras = query(nokhwa::utils::ApiBackend::AVFoundation)
-        .map_err(|e| CameraError::InitializationError(format!("Failed to query cameras: {}", e)))?;
+        .map_err(|e| CameraError::InitializationError(format!("Failed to query cameras: {e}")))?;
 
     let mut device_list = Vec::new();
     for camera_info in cameras {
@@ -70,6 +79,10 @@ pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
 ///
 /// Uses nokhwa's CameraFormat API (0.10.x) with MJPEG frame format
 /// for broad compatibility across macOS camera hardware.
+///
+/// # Errors
+/// Returns [`CameraError::InitializationError`] if the device ID is invalid or the
+/// camera cannot be opened.
 pub fn initialize_camera(params: CameraInitParams) -> Result<MacOSCamera, CameraError> {
     let device_index = params
         .device_id
@@ -79,18 +92,20 @@ pub fn initialize_camera(params: CameraInitParams) -> Result<MacOSCamera, Camera
     // Create requested format using nokhwa 0.10.x CameraFormat API
     // Note: CameraFormat::new takes (Resolution, FrameFormat, fps)
     // Using MJPEG for broad hardware compatibility on macOS
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let fps = params.format.fps as u32;
     let requested_format = RequestedFormat::new::<RgbFormat>(RequestedFormatType::Exact(
         nokhwa::utils::CameraFormat::new(
             nokhwa::utils::Resolution::new(params.format.width, params.format.height),
             nokhwa::utils::FrameFormat::MJPEG,
-            params.format.fps as u32,
+            fps,
         ),
     ));
     let camera = Camera::new(
         nokhwa::utils::CameraIndex::Index(device_index),
         requested_format,
     )
-    .map_err(|e| CameraError::InitializationError(format!("Failed to initialize camera: {}", e)))?;
+    .map_err(|e| CameraError::InitializationError(format!("Failed to initialize camera: {e}")))?;
 
     Ok(MacOSCamera {
         camera: Arc::new(Mutex::new(camera)),
@@ -106,7 +121,7 @@ pub struct MacOSCamera {
     camera: Arc<Mutex<Camera>>,
     device_id: String,
     format: CameraFormat,
-    callback: Arc<Mutex<Option<Box<dyn Fn(CameraFrame) + Send + 'static>>>>,
+    callback: Arc<Mutex<Option<FrameCallback>>>,
     /// Real performance tracker, updated on every capture.
     perf: Arc<Mutex<PerfTracker>>,
 }
@@ -186,7 +201,7 @@ impl AVCaptureDeviceExt for AVDeviceWrapper {
                 let _: () = msg_send![device, setFocusMode: mode];
                 Ok(())
             } else {
-                log::warn!("Focus mode {} not supported by device", mode);
+                log::warn!("Focus mode {mode} not supported by device");
                 Ok(())
             }
         }
@@ -200,7 +215,7 @@ impl AVCaptureDeviceExt for AVDeviceWrapper {
                 let _: () = msg_send![device, setExposureMode: mode];
                 Ok(())
             } else {
-                log::warn!("Exposure mode {} not supported by device", mode);
+                log::warn!("Exposure mode {mode} not supported by device");
                 Ok(())
             }
         }
@@ -219,7 +234,11 @@ impl AVCaptureDeviceExt for AVDeviceWrapper {
 }
 
 impl MacOSCamera {
-    /// Capture frame from macOS camera using AVFoundation
+    /// Capture frame from macOS camera using AVFoundation.
+    ///
+    /// # Errors
+    /// Returns [`CameraError::CaptureError`] if the camera mutex is poisoned or the
+    /// underlying AVFoundation capture fails.
     pub fn capture_frame(&self) -> Result<CameraFrame, CameraError> {
         let mut camera = self
             .camera
@@ -229,7 +248,7 @@ impl MacOSCamera {
         let start = std::time::Instant::now();
         let frame = match camera
             .frame()
-            .map_err(|e| CameraError::CaptureError(format!("Failed to capture frame: {}", e)))
+            .map_err(|e| CameraError::CaptureError(format!("Failed to capture frame: {e}")))
         {
             Ok(f) => f,
             Err(e) => {
@@ -252,8 +271,10 @@ impl MacOSCamera {
         let camera_frame = camera_frame.with_format(format!("{:?}", self.format));
 
         // Call callback if set
-        if let Some(ref cb) = *self.callback.lock().unwrap() {
-            cb(camera_frame.clone());
+        if let Ok(guard) = self.callback.lock() {
+            if let Some(ref cb) = *guard {
+                cb(camera_frame.clone());
+            }
         }
         let processing_ms = process_start.elapsed().as_secs_f32() * 1000.0;
 
@@ -285,13 +306,14 @@ impl MacOSCamera {
 
     /// Check if camera is available
     pub fn is_available(&self) -> bool {
-        self.camera
-            .lock()
-            .map(|c| c.is_stream_open())
-            .unwrap_or(false)
+        self.camera.lock().map_or(false, |c| c.is_stream_open())
     }
 
-    /// Start camera stream
+    /// Start camera stream.
+    ///
+    /// # Errors
+    /// Returns [`CameraError::InitializationError`] if the camera mutex is poisoned
+    /// or the stream cannot be opened.
     pub fn start_stream(&self) -> Result<(), CameraError> {
         let mut camera = self
             .camera
@@ -299,32 +321,39 @@ impl MacOSCamera {
             .map_err(|_| CameraError::InitializationError("Failed to lock camera".to_string()))?;
 
         camera.open_stream().map_err(|e| {
-            CameraError::InitializationError(format!("Failed to start stream: {}", e))
+            CameraError::InitializationError(format!("Failed to start stream: {e}"))
         })?;
 
         Ok(())
     }
 
-    /// Stop camera stream
+    /// Stop camera stream.
+    ///
+    /// # Errors
+    /// Returns [`CameraError::InitializationError`] if the camera mutex is poisoned
+    /// or the stream cannot be stopped.
     pub fn stop_stream(&self) -> Result<(), CameraError> {
         let mut camera = self
             .camera
             .lock()
             .map_err(|_| CameraError::InitializationError("Failed to lock camera".to_string()))?;
 
-        camera.stop_stream().map_err(|e| {
-            CameraError::InitializationError(format!("Failed to stop stream: {}", e))
-        })?;
+        camera
+            .stop_stream()
+            .map_err(|e| CameraError::InitializationError(format!("Failed to stop stream: {e}")))?;
 
         Ok(())
     }
 
-    /// Get camera controls
+    /// Get camera controls.
+    ///
+    /// # Errors
+    /// Returns [`CameraError`] if reading AVFoundation controls fails. Returns default
+    /// controls when the device cannot be found.
     pub fn get_controls(&self) -> Result<crate::types::CameraControls, CameraError> {
         unsafe {
-            let wrapper = match AVDeviceWrapper::new(&self.device_id) {
-                Some(w) => w,
-                None => return Ok(crate::types::CameraControls::default()),
+            let Some(wrapper) = AVDeviceWrapper::new(&self.device_id) else {
+                return Ok(crate::types::CameraControls::default());
             };
 
             let device = wrapper.0;
@@ -334,12 +363,15 @@ impl MacOSCamera {
             let lens_position: f32 = msg_send![device, lensPosition];
             let iso: f32 = msg_send![device, ISO];
 
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            let iso_sensitivity = iso as u32;
+
             Ok(crate::types::CameraControls {
                 auto_focus: Some(focus_mode == 1 || focus_mode == 2),
                 focus_distance: Some(lens_position),
                 auto_exposure: Some(exposure_mode == 1 || exposure_mode == 2),
                 exposure_time: None,
-                iso_sensitivity: Some(iso as u32),
+                iso_sensitivity: Some(iso_sensitivity),
                 white_balance: Some(crate::types::WhiteBalance::Auto),
                 aperture: None,
                 zoom: Some(1.0),
@@ -353,18 +385,19 @@ impl MacOSCamera {
         }
     }
 
-    /// Apply camera controls
+    /// Apply camera controls.
+    ///
+    /// # Errors
+    /// Returns [`CameraError::InitializationError`] if the device cannot be found or
+    /// locked for configuration.
     pub fn apply_controls(
         &mut self,
         controls: &crate::types::CameraControls,
     ) -> Result<crate::types::ControlApplicationResult, CameraError> {
-        let wrapper = match AVDeviceWrapper::new(&self.device_id) {
-            Some(w) => w,
-            None => {
-                return Err(CameraError::InitializationError(
-                    "Device not found".to_string(),
-                ))
-            }
+        let Some(wrapper) = AVDeviceWrapper::new(&self.device_id) else {
+            return Err(CameraError::InitializationError(
+                "Device not found".to_string(),
+            ));
         };
 
         wrapper.lock_for_configuration()?;
@@ -380,9 +413,9 @@ impl MacOSCamera {
                 AV_CAPTURE_FOCUS_MODE_LOCKED
             };
             match wrapper.set_focus_mode(mode) {
-                Ok(_) => applied.push("auto_focus".to_string()),
+                Ok(()) => applied.push("auto_focus".to_string()),
                 Err(e) => {
-                    log::warn!("AVFoundation set_focus_mode failed: {}", e);
+                    log::warn!("AVFoundation set_focus_mode failed: {e}");
                     rejected.push("auto_focus".to_string());
                 }
             }
@@ -390,9 +423,9 @@ impl MacOSCamera {
 
         if let Some(dist) = controls.focus_distance {
             match wrapper.set_lens_position(dist) {
-                Ok(_) => applied.push("focus_distance".to_string()),
+                Ok(()) => applied.push("focus_distance".to_string()),
                 Err(e) => {
-                    log::warn!("AVFoundation set_lens_position failed: {}", e);
+                    log::warn!("AVFoundation set_lens_position failed: {e}");
                     rejected.push("focus_distance".to_string());
                 }
             }
@@ -406,9 +439,9 @@ impl MacOSCamera {
                 AV_CAPTURE_EXPOSURE_MODE_LOCKED
             };
             match wrapper.set_exposure_mode(mode) {
-                Ok(_) => applied.push("auto_exposure".to_string()),
+                Ok(()) => applied.push("auto_exposure".to_string()),
                 Err(e) => {
-                    log::warn!("AVFoundation set_exposure_mode failed: {}", e);
+                    log::warn!("AVFoundation set_exposure_mode failed: {e}");
                     rejected.push("auto_exposure".to_string());
                 }
             }
@@ -419,15 +452,15 @@ impl MacOSCamera {
         Ok(crate::types::ControlApplicationResult { applied, rejected })
     }
 
-    /// Test camera capabilities (macOS AVFoundation)
+    /// Test camera capabilities (macOS AVFoundation).
+    ///
+    /// # Errors
+    /// Returns [`CameraError::InitializationError`] if the device cannot be found.
     pub fn test_capabilities(&self) -> Result<crate::types::CameraCapabilities, CameraError> {
-        let wrapper = match AVDeviceWrapper::new(&self.device_id) {
-            Some(w) => w,
-            None => {
-                return Err(CameraError::InitializationError(
-                    "Device not found".to_string(),
-                ))
-            }
+        let Some(wrapper) = AVDeviceWrapper::new(&self.device_id) else {
+            return Err(CameraError::InitializationError(
+                "Device not found".to_string(),
+            ));
         };
 
         // Default capabilities structure
@@ -472,12 +505,19 @@ impl MacOSCamera {
         ))
     }
 
-    /// Set frame callback for real-time processing
+    /// Set frame callback for real-time processing.
+    ///
+    /// # Errors
+    /// Returns [`CameraError::InitializationError`] if the callback mutex is poisoned.
     pub fn set_callback<F>(&self, callback: F) -> Result<(), CameraError>
     where
         F: Fn(CameraFrame) + Send + 'static,
     {
-        *self.callback.lock().unwrap() = Some(Box::new(callback));
+        let mut guard = self
+            .callback
+            .lock()
+            .map_err(|_| CameraError::InitializationError("Callback mutex poisoned".to_string()))?;
+        *guard = Some(Box::new(callback));
         Ok(())
     }
 }

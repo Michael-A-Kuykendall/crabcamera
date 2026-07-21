@@ -311,9 +311,11 @@ fn apply_scale(frame: &mut CameraFrame, scale: f32) {
 
     for y in 0..height {
         for x in 0..width {
-            #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)] // pixel coords fit in f32 mantissa, clamped by bounds check
+            #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+            // pixel coords fit in f32 mantissa, clamped by bounds check
             let src_x = (x as f32 * inv_scale).round() as i32;
-            #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)] // pixel coords fit in f32 mantissa, clamped by bounds check
+            #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+            // pixel coords fit in f32 mantissa, clamped by bounds check
             let src_y = (y as f32 * inv_scale).round() as i32;
 
             if src_x >= 0 && src_x < width && src_y >= 0 && src_y < height {
@@ -360,7 +362,12 @@ mod tests {
         let height = 100;
         let data = vec![128u8; width * height * 3];
 
-        let frame = CameraFrame::new(data, u32::try_from(width).unwrap_or(u32::MAX), u32::try_from(height).unwrap_or(u32::MAX), "test_device".to_string());
+        let frame = CameraFrame::new(
+            data,
+            u32::try_from(width).unwrap_or(u32::MAX),
+            u32::try_from(height).unwrap_or(u32::MAX),
+            "test_device".to_string(),
+        );
 
         let com = compute_center_of_mass(&frame);
 
@@ -375,8 +382,12 @@ mod tests {
         let height = 10;
         let data = vec![128u8; width * height * 3];
 
-        let mut frame =
-            CameraFrame::new(data, u32::try_from(width).unwrap_or(u32::MAX), u32::try_from(height).unwrap_or(u32::MAX), "test_device".to_string());
+        let mut frame = CameraFrame::new(
+            data,
+            u32::try_from(width).unwrap_or(u32::MAX),
+            u32::try_from(height).unwrap_or(u32::MAX),
+            "test_device".to_string(),
+        );
 
         apply_translation(&mut frame, 2, 2);
 
