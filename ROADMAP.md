@@ -3,7 +3,7 @@
 CrabCamera is the **first production-ready desktop camera + audio plugin** for Tauri applications.
 Its mission is **invisible camera infrastructure**: drop it in, it works.
 
-## Current Status: v0.8.5 — Honest, Audited, Production-Ready ✅
+## Current Status: v0.9.2 — Honest, Audited, Production-Ready ✅
 
 ### Core Features (v0.1.0–0.5.0) — Shipped
 - ✅ Cross-platform camera capture (Windows/macOS/Linux)
@@ -31,15 +31,23 @@ Its mission is **invisible camera infrastructure**: drop it in, it works.
 - ✅ **Honest Error Returns**: All platform stubs return `Err` instead of silent defaults
 - ✅ **Audited Codebase**: Full clippy pedantic pass — no silent panics, no fake implementations
 
-## Next: v0.9.0 — Performance & Observability
+## Shipped: v0.9.0–v0.9.2 — Performance, Observability & Stabilization ✅
+
+- ✅ **Cross-platform performance metrics**: `get_performance_metrics` returns genuine
+  measurements on all three platforms (Windows working-set, Linux `/proc/self/statm`,
+  macOS `task_info`) — no more `UnsupportedOperation` or mock values.
+- ✅ **`LazyLock` migration**: all `lazy_static!` usages replaced with
+  `std::sync::LazyLock`; `lazy_static` dependency dropped.
+- ✅ **`# Errors` / `# Panics` doc sections** added across `Result`-returning public API.
+- ✅ **Command consolidation** (`capture`, `apply_camera_settings`), **quality profiles**,
+  **smart-trigger lock**, and **Laplacian pyramid blending**.
+- ✅ **Preview stream commands** (`start_preview_stream` / `stop_preview_stream`).
+- ✅ **CI green on Windows/macOS/Linux**: full pedantic clippy pass on all platform-gated
+  code, headless-CI test guards, toolchain hardening, and publish-readiness dry-run.
+
+## Next: v0.10.0 — Benchmarks & Multi-Camera
 
 ### High Priority
-- [ ] **Performance Metrics on Windows**: Implement `get_performance_metrics` for Windows via
-  PDH/ETW — currently returns `UnsupportedOperation` on Windows (Linux/macOS complete)
-- [ ] **`LazyLock` Migration**: Replace 5 `lazy_static!` usages with `std::sync::LazyLock`
-  (stabilized in Rust 1.80, eliminates the `lazy_static` dependency)
-- [ ] **`# Errors` Doc Sections**: Add rustdoc `# Errors` sections to all 108 `Result`-returning
-  public functions — improves crates.io documentation completeness
 - [ ] **Performance Benchmarks**: Establish Criterion baseline metrics for capture, encode, and
   focus-stack operations; catch regressions in CI
 

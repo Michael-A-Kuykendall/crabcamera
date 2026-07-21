@@ -5,6 +5,48 @@ All notable changes to CrabCamera will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.2] - 2026-07-21
+
+### Changed
+- **Dropped `lazy_static` dependency**: migrated all `lazy_static!` usages to
+  `std::sync::LazyLock` (stabilized in Rust 1.80) and removed the direct
+  `lazy_static` dependency from `Cargo.toml`.
+- **Clippy pedantic pass across the entire codebase**: applied machine-applicable
+  fixes (format-args inlining, `let`-else, casts, `is_ok_and`) and added `# Errors`
+  / `# Panics` doc sections where required. The full tree, including
+  platform-gated code, now builds clean under `cargo clippy --all-features -D warnings`
+  on Windows, macOS, and Linux.
+
+### Fixed
+- **Windows headless-CI crash (`STATUS_ACCESS_VIOLATION`, 0xc0000005)**: audio
+  device tests that enumerate/open real endpoints via cpal/WASAPI could hard-abort
+  the process on headless runners with no audio device (a native COM crash that
+  bypasses Rust error handling). These tests are now `#[ignore]`d on Windows and
+  run manually; Linux/macOS coverage is unchanged. Matches the existing nokhwa
+  camera-test guards.
+- **macOS clippy backlog in `#[cfg(target_os = "macos")]` code**: the earlier
+  pedantic pass ran on Windows/Ubuntu and could not see macOS-gated code, which
+  still failed the macOS CI job. Cleared `doc_markdown`, cast, `borrow_as_ptr`,
+  `items_after_statements`, and `unused_async` findings in `platform/macos.rs`,
+  `platform/metrics.rs`, `permissions.rs`, and `commands/permissions.rs`.
+- **`objc` macro `cargo-clippy` cfg**: the `objc` 0.2 `msg_send!`/`sel_impl!`
+  macros expand to the legacy `#[cfg_attr(feature = "cargo-clippy", ...)]` form,
+  which newer toolchains flag via `unexpected_cfgs` (hard error on macOS under
+  `-D warnings`). Declared it as an expected cfg via `[lints.rust]`.
+- **macOS interactive TCC permission tests**: `test_permission_request_timeout`,
+  `test_permission_request_idempotency`, and `test_platform_specific_behavior`
+  invoke the AVFoundation permission dialog, which never returns a callback on
+  headless macOS runners and timed out the job. Now `#[ignore]`d on macOS.
+- **Flaky timing-dependent audio PTS test** ignored under CI load; run manually.
+- **Security audit**: cleared reported advisory vulnerabilities.
+
+### CI
+- **`cargo publish --dry-run` job now installs the GTK/glib system dependencies**
+  it needs to build the default `tauri` feature on Linux. This job was previously
+  masked (skipped until all platform jobs passed) and failed building
+  `glib-sys`/`gobject-sys` the first time it ran green.
+- **Matrix `fail-fast: false`** so every OS reports its status independently.
+
 ## [0.9.1] - 2026-07-20
 
 ### Added
