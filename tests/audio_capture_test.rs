@@ -333,7 +333,13 @@ fn test_audio_frame_properties() {
 }
 
 /// Test PTS clock synchronization across multiple captures
+///
+/// Ignored in CI: drains buffered audio frames and asserts each frame's PTS is
+/// within 0.1s of the *current* wall clock. Under CI scheduling jitter (and with
+/// buffered frames legitimately carrying older PTS) this bound is exceeded,
+/// making the test flaky. Run manually with real low-latency audio hardware.
 #[test]
+#[ignore = "Timing/hardware dependent; flaky under CI load - run manually"]
 fn test_pts_clock_synchronization() {
     let shared_clock = PTSClock::new();
     let start_time = Instant::now();

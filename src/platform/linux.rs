@@ -255,7 +255,7 @@ impl LinuxCamera {
 
     /// Check if camera is available
     pub fn is_available(&self) -> bool {
-        self.camera.lock().map_or(false, |c| c.is_stream_open())
+        self.camera.lock().is_ok_and(|c| c.is_stream_open())
     }
 
     /// Start camera stream.
