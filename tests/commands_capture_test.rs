@@ -1,12 +1,11 @@
 #[cfg(test)]
 mod commands_capture_tests {
-use crabcamera::commands::capture::{
-    capture_photo_sequence, capture_single_photo, capture_with_quality_retry,
-    capture_with_reconnect, get_capture_stats, get_or_create_camera, reconnect_camera,
-    release_camera, save_frame_compressed, save_frame_to_disk, start_camera_preview,
-    stop_camera_preview, CaptureStats,
-    capture, CaptureOptions, CaptureMode,
-};
+    use crabcamera::commands::capture::{
+        capture, capture_photo_sequence, capture_single_photo, capture_with_quality_retry,
+        capture_with_reconnect, get_capture_stats, get_or_create_camera, reconnect_camera,
+        release_camera, save_frame_compressed, save_frame_to_disk, start_camera_preview,
+        stop_camera_preview, CaptureMode, CaptureOptions, CaptureStats,
+    };
     use crabcamera::tests::{set_mock_camera_mode, MockCaptureMode};
     use crabcamera::types::{CameraFormat, CameraFrame};
     use std::sync::Arc;
@@ -1050,10 +1049,16 @@ use crabcamera::commands::capture::{
         let result = capture(CaptureOptions {
             device_id: Some("0".to_string()),
             format: None,
-            mode: CaptureMode::Sequence { count: 5, interval_ms: 0 },
+            mode: CaptureMode::Sequence {
+                count: 5,
+                interval_ms: 0,
+            },
         })
         .await;
-        assert!(result.is_ok(), "Consolidated sequence capture should succeed");
+        assert!(
+            result.is_ok(),
+            "Consolidated sequence capture should succeed"
+        );
         let res = result.unwrap();
         assert_eq!(res.mode, "sequence");
         assert_eq!(res.frames.len(), 5);
@@ -1064,7 +1069,10 @@ use crabcamera::commands::capture::{
         let result = capture(CaptureOptions {
             device_id: Some("0".to_string()),
             format: None,
-            mode: CaptureMode::Sequence { count: 0, interval_ms: 0 },
+            mode: CaptureMode::Sequence {
+                count: 0,
+                interval_ms: 0,
+            },
         })
         .await;
         assert!(result.is_err(), "Zero-count sequence should be rejected");

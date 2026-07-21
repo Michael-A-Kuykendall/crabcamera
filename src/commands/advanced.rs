@@ -1,16 +1,25 @@
 use crate::commands::capture::get_or_create_camera;
-use crate::constants::*;
-use crate::types::{BurstConfig, CameraControls, CameraFrame, ControlApplicationResult, WhiteBalance};
+use crate::constants::{MAX_ISO, MIN_ISO};
+use crate::platform::PlatformCamera;
+use crate::types::{
+    BurstConfig, CameraControls, CameraFrame, ControlApplicationResult, WhiteBalance,
+};
+use std::sync::{Arc, Mutex as StdMutex};
 use std::time::Instant;
 use tauri::command;
 
 /// Apply advanced camera controls
+///
+/// # Errors
+/// Returns an `Err` if the camera cannot be created or retrieved, if the
+/// camera mutex is poisoned, if the blocking task fails to join, or if
+/// applying the controls to the camera fails.
 #[command]
 pub async fn set_camera_controls(
     device_id: String,
     controls: CameraControls,
 ) -> Result<ControlApplicationResult, String> {
-    log::info!("Setting camera controls for device: {}", device_id);
+    log::info!("Setting camera controls for device: {device_id}");
 
     let camera_arc =
         get_or_create_camera(device_id.clone(), crate::types::CameraFormat::standard()).await?;
@@ -22,8 +31,8 @@ pub async fn set_camera_controls(
             .map_err(|_| "Mutex poisoned".to_string())?;
 
         let result = camera.apply_controls(&controls).map_err(|e| {
-            log::error!("Failed to apply camera controls: {}", e);
-            format!("Failed to apply controls: {}", e)
+            log::error!("Failed to apply camera controls: {e}");
+            format!("Failed to apply controls: {e}")
         })?;
 
         log::info!(
@@ -36,13 +45,18 @@ pub async fn set_camera_controls(
         Ok(result)
     })
     .await
-    .map_err(|e| format!("Task join error: {}", e))?
+    .map_err(|e| format!("Task join error: {e}"))?
 }
 
 /// Get current camera controls
+///
+/// # Errors
+/// Returns an `Err` if the camera cannot be obtained, if the camera mutex
+/// is poisoned, if the blocking task fails to join, or if reading the
+/// controls from the camera fails.
 #[command]
 pub async fn get_camera_controls(device_id: String) -> Result<CameraControls, String> {
-    log::info!("Getting camera controls for device: {}", device_id);
+    log::info!("Getting camera controls for device: {device_id}");
 
     let camera_arc =
         get_or_create_camera(device_id.clone(), crate::types::CameraFormat::standard()).await?;
@@ -55,20 +69,28 @@ pub async fn get_camera_controls(device_id: String) -> Result<CameraControls, St
 
         match camera.get_controls() {
             Ok(controls) => {
-                log::debug!("Retrieved camera controls for device: {}", device_id_clone);
+                log::debug!("Retrieved camera controls for device: {device_id_clone}");
                 Ok(controls)
             }
             Err(e) => {
-                log::error!("Failed to get camera controls: {}", e);
-                Err(format!("Failed to get controls: {}", e))
+                log::error!("Failed to get camera controls: {e}");
+                Err(format!("Failed to get controls: {e}"))
             }
         }
     })
     .await
-    .map_err(|e| format!("Task join error: {}", e))?
+    .map_err(|e| format!("Task join error: {e}"))?
 }
 
 /// Capture burst sequence with advanced controls
+///
+/// # Errors
+/// Returns an `Err` if `config.count` is `0` or greater than `50`, if focus
+/// stacking is requested with fewer than `2` frames, or if exposure
+/// bracketing is misconfigured (empty stops or a non-positive base
+/// exposure). Also returns an `Err` if the camera cannot be obtained, the
+/// mutex is poisoned, the blocking task fails to join, a frame capture
+/// fails, or an auto-save fails.
 #[command]
 pub async fn capture_burst_sequence(
     device_id: String,
@@ -80,43 +102,12 @@ pub async fn capture_burst_sequence(
         device_id
     );
 
-    if config.count == 0 || config.count > 50 {
-        return Err("Invalid burst count (must be 1-50)".to_string());
-    }
-
-    if config.focus_stacking && config.count < 2 {
-        return Err("Focus stacking requires at least 2 frames (count >= 2)".to_string());
-    }
-
-    if let Some(ref bracketing) = config.bracketing {
-        if bracketing.stops.is_empty() {
-            return Err(
-                "Exposure bracketing requires at least one stop value".to_string(),
-            );
-        }
-        if bracketing.base_exposure <= 0.0 {
-            return Err(
-                "Exposure bracketing base_exposure must be greater than zero".to_string(),
-            );
-        }
-    }
+    validate_burst_config(&config)?;
 
     let camera_arc =
         get_or_create_camera(device_id.clone(), crate::types::CameraFormat::hd()).await?;
 
-    // Start stream
-    {
-        let camera_arc = camera_arc.clone();
-        tokio::task::spawn_blocking(move || {
-            if let Ok(mut camera) = camera_arc.lock() {
-                if let Err(e) = camera.start_stream() {
-                    log::warn!("Failed to start camera stream: {}", e);
-                }
-            }
-        })
-        .await
-        .map_err(|e| format!("Task join error: {}", e))?;
-    }
+    start_burst_stream(camera_arc.clone()).await?;
 
     let mut frames = Vec::with_capacity(config.count as usize);
     let start_time = Instant::now();
@@ -124,85 +115,27 @@ pub async fn capture_burst_sequence(
     for i in 0..config.count {
         log::debug!("Capturing burst frame {} of {}", i + 1, config.count);
 
-        let camera_arc = camera_arc.clone();
-        let config_clone = config.clone();
-
-        let frame = tokio::task::spawn_blocking(move || {
-            let mut camera = camera_arc
-                .lock()
-                .map_err(|_| "Mutex poisoned".to_string())?;
-
-            // Apply exposure bracketing if configured
-            if let Some(ref bracketing) = config_clone.bracketing {
-                if let Some(stop) = bracketing.stops.get(i as usize % bracketing.stops.len()) {
-                    let exposure_time = bracketing.base_exposure * 2.0_f32.powf(*stop);
-                    let controls = CameraControls {
-                        auto_exposure: Some(false),
-                        exposure_time: Some(exposure_time),
-                        ..CameraControls::default()
-                    };
-
-                    if let Err(e) = camera.apply_controls(&controls) {
-                        log::warn!("Failed to apply exposure bracketing: {}", e);
-                    }
-                }
-            }
-
-            // Apply focus stacking if configured
-            if config_clone.focus_stacking {
-                let focus_distance = (i as f32) / (config_clone.count as f32 - 1.0); // 0.0 to 1.0
-                let controls = CameraControls {
-                    auto_focus: Some(false),
-                    focus_distance: Some(focus_distance),
-                    ..CameraControls::default()
-                };
-
-                if let Err(e) = camera.apply_controls(&controls) {
-                    log::warn!("Failed to apply focus stacking: {}", e);
-                }
-
-                // Wait for focus adjustment (blocking sleep is okay here as we are in spawn_blocking)
-                std::thread::sleep(std::time::Duration::from_millis(200));
-            }
-
-            // Capture frame with performance monitoring
-            let capture_start = Instant::now();
-            match camera.capture_frame() {
-                Ok(mut frame) => {
-                    let capture_time = capture_start.elapsed();
-
-                    // Add performance metadata
-                    frame.metadata.capture_settings = camera.get_controls().ok();
-
-                    log::debug!("Burst frame {} captured in {:?}", i + 1, capture_time);
-                    Ok(frame)
-                }
-                Err(e) => {
-                    log::error!("Failed to capture burst frame {}: {}", i + 1, e);
-                    Err(format!("Failed to capture burst frame {}: {}", i + 1, e))
-                }
-            }
-        })
-        .await
-        .map_err(|e| format!("Task join error: {}", e))??;
-
+        let frame = capture_burst_frame(camera_arc.clone(), config.clone(), i).await?;
         frames.push(frame);
 
         // Wait between captures (except for the last one)
         if i < config.count - 1 {
-            tokio::time::sleep(tokio::time::Duration::from_millis(
-                config.interval_ms as u64,
-            ))
+            tokio::time::sleep(tokio::time::Duration::from_millis(u64::from(
+                config.interval_ms,
+            )))
             .await;
         }
     }
 
     let total_time = start_time.elapsed();
+    #[allow(clippy::cast_precision_loss)]
+    // usize→f32: frame count is capped at 50, no precision loss at this scale
+    let burst_fps = frames.len() as f32 / total_time.as_secs_f32();
     log::info!(
         "Burst capture completed: {} frames in {:?} ({:.2} fps)",
         frames.len(),
         total_time,
-        frames.len() as f32 / total_time.as_secs_f32()
+        burst_fps
     );
 
     // Auto-save if configured
@@ -213,6 +146,117 @@ pub async fn capture_burst_sequence(
     }
 
     Ok(frames)
+}
+
+/// Validate a [`BurstConfig`] prior to starting a burst capture.
+fn validate_burst_config(config: &BurstConfig) -> Result<(), String> {
+    if config.count == 0 || config.count > 50 {
+        return Err("Invalid burst count (must be 1-50)".to_string());
+    }
+
+    if config.focus_stacking && config.count < 2 {
+        return Err("Focus stacking requires at least 2 frames (count >= 2)".to_string());
+    }
+
+    if let Some(ref bracketing) = config.bracketing {
+        if bracketing.stops.is_empty() {
+            return Err("Exposure bracketing requires at least one stop value".to_string());
+        }
+        if bracketing.base_exposure <= 0.0 {
+            return Err("Exposure bracketing base_exposure must be greater than zero".to_string());
+        }
+    }
+
+    Ok(())
+}
+
+/// Start the camera stream on a blocking task, logging (not erroring) on failure.
+async fn start_burst_stream(camera_arc: Arc<StdMutex<PlatformCamera>>) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        if let Ok(mut camera) = camera_arc.lock() {
+            if let Err(e) = camera.start_stream() {
+                log::warn!("Failed to start camera stream: {e}");
+            }
+        }
+    })
+    .await
+    .map_err(|e| format!("Task join error: {e}"))
+}
+
+/// Capture a single burst frame, applying exposure bracketing and focus stacking
+/// controls as configured for the given frame `index`.
+async fn capture_burst_frame(
+    camera_arc: Arc<StdMutex<PlatformCamera>>,
+    config: BurstConfig,
+    index: u32,
+) -> Result<CameraFrame, String> {
+    tokio::task::spawn_blocking(move || {
+        let mut camera = camera_arc
+            .lock()
+            .map_err(|_| "Mutex poisoned".to_string())?;
+
+        // Apply exposure bracketing if configured
+        if let Some(ref bracketing) = config.bracketing {
+            if let Some(stop) = bracketing
+                .stops
+                .get(index as usize % bracketing.stops.len())
+            {
+                let exposure_time = bracketing.base_exposure * 2.0_f32.powf(*stop);
+                let controls = CameraControls {
+                    auto_exposure: Some(false),
+                    exposure_time: Some(exposure_time),
+                    ..CameraControls::default()
+                };
+
+                if let Err(e) = camera.apply_controls(&controls) {
+                    log::warn!("Failed to apply exposure bracketing: {e}");
+                }
+            }
+        }
+
+        // Apply focus stacking if configured
+        if config.focus_stacking {
+            #[allow(clippy::cast_precision_loss)]
+            // u32→f32: index and count are small (< 50), exact in f32
+            let focus_distance = index as f32 / (config.count as f32 - 1.0); // 0.0 to 1.0
+            let controls = CameraControls {
+                auto_focus: Some(false),
+                focus_distance: Some(focus_distance),
+                ..CameraControls::default()
+            };
+
+            if let Err(e) = camera.apply_controls(&controls) {
+                log::warn!("Failed to apply focus stacking: {e}");
+            }
+
+            // Wait for focus adjustment (blocking sleep is okay here as we are in spawn_blocking)
+            std::thread::sleep(std::time::Duration::from_millis(200));
+        }
+
+        // Capture frame with performance monitoring
+        let capture_start = Instant::now();
+        match camera.capture_frame() {
+            Ok(mut frame) => {
+                let capture_time = capture_start.elapsed();
+
+                // Add performance metadata
+                frame.metadata.capture_settings = camera.get_controls().ok();
+
+                log::debug!("Burst frame {} captured in {:?}", index + 1, capture_time);
+                Ok(frame)
+            }
+            Err(e) => {
+                log::error!("Failed to capture burst frame {}: {}", index + 1, e);
+                Err(format!(
+                    "Failed to capture burst frame {}: {}",
+                    index + 1,
+                    e
+                ))
+            }
+        }
+    })
+    .await
+    .map_err(|e| format!("Task join error: {e}"))?
 }
 
 /// Batch camera settings to apply in a single call
@@ -228,7 +272,7 @@ pub struct CameraSettingsInput {
     pub iso_sensitivity: Option<u32>,
     /// White balance mode
     pub white_balance: Option<WhiteBalance>,
-    /// Full CameraControls struct (merged over individual settings)
+    /// Full `CameraControls` struct (merged over individual settings)
     pub controls: Option<CameraControls>,
 }
 
@@ -240,6 +284,12 @@ pub struct CameraSettingsInput {
 /// call. Individual granular commands (`set_manual_focus`,
 /// `set_manual_exposure`, `set_white_balance`) remain available for
 /// backward compatibility.
+///
+/// # Errors
+/// Returns an `Err` if `focus_distance` is outside `[0.0, 1.0]`,
+/// `exposure_time` is outside `(0.0, 10.0]`, or `iso_sensitivity` is
+/// outside the supported range. Otherwise propagates any error from
+/// [`set_camera_controls`].
 #[command]
 pub async fn apply_camera_settings(
     settings: CameraSettingsInput,
@@ -265,8 +315,7 @@ pub async fn apply_camera_settings(
     if let Some(iso_sensitivity) = settings.iso_sensitivity {
         if !(MIN_ISO..=MAX_ISO).contains(&iso_sensitivity) {
             return Err(format!(
-                "ISO sensitivity must be between {} and {}",
-                MIN_ISO, MAX_ISO
+                "ISO sensitivity must be between {MIN_ISO} and {MAX_ISO}"
             ));
         }
         combined.auto_exposure = Some(false);
@@ -294,7 +343,7 @@ pub async fn apply_camera_settings(
             combined.iso_sensitivity = controls.iso_sensitivity;
         }
         if controls.white_balance.is_some() {
-            combined.white_balance = controls.white_balance.clone();
+            combined.white_balance.clone_from(&controls.white_balance);
         }
     }
 
@@ -306,8 +355,15 @@ pub async fn apply_camera_settings(
 /// ## Deprecation
 /// Prefer the consolidated [`apply_camera_settings`] command
 /// which can batch multiple settings in a single call.
+///
+/// # Errors
+/// Returns an `Err` if `focus_distance` is outside `[0.0, 1.0]`.
+/// Otherwise propagates any error from [`set_camera_controls`].
 #[command]
-pub async fn set_manual_focus(device_id: String, focus_distance: f32) -> Result<ControlApplicationResult, String> {
+pub async fn set_manual_focus(
+    device_id: String,
+    focus_distance: f32,
+) -> Result<ControlApplicationResult, String> {
     if !(0.0..=1.0).contains(&focus_distance) {
         return Err("Focus distance must be between 0.0 (infinity) and 1.0 (closest)".to_string());
     }
@@ -326,6 +382,11 @@ pub async fn set_manual_focus(device_id: String, focus_distance: f32) -> Result<
 /// ## Deprecation
 /// Prefer the consolidated [`apply_camera_settings`] command
 /// which can batch multiple settings in a single call.
+///
+/// # Errors
+/// Returns an `Err` if `exposure_time` is outside `(0.0, 10.0]` or if
+/// `iso_sensitivity` is outside the supported range. Otherwise propagates
+/// any error from [`set_camera_controls`].
 #[command]
 pub async fn set_manual_exposure(
     device_id: String,
@@ -337,7 +398,9 @@ pub async fn set_manual_exposure(
     }
 
     if !(MIN_ISO..=MAX_ISO).contains(&iso_sensitivity) {
-        return Err(format!("ISO sensitivity must be between {} and {}", MIN_ISO, MAX_ISO));
+        return Err(format!(
+            "ISO sensitivity must be between {MIN_ISO} and {MAX_ISO}"
+        ));
     }
 
     let controls = CameraControls {
@@ -355,6 +418,9 @@ pub async fn set_manual_exposure(
 /// ## Deprecation
 /// Prefer the consolidated [`apply_camera_settings`] command
 /// which can batch multiple settings in a single call.
+///
+/// # Errors
+/// Propagates any error from [`set_camera_controls`].
 #[command]
 pub async fn set_white_balance(
     device_id: String,
@@ -369,25 +435,30 @@ pub async fn set_white_balance(
 }
 
 /// Enable HDR mode with automatic exposure bracketing
+///
+/// # Errors
+/// Propagates any error from [`capture_burst_sequence`] (including invalid
+/// burst configuration) or from obtaining the camera.
 #[command]
 pub async fn capture_hdr_sequence(device_id: String) -> Result<Vec<CameraFrame>, String> {
-    log::info!("Capturing HDR sequence from device: {}", device_id);
+    log::info!("Capturing HDR sequence from device: {device_id}");
 
     let config = BurstConfig::hdr_burst();
     capture_burst_sequence(device_id, config).await
 }
 
-/// Capture focus stacked sequence for macro photography (legacy - use focus_stack module)
+/// Capture focus stacked sequence for macro photography (legacy - use `focus_stack` module)
+///
+/// # Errors
+/// Returns an `Err` if `stack_count` is outside `3..=20`. Otherwise
+/// propagates any error from [`capture_burst_sequence`] or from obtaining
+/// the camera.
 #[command]
 pub async fn capture_focus_stack_legacy(
     device_id: String,
     stack_count: u32,
 ) -> Result<Vec<CameraFrame>, String> {
-    log::info!(
-        "Capturing focus stack (legacy): {} frames from device {}",
-        stack_count,
-        device_id
-    );
+    log::info!("Capturing focus stack (legacy): {stack_count} frames from device {device_id}");
 
     if !(3..=20).contains(&stack_count) {
         return Err("Focus stack count must be between 3 and 20".to_string());
@@ -406,6 +477,11 @@ pub async fn capture_focus_stack_legacy(
 }
 
 /// Get camera performance metrics
+///
+/// # Errors
+/// Returns an `Err` if the camera cannot be obtained, if the camera mutex
+/// is poisoned, if the blocking task fails to join, or if reading the
+/// performance metrics from the camera fails.
 #[command]
 pub async fn get_camera_performance(
     device_id: String,
@@ -430,21 +506,26 @@ pub async fn get_camera_performance(
                 Ok(metrics)
             }
             Err(e) => {
-                log::error!("Failed to get performance metrics: {}", e);
-                Err(format!("Failed to get performance metrics: {}", e))
+                log::error!("Failed to get performance metrics: {e}");
+                Err(format!("Failed to get performance metrics: {e}"))
             }
         }
     })
     .await
-    .map_err(|e| format!("Task join error: {}", e))?
+    .map_err(|e| format!("Task join error: {e}"))?
 }
 
 /// Test camera capabilities and return supported features
+///
+/// # Errors
+/// Returns an `Err` if the camera cannot be obtained, if the camera mutex
+/// is poisoned, if the blocking task fails to join, or if querying the
+/// camera capabilities fails.
 #[command]
 pub async fn test_camera_capabilities(
     device_id: String,
 ) -> Result<crate::types::CameraCapabilities, String> {
-    log::info!("Testing camera capabilities for device: {}", device_id);
+    log::info!("Testing camera capabilities for device: {device_id}");
 
     let camera_arc =
         get_or_create_camera(device_id.clone(), crate::types::CameraFormat::standard()).await?;
@@ -460,21 +541,21 @@ pub async fn test_camera_capabilities(
                 log::info!(
                     "Camera {} capabilities: manual_focus={}, manual_exposure={}, max_res={}x{}",
                     device_id_clone,
-                    capabilities.supports_manual_focus,
-                    capabilities.supports_manual_exposure,
+                    capabilities.supports.manual_focus,
+                    capabilities.supports.manual_exposure,
                     capabilities.max_resolution.0,
                     capabilities.max_resolution.1
                 );
                 Ok(capabilities)
             }
             Err(e) => {
-                log::error!("Failed to test camera capabilities: {}", e);
-                Err(format!("Failed to test capabilities: {}", e))
+                log::error!("Failed to test camera capabilities: {e}");
+                Err(format!("Failed to test capabilities: {e}"))
             }
         }
     })
     .await
-    .map_err(|e| format!("Task join error: {}", e))?
+    .map_err(|e| format!("Task join error: {e}"))?
 }
 
 // Helper functions
@@ -485,7 +566,7 @@ async fn save_burst_sequence(frames: &[CameraFrame], save_dir: &str) -> Result<(
 
     // Create directory if it doesn't exist
     if let Err(e) = tokio::fs::create_dir_all(save_dir).await {
-        return Err(format!("Failed to create directory {}: {}", save_dir, e));
+        return Err(format!("Failed to create directory {save_dir}: {e}"));
     }
 
     let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S");
@@ -507,7 +588,7 @@ async fn save_burst_sequence(frames: &[CameraFrame], save_dir: &str) -> Result<(
         })
         .await
         {
-            Ok(Ok(_)) => {
+            Ok(Ok(())) => {
                 log::debug!("Saved frame {} to {}", i + 1, filename);
             }
             Ok(Err(e)) => {
@@ -538,36 +619,30 @@ mod tests {
     async fn test_set_manual_focus_rejects_out_of_range_value() {
         let result = set_manual_focus("0".to_string(), 1.5).await;
         assert!(result.is_err());
-        assert!(
-            result
-                .err()
-                .unwrap_or_default()
-                .contains("Focus distance must be between 0.0")
-        );
+        assert!(result
+            .err()
+            .unwrap_or_default()
+            .contains("Focus distance must be between 0.0"));
     }
 
     #[tokio::test]
     async fn test_set_manual_exposure_rejects_invalid_exposure_time() {
         let result = set_manual_exposure("0".to_string(), 0.0, MIN_ISO).await;
         assert!(result.is_err());
-        assert!(
-            result
-                .err()
-                .unwrap_or_default()
-                .contains("Exposure time must be between 0.0 and 10.0 seconds")
-        );
+        assert!(result
+            .err()
+            .unwrap_or_default()
+            .contains("Exposure time must be between 0.0 and 10.0 seconds"));
     }
 
     #[tokio::test]
     async fn test_set_manual_exposure_rejects_invalid_iso() {
         let result = set_manual_exposure("0".to_string(), 0.01, MIN_ISO.saturating_sub(1)).await;
         assert!(result.is_err());
-        assert!(
-            result
-                .err()
-                .unwrap_or_default()
-                .contains("ISO sensitivity must be between")
-        );
+        assert!(result
+            .err()
+            .unwrap_or_default()
+            .contains("ISO sensitivity must be between"));
     }
 
     #[tokio::test]
@@ -582,7 +657,9 @@ mod tests {
         })
         .await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Focus distance must be between 0.0"));
+        assert!(result
+            .expect_err("focus distance error expected")
+            .contains("Focus distance must be between 0.0"));
 
         let result = apply_camera_settings(CameraSettingsInput {
             device_id: "0".to_string(),
@@ -594,7 +671,9 @@ mod tests {
         })
         .await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Exposure time must be between 0.0 and 10.0 seconds"));
+        assert!(result
+            .expect_err("exposure time error expected")
+            .contains("Exposure time must be between 0.0 and 10.0 seconds"));
 
         let result = apply_camera_settings(CameraSettingsInput {
             device_id: "0".to_string(),
@@ -606,7 +685,9 @@ mod tests {
         })
         .await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("ISO sensitivity must be between"));
+        assert!(result
+            .expect_err("ISO sensitivity error expected")
+            .contains("ISO sensitivity must be between"));
     }
 
     #[tokio::test]
@@ -622,12 +703,10 @@ mod tests {
 
         let result = capture_burst_sequence("0".to_string(), config).await;
         assert!(result.is_err());
-        assert!(
-            result
-                .err()
-                .unwrap_or_default()
-                .contains("Invalid burst count")
-        );
+        assert!(result
+            .err()
+            .unwrap_or_default()
+            .contains("Invalid burst count"));
     }
 
     #[tokio::test]
@@ -643,12 +722,10 @@ mod tests {
 
         let result = capture_burst_sequence("0".to_string(), config).await;
         assert!(result.is_err());
-        assert!(
-            result
-                .err()
-                .unwrap_or_default()
-                .contains("Focus stacking requires at least 2 frames")
-        );
+        assert!(result
+            .err()
+            .unwrap_or_default()
+            .contains("Focus stacking requires at least 2 frames"));
     }
 
     #[tokio::test]
@@ -667,12 +744,10 @@ mod tests {
 
         let result = capture_burst_sequence("0".to_string(), config).await;
         assert!(result.is_err());
-        assert!(
-            result
-                .err()
-                .unwrap_or_default()
-                .contains("Exposure bracketing requires at least one stop value")
-        );
+        assert!(result
+            .err()
+            .unwrap_or_default()
+            .contains("Exposure bracketing requires at least one stop value"));
     }
 
     #[tokio::test]
@@ -691,24 +766,20 @@ mod tests {
 
         let result = capture_burst_sequence("0".to_string(), config).await;
         assert!(result.is_err());
-        assert!(
-            result
-                .err()
-                .unwrap_or_default()
-                .contains("Exposure bracketing base_exposure must be greater than zero")
-        );
+        assert!(result
+            .err()
+            .unwrap_or_default()
+            .contains("Exposure bracketing base_exposure must be greater than zero"));
     }
 
     #[tokio::test]
     async fn test_capture_focus_stack_legacy_rejects_out_of_range_stack_count() {
         let result = capture_focus_stack_legacy("0".to_string(), 2).await;
         assert!(result.is_err());
-        assert!(
-            result
-                .err()
-                .unwrap_or_default()
-                .contains("Focus stack count must be between 3 and 20")
-        );
+        assert!(result
+            .err()
+            .unwrap_or_default()
+            .contains("Focus stack count must be between 3 and 20"));
     }
 
     #[tokio::test]
@@ -717,12 +788,10 @@ mod tests {
         let result = save_burst_sequence(&[invalid_frame], "test_outputs/invalid_burst").await;
 
         assert!(result.is_err());
-        assert!(
-            result
-                .err()
-                .unwrap_or_default()
-                .contains("Failed to create image from frame data")
-        );
+        assert!(result
+            .err()
+            .unwrap_or_default()
+            .contains("Failed to create image from frame data"));
     }
 
     #[tokio::test]
@@ -781,7 +850,7 @@ mod tests {
         let caps = test_camera_capabilities("0".to_string())
             .await
             .expect("capabilities should succeed");
-        assert!(caps.supports_manual_focus);
+        assert!(caps.supports.manual_focus);
 
         std::env::remove_var("CRABCAMERA_USE_MOCK");
     }

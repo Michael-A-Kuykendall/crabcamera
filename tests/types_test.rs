@@ -5,8 +5,7 @@
 use crabcamera::types::{
     BurstConfig, CameraCapabilities, CameraControls, CameraDeviceInfo, CameraFormat, CameraFrame,
     CameraInitParams, CameraPerformanceMetrics, ControlApplicationResult, ExposureBracketing,
-    FrameMetadata, Platform,
-    WhiteBalance,
+    FrameMetadata, Platform, WhiteBalance,
 };
 
 #[cfg(test)]
@@ -295,8 +294,8 @@ mod camera_capabilities_tests {
         let caps = CameraCapabilities::default();
         // Verify default struct can be created and has valid state
         // The actual default values may vary by implementation
-        let _ = caps.supports_auto_focus;
-        let _ = caps.supports_manual_focus;
+        let _ = caps.supports.auto_focus;
+        let _ = caps.supports.manual_focus;
     }
 }
 

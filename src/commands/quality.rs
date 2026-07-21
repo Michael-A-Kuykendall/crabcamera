@@ -4,22 +4,25 @@ use crate::constants::*;
 use crate::quality::{BlurDetector, BlurMetrics, ExposureAnalyzer, ExposureMetrics};
 use crate::quality::{QualityReport, QualityValidator, ValidationConfig};
 use crate::types::CameraFrame;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 use tauri::command;
 use tokio::sync::RwLock;
 
 // Global quality validator
-lazy_static::lazy_static! {
-    static ref QUALITY_VALIDATOR: Arc<RwLock<QualityValidator>> = Arc::new(RwLock::new(QualityValidator::default()));
-}
+static QUALITY_VALIDATOR: LazyLock<Arc<RwLock<QualityValidator>>> =
+    LazyLock::new(|| Arc::new(RwLock::new(QualityValidator::default())));
 
 /// Validate quality of a captured frame
+///
+/// # Errors
+/// Returns an `Err` if the frame cannot be captured (propagated from the
+/// underlying capture).
 #[command]
 pub async fn validate_frame_quality(
     device_id: Option<String>,
     capture_format: Option<crate::types::CameraFormat>,
 ) -> Result<QualityReport, String> {
-    log::info!("Validating frame quality for device: {:?}", device_id);
+    log::info!("Validating frame quality for device: {device_id:?}");
 
     // Capture a frame first
     let frame = capture_single_photo(device_id, capture_format).await?;
@@ -32,6 +35,9 @@ pub async fn validate_frame_quality(
 }
 
 /// Validate quality of provided frame data
+///
+/// # Errors
+/// This function always succeeds and never returns an `Err`.
 #[command]
 pub async fn validate_provided_frame(frame: CameraFrame) -> Result<QualityReport, String> {
     log::info!(
@@ -47,12 +53,16 @@ pub async fn validate_provided_frame(frame: CameraFrame) -> Result<QualityReport
 }
 
 /// Analyze blur in a captured frame
+///
+/// # Errors
+/// Returns an `Err` if the frame cannot be captured (propagated from the
+/// underlying capture).
 #[command]
 pub async fn analyze_frame_blur(
     device_id: Option<String>,
     capture_format: Option<crate::types::CameraFormat>,
 ) -> Result<BlurMetrics, String> {
-    log::info!("Analyzing frame blur for device: {:?}", device_id);
+    log::info!("Analyzing frame blur for device: {device_id:?}");
 
     // Capture a frame
     let frame = capture_single_photo(device_id, capture_format).await?;
@@ -65,12 +75,16 @@ pub async fn analyze_frame_blur(
 }
 
 /// Analyze exposure in a captured frame
+///
+/// # Errors
+/// Returns an `Err` if the frame cannot be captured (propagated from the
+/// underlying capture).
 #[command]
 pub async fn analyze_frame_exposure(
     device_id: Option<String>,
     capture_format: Option<crate::types::CameraFormat>,
 ) -> Result<ExposureMetrics, String> {
-    log::info!("Analyzing frame exposure for device: {:?}", device_id);
+    log::info!("Analyzing frame exposure for device: {device_id:?}");
 
     // Capture a frame
     let frame = capture_single_photo(device_id, capture_format).await?;
@@ -83,6 +97,9 @@ pub async fn analyze_frame_exposure(
 }
 
 /// Update quality validation configuration
+///
+/// # Errors
+/// This function always succeeds and never returns an `Err`.
 #[command]
 pub async fn update_quality_config(config: ValidationConfigDto) -> Result<String, String> {
     log::info!("Updating quality validation configuration");
@@ -103,6 +120,9 @@ pub async fn update_quality_config(config: ValidationConfigDto) -> Result<String
 }
 
 /// Get current quality validation configuration
+///
+/// # Errors
+/// This function always succeeds and never returns an `Err`.
 #[command]
 pub async fn get_quality_config() -> Result<ValidationConfigDto, String> {
     let validator = QUALITY_VALIDATOR.read().await;
@@ -119,6 +139,9 @@ pub async fn get_quality_config() -> Result<ValidationConfigDto, String> {
 }
 
 /// Capture and validate multiple frames, return best quality
+///
+/// # Errors
+/// Returns an `Err` if no valid frame could be captured across all attempts.
 #[command]
 pub async fn capture_best_quality_frame(
     device_id: Option<String>,
@@ -126,7 +149,7 @@ pub async fn capture_best_quality_frame(
     num_attempts: Option<u32>,
 ) -> Result<CaptureQualityResult, String> {
     let attempts = num_attempts.unwrap_or(5).min(10); // Max 10 attempts
-    log::info!("Capturing best quality frame with {} attempts", attempts);
+    log::info!("Capturing best quality frame with {attempts} attempts");
 
     let validator = QUALITY_VALIDATOR.read().await;
     let mut best_frame: Option<CameraFrame> = None;
@@ -134,7 +157,7 @@ pub async fn capture_best_quality_frame(
     let mut best_score = 0.0f32;
 
     for attempt in 1..=attempts {
-        log::debug!("Quality capture attempt {} of {}", attempt, attempts);
+        log::debug!("Quality capture attempt {attempt} of {attempts}");
 
         // Capture frame
         match capture_single_photo(device_id.clone(), capture_format.clone()).await {
@@ -150,12 +173,12 @@ pub async fn capture_best_quality_frame(
 
                 // If we achieve excellent quality, stop early
                 if best_score >= 0.9 {
-                    log::info!("Excellent quality achieved on attempt {}", attempt);
+                    log::info!("Excellent quality achieved on attempt {attempt}");
                     break;
                 }
             }
             Err(e) => {
-                log::warn!("Frame capture failed on attempt {}: {}", attempt, e);
+                log::warn!("Frame capture failed on attempt {attempt}: {e}");
                 continue;
             }
         }
@@ -177,6 +200,10 @@ pub async fn capture_best_quality_frame(
 }
 
 /// Auto-capture with quality threshold
+///
+/// # Errors
+/// Returns an `Err` if the overall timeout elapses or if no frame meeting the
+/// quality threshold is captured within the maximum number of attempts.
 #[command]
 pub async fn auto_capture_with_quality(
     device_id: Option<String>,
@@ -190,10 +217,7 @@ pub async fn auto_capture_with_quality(
     let timeout = timeout_seconds.unwrap_or(30); // 30 second timeout
 
     log::info!(
-        "Auto-capturing with quality threshold {} (max {} attempts, {}s timeout)",
-        quality_threshold,
-        max_tries,
-        timeout
+        "Auto-capturing with quality threshold {quality_threshold} (max {max_tries} attempts, {timeout}s timeout)"
     );
 
     let start_time = std::time::Instant::now();
@@ -201,11 +225,11 @@ pub async fn auto_capture_with_quality(
 
     for attempt in 1..=max_tries {
         // Check timeout
-        if start_time.elapsed().as_secs() >= timeout as u64 {
-            return Err(format!("Auto-capture timeout after {} seconds", timeout));
+        if start_time.elapsed().as_secs() >= u64::from(timeout) {
+            return Err(format!("Auto-capture timeout after {timeout} seconds"));
         }
 
-        log::debug!("Auto-capture attempt {} of {}", attempt, max_tries);
+        log::debug!("Auto-capture attempt {attempt} of {max_tries}");
 
         // Capture frame
         match capture_single_photo(device_id.clone(), capture_format.clone()).await {
@@ -233,7 +257,7 @@ pub async fn auto_capture_with_quality(
                 );
             }
             Err(e) => {
-                log::warn!("Frame capture failed on attempt {}: {}", attempt, e);
+                log::warn!("Frame capture failed on attempt {attempt}: {e}");
             }
         }
 
@@ -242,12 +266,15 @@ pub async fn auto_capture_with_quality(
     }
 
     Err(format!(
-        "Failed to capture frame meeting quality threshold {} after {} attempts",
-        quality_threshold, max_tries
+        "Failed to capture frame meeting quality threshold {quality_threshold} after {max_tries} attempts"
     ))
 }
 
 /// Analyze quality trends over multiple captures
+///
+/// # Errors
+/// Returns an `Err` if no valid samples could be captured for the trend
+/// analysis.
 #[command]
 pub async fn analyze_quality_trends(
     device_id: Option<String>,
@@ -255,13 +282,13 @@ pub async fn analyze_quality_trends(
     num_samples: Option<u32>,
 ) -> Result<QualityTrendAnalysis, String> {
     let samples = num_samples.unwrap_or(10).min(20); // Max 20 samples
-    log::info!("Analyzing quality trends over {} samples", samples);
+    log::info!("Analyzing quality trends over {samples} samples");
 
     let validator = QUALITY_VALIDATOR.read().await;
     let mut reports = Vec::new();
 
     for i in 1..=samples {
-        log::debug!("Quality trend sample {} of {}", i, samples);
+        log::debug!("Quality trend sample {i} of {samples}");
 
         match capture_single_photo(device_id.clone(), capture_format.clone()).await {
             Ok(frame) => {
@@ -269,7 +296,7 @@ pub async fn analyze_quality_trends(
                 reports.push(report);
             }
             Err(e) => {
-                log::warn!("Failed to capture sample {}: {}", i, e);
+                log::warn!("Failed to capture sample {i}: {e}");
                 continue;
             }
         }
@@ -287,10 +314,14 @@ pub async fn analyze_quality_trends(
     let blur_scores: Vec<f32> = reports.iter().map(|r| r.score.blur).collect();
     let exposure_scores: Vec<f32> = reports.iter().map(|r| r.score.exposure).collect();
 
+    #[allow(clippy::cast_precision_loss)]
     let avg_quality = scores.iter().sum::<f32>() / scores.len() as f32;
+    #[allow(clippy::cast_precision_loss)]
     let avg_blur = blur_scores.iter().sum::<f32>() / blur_scores.len() as f32;
+    #[allow(clippy::cast_precision_loss)]
     let avg_exposure = exposure_scores.iter().sum::<f32>() / exposure_scores.len() as f32;
 
+    #[allow(clippy::cast_precision_loss)]
     let quality_variance = scores
         .iter()
         .map(|&x| (x - avg_quality).powi(2))
@@ -299,8 +330,15 @@ pub async fn analyze_quality_trends(
 
     let stability_score = (1.0 - quality_variance.sqrt()).clamp(0.0, 1.0);
 
+    let samples_analyzed = u32::try_from(reports.len()).unwrap_or(u32::MAX);
+    #[allow(clippy::cast_precision_loss)]
+    let acceptable_count = reports.iter().filter(|r| r.is_acceptable).count() as f32;
+    #[allow(clippy::cast_precision_loss)]
+    let total_reports = reports.len() as f32;
+    let acceptable_ratio = acceptable_count / total_reports;
+
     Ok(QualityTrendAnalysis {
-        samples_analyzed: reports.len() as u32,
+        samples_analyzed,
         average_quality: avg_quality,
         average_blur_score: avg_blur,
         average_exposure_score: avg_exposure,
@@ -308,8 +346,7 @@ pub async fn analyze_quality_trends(
         stability_score,
         best_score: scores.iter().fold(0.0f32, |a, &b| a.max(b)),
         worst_score: scores.iter().fold(1.0f32, |a, &b| a.min(b)),
-        acceptable_ratio: reports.iter().filter(|r| r.is_acceptable).count() as f32
-            / reports.len() as f32,
+        acceptable_ratio,
     })
 }
 
@@ -381,7 +418,7 @@ mod tests {
         let result = validate_provided_frame(frame).await;
         assert!(result.is_ok());
 
-        let report = result.unwrap();
+        let report = result.expect("validation report expected");
         assert!(report.score.overall >= 0.0 && report.score.overall <= 1.0);
     }
 
@@ -399,7 +436,7 @@ mod tests {
         let result = update_quality_config(config.clone()).await;
         assert!(result.is_ok());
 
-        let retrieved_config = get_quality_config().await.unwrap();
+        let retrieved_config = get_quality_config().await.expect("quality config expected");
         // Verify the config was actually stored and retrieved correctly
         assert!((retrieved_config.blur_threshold - 0.8).abs() < 0.001);
         assert!((retrieved_config.exposure_threshold - 0.8).abs() < 0.001);

@@ -294,10 +294,7 @@ mod platform_linux_tests {
                             assert_eq!(frame.device_id, "0");
 
                             // Should be converted to RGB8 in our implementation
-                            assert!(
-                                frame.format == "RGB8",
-                                "Frame should be converted to RGB8"
-                            );
+                            assert!(frame.format == "RGB8", "Frame should be converted to RGB8");
 
                             // Verify frame data size is reasonable
                             let expected_min_size = (frame.width * frame.height) as usize; // At least 1 byte per pixel
@@ -373,12 +370,8 @@ mod platform_linux_tests {
                         assert!(!formats.is_empty(), "Should have supported formats");
 
                         // Verify common Linux formats are present
-                        let has_yuyv = formats
-                            .iter()
-                            .any(|f| f.format_type == "YUYV");
-                        let has_mjpeg = formats
-                            .iter()
-                            .any(|f| f.format_type == "MJPEG");
+                        let has_yuyv = formats.iter().any(|f| f.format_type == "YUYV");
+                        let has_mjpeg = formats.iter().any(|f| f.format_type == "MJPEG");
 
                         assert!(
                             has_yuyv || has_mjpeg,
@@ -540,15 +533,15 @@ mod platform_linux_tests {
                         assert!(capabilities.max_fps > 0.0, "Max FPS should be positive");
 
                         // Test all boolean capabilities exist
-                        let _ = capabilities.supports_auto_focus;
-                        let _ = capabilities.supports_manual_focus;
-                        let _ = capabilities.supports_auto_exposure;
-                        let _ = capabilities.supports_manual_exposure;
-                        let _ = capabilities.supports_white_balance;
-                        let _ = capabilities.supports_zoom;
-                        let _ = capabilities.supports_flash;
-                        let _ = capabilities.supports_burst_mode;
-                        let _ = capabilities.supports_hdr;
+                        let _ = capabilities.supports.auto_focus;
+                        let _ = capabilities.supports.manual_focus;
+                        let _ = capabilities.supports.auto_exposure;
+                        let _ = capabilities.supports.manual_exposure;
+                        let _ = capabilities.supports.white_balance;
+                        let _ = capabilities.supports.zoom;
+                        let _ = capabilities.supports.flash;
+                        let _ = capabilities.supports.burst_mode;
+                        let _ = capabilities.supports.hdr;
                     }
                     Err(e) => panic!("Getting capabilities should not fail: {:?}", e),
                 }
@@ -689,7 +682,7 @@ mod platform_linux_tests {
 
                     // Verify format type is preserved
                     let expected_type = &format.format_type;
-                        println!("Testing format type: {}", expected_type);
+                    println!("Testing format type: {}", expected_type);
                 }
                 Err(CameraError::InitializationError(_)) => {
                     // Expected if camera or format not supported
@@ -769,9 +762,9 @@ mod platform_linux_tests {
 
                     // Should support V4L2-specific formats
                     let formats = &camera.supports_formats;
-                    let has_linux_format = formats.iter().any(|f| {
-                        f.format_type == "YUYV" || f.format_type == "MJPEG"
-                    });
+                    let has_linux_format = formats
+                        .iter()
+                        .any(|f| f.format_type == "YUYV" || f.format_type == "MJPEG");
 
                     if !has_linux_format && !formats.is_empty() {
                         println!(

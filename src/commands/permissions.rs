@@ -1,11 +1,15 @@
 #[cfg(target_os = "macos")]
-use crate::constants::PERMISSION_REQUEST_TIMEOUT_SECS;
-#[cfg(target_os = "macos")]
 use crate::constants::AV_MEDIA_TYPE_VIDEO;
+#[cfg(target_os = "macos")]
+use crate::constants::PERMISSION_REQUEST_TIMEOUT_SECS;
 use crate::permissions::{check_permission_detailed, PermissionInfo, PermissionStatus};
 use tauri::command;
 
 /// Request camera permission (platform-specific)
+///
+/// # Errors
+/// Returns an `Err` if the current platform is not supported, or, on macOS,
+/// if `AVFoundation` is unavailable or the permission request times out.
 #[command]
 pub async fn request_camera_permission() -> Result<PermissionInfo, String> {
     log::info!("Requesting camera permission");
@@ -115,6 +119,9 @@ async fn request_permission_macos() -> Result<PermissionInfo, String> {
 }
 
 /// Check camera permission status
+///
+/// # Errors
+/// This function always succeeds and never returns an `Err`.
 #[command]
 pub async fn check_camera_permission_status() -> Result<PermissionInfo, String> {
     log::debug!("Checking camera permission status");
@@ -175,7 +182,7 @@ mod tests {
         let result = check_camera_permission_status().await;
         assert!(result.is_ok());
 
-        let info = result.unwrap();
+        let info = result.expect("permission status expected");
         println!("Permission status: {:?}", info.status);
         println!("Message: {}", info.message);
     }
@@ -185,6 +192,6 @@ mod tests {
     fn test_permission_status_string() {
         let status = get_permission_status_string();
         assert!(!status.is_empty());
-        println!("Status string: {}", status);
+        println!("Status string: {status}");
     }
 }

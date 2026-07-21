@@ -33,7 +33,7 @@ mod permissions_tests {
     fn test_check_permission_concurrent() {
         // Test concurrent permission checks
         let handles: Vec<_> = (0..10)
-            .map(|_i| std::thread::spawn(move || check_permission()))
+            .map(|_i| std::thread::spawn(check_permission))
             .collect();
 
         for handle in handles {

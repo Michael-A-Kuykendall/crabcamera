@@ -11,7 +11,7 @@ pub enum BufferPolicy {
     /// Drop the oldest frame when buffer is full
     DropOldest {
         /// Maximum number of frames to hold
-        capacity: usize
+        capacity: usize,
     },
 }
 

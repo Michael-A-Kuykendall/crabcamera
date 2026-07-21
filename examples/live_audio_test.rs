@@ -165,7 +165,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("      Total size: {} bytes", total_opus_bytes);
 
         if total_opus_packets > 0 {
-            let avg_packet_size = total_opus_bytes / total_opus_packets;
+            let avg_packet_size = total_opus_bytes
+                .checked_div(total_opus_packets)
+                .unwrap_or(0);
             let bitrate_actual = (total_opus_bytes * 8) as f64 / 3.0 / 1000.0;
             println!("      Avg packet size: {} bytes", avg_packet_size);
             println!("      Actual bitrate: {:.1} kbps", bitrate_actual);

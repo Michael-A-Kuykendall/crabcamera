@@ -3,9 +3,9 @@
 //! Provides cross-platform device monitoring to detect camera connect/disconnect events
 //! and enable automatic reconnection.
 
+use crate::constants::DEVICE_MONITOR_POLL_INTERVAL_MS;
 use crate::errors::CameraError;
 use crate::types::{CameraDeviceInfo, Platform};
-use crate::constants::DEVICE_MONITOR_POLL_INTERVAL_MS;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
@@ -52,6 +52,11 @@ impl DeviceMonitor {
     }
 
     /// Start monitoring for device changes
+    ///
+    /// # Errors
+    /// Returns a [`CameraError::InitializationError`] if the current platform
+    /// is unknown or unsupported for monitoring, or propagates any error from the
+    /// platform-specific monitor start (e.g. a device enumeration failure).
     pub async fn start_monitoring(&self) -> Result<(), CameraError> {
         let mut is_monitoring = self.is_monitoring.write().await;
         if *is_monitoring {
@@ -80,6 +85,10 @@ impl DeviceMonitor {
     }
 
     /// Stop monitoring for device changes
+    ///
+    /// # Errors
+    /// This function always returns `Ok`; stopping a non-active monitor is a
+    /// no-op rather than an error.
     pub async fn stop_monitoring(&self) -> Result<(), CameraError> {
         let mut is_monitoring = self.is_monitoring.write().await;
         if !*is_monitoring {
@@ -118,7 +127,7 @@ impl DeviceMonitor {
         // Detect disconnections
         for old_id in &old_ids {
             if !new_ids.contains(old_id) {
-                log::info!("Device disconnected: {}", old_id);
+                log::info!("Device disconnected: {old_id}");
                 let _ = self
                     .event_sender
                     .send(DeviceEvent::Disconnected(old_id.clone()));
@@ -168,7 +177,7 @@ impl DeviceMonitor {
                     // Check for changes
                     for old_id in &old_ids {
                         if !new_ids.contains(old_id) {
-                            log::info!("Device disconnected: {}", old_id);
+                            log::info!("Device disconnected: {old_id}");
                             let _ = event_sender.send(DeviceEvent::Disconnected(old_id.clone()));
                         }
                     }
@@ -320,7 +329,7 @@ impl DeviceMonitor {
         use nokhwa::query;
 
         let cameras = query(nokhwa::utils::ApiBackend::Auto).map_err(|e| {
-            CameraError::InitializationError(format!("Failed to query cameras: {}", e))
+            CameraError::InitializationError(format!("Failed to query cameras: {e}"))
         })?;
 
         Ok(cameras
@@ -328,13 +337,15 @@ impl DeviceMonitor {
             .map(|info| {
                 CameraDeviceInfo::new(
                     format!("{}", info.index().as_index().unwrap_or(0)),
-                    info.human_name().to_string(),
+                    info.human_name().clone(),
                 )
             })
             .collect())
     }
 
     #[cfg(not(target_os = "windows"))]
+    // Stub returns `Result` to match the platform-dispatched `scan_devices_sync` signature.
+    #[allow(clippy::unnecessary_wraps)]
     fn scan_devices_windows() -> Result<Vec<CameraDeviceInfo>, CameraError> {
         Ok(Vec::new())
     }
@@ -360,6 +371,8 @@ impl DeviceMonitor {
     }
 
     #[cfg(not(target_os = "macos"))]
+    // Stub returns `Result` to match the platform-dispatched `scan_devices_sync` signature.
+    #[allow(clippy::unnecessary_wraps)]
     fn scan_devices_macos() -> Result<Vec<CameraDeviceInfo>, CameraError> {
         Ok(Vec::new())
     }
@@ -385,6 +398,8 @@ impl DeviceMonitor {
     }
 
     #[cfg(not(target_os = "linux"))]
+    // Stub returns `Result` to match the platform-dispatched `scan_devices_sync` signature.
+    #[allow(clippy::unnecessary_wraps)]
     fn scan_devices_linux() -> Result<Vec<CameraDeviceInfo>, CameraError> {
         Ok(Vec::new())
     }

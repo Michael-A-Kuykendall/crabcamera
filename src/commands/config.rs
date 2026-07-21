@@ -1,12 +1,14 @@
 use crate::config::CrabCameraConfig;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, LazyLock, RwLock};
 use tauri::command;
 
-lazy_static::lazy_static! {
-    static ref GLOBAL_CONFIG: Arc<RwLock<CrabCameraConfig>> = Arc::new(RwLock::new(CrabCameraConfig::load_or_default()));
-}
+static GLOBAL_CONFIG: LazyLock<Arc<RwLock<CrabCameraConfig>>> =
+    LazyLock::new(|| Arc::new(RwLock::new(CrabCameraConfig::load_or_default())));
 
 /// Get the current configuration
+///
+/// # Errors
+/// Returns an `Err` if the global configuration lock is poisoned.
 #[command]
 pub async fn get_config() -> Result<CrabCameraConfig, String> {
     let config = GLOBAL_CONFIG.read().map_err(|e| e.to_string())?;
@@ -14,10 +16,15 @@ pub async fn get_config() -> Result<CrabCameraConfig, String> {
 }
 
 /// Update configuration
+///
+/// # Errors
+/// Returns an `Err` if the new configuration fails validation, if the global
+/// configuration lock is poisoned, or if the configuration cannot be saved to
+/// disk.
 #[command]
 pub async fn update_config(new_config: CrabCameraConfig) -> Result<(), String> {
     // Validate first
-    new_config.validate().map_err(|e| e.to_string())?;
+    new_config.validate().map_err(|e| e.clone())?;
 
     {
         let mut config = GLOBAL_CONFIG.write().map_err(|e| e.to_string())?;
@@ -33,6 +40,10 @@ pub async fn update_config(new_config: CrabCameraConfig) -> Result<(), String> {
 }
 
 /// Reset configuration to defaults
+///
+/// # Errors
+/// Returns an `Err` if the global configuration lock is poisoned or if the
+/// default configuration cannot be saved to disk.
 #[command]
 pub async fn reset_config() -> Result<CrabCameraConfig, String> {
     let default_config = CrabCameraConfig::default();
@@ -40,7 +51,7 @@ pub async fn reset_config() -> Result<CrabCameraConfig, String> {
     {
         let mut config = GLOBAL_CONFIG
             .write()
-            .map_err(|e| format!("Failed to write config: {}", e))?;
+            .map_err(|e| format!("Failed to write config: {e}"))?;
         *config = default_config.clone();
     }
 
@@ -53,6 +64,9 @@ pub async fn reset_config() -> Result<CrabCameraConfig, String> {
 }
 
 /// Get camera configuration
+///
+/// # Errors
+/// Returns an `Err` if the global configuration lock is poisoned.
 #[command]
 pub async fn get_camera_config() -> Result<crate::config::CameraConfig, String> {
     let config = GLOBAL_CONFIG.read().map_err(|e| e.to_string())?;
@@ -60,6 +74,9 @@ pub async fn get_camera_config() -> Result<crate::config::CameraConfig, String> 
 }
 
 /// Get quality configuration (full config object)
+///
+/// # Errors
+/// Returns an `Err` if the global configuration lock is poisoned.
 #[command]
 pub async fn get_full_quality_config() -> Result<crate::config::QualityConfig, String> {
     let config = GLOBAL_CONFIG.read().map_err(|e| e.to_string())?;
@@ -67,6 +84,9 @@ pub async fn get_full_quality_config() -> Result<crate::config::QualityConfig, S
 }
 
 /// Get storage configuration
+///
+/// # Errors
+/// Returns an `Err` if the global configuration lock is poisoned.
 #[command]
 pub async fn get_storage_config() -> Result<crate::config::StorageConfig, String> {
     let config = GLOBAL_CONFIG.read().map_err(|e| e.to_string())?;
@@ -74,6 +94,9 @@ pub async fn get_storage_config() -> Result<crate::config::StorageConfig, String
 }
 
 /// Get advanced configuration
+///
+/// # Errors
+/// Returns an `Err` if the global configuration lock is poisoned.
 #[command]
 pub async fn get_advanced_config() -> Result<crate::config::AdvancedConfig, String> {
     let config = GLOBAL_CONFIG.read().map_err(|e| e.to_string())?;
@@ -81,6 +104,10 @@ pub async fn get_advanced_config() -> Result<crate::config::AdvancedConfig, Stri
 }
 
 /// Update camera configuration
+///
+/// # Errors
+/// Returns an `Err` if the global configuration lock is poisoned, if the
+/// resulting configuration fails validation, or if it cannot be saved to disk.
 #[command]
 pub async fn update_camera_config(
     camera_config: crate::config::CameraConfig,
@@ -88,7 +115,7 @@ pub async fn update_camera_config(
     let mut config = GLOBAL_CONFIG.write().map_err(|e| e.to_string())?;
     config.camera = camera_config;
 
-    config.validate().map_err(|e| e.to_string())?;
+    config.validate().map_err(|e| e.clone())?;
 
     config
         .save_to_file(CrabCameraConfig::default_path())
@@ -98,6 +125,10 @@ pub async fn update_camera_config(
 }
 
 /// Update quality configuration (full config object)
+///
+/// # Errors
+/// Returns an `Err` if the global configuration lock is poisoned, if the
+/// resulting configuration fails validation, or if it cannot be saved to disk.
 #[command]
 pub async fn update_full_quality_config(
     quality_config: crate::config::QualityConfig,
@@ -105,7 +136,7 @@ pub async fn update_full_quality_config(
     let mut config = GLOBAL_CONFIG.write().map_err(|e| e.to_string())?;
     config.quality = quality_config;
 
-    config.validate().map_err(|e| e.to_string())?;
+    config.validate().map_err(|e| e.clone())?;
 
     config
         .save_to_file(CrabCameraConfig::default_path())
@@ -115,6 +146,10 @@ pub async fn update_full_quality_config(
 }
 
 /// Update storage configuration
+///
+/// # Errors
+/// Returns an `Err` if the global configuration lock is poisoned, if the
+/// resulting configuration fails validation, or if it cannot be saved to disk.
 #[command]
 pub async fn update_storage_config(
     storage_config: crate::config::StorageConfig,
@@ -122,7 +157,7 @@ pub async fn update_storage_config(
     let mut config = GLOBAL_CONFIG.write().map_err(|e| e.to_string())?;
     config.storage = storage_config;
 
-    config.validate().map_err(|e| e.to_string())?;
+    config.validate().map_err(|e| e.clone())?;
 
     config
         .save_to_file(CrabCameraConfig::default_path())
@@ -132,6 +167,10 @@ pub async fn update_storage_config(
 }
 
 /// Update advanced configuration
+///
+/// # Errors
+/// Returns an `Err` if the global configuration lock is poisoned, if the
+/// resulting configuration fails validation, or if it cannot be saved to disk.
 #[command]
 pub async fn update_advanced_config(
     advanced_config: crate::config::AdvancedConfig,
@@ -139,7 +178,7 @@ pub async fn update_advanced_config(
     let mut config = GLOBAL_CONFIG.write().map_err(|e| e.to_string())?;
     config.advanced = advanced_config;
 
-    config.validate().map_err(|e| e.to_string())?;
+    config.validate().map_err(|e| e.clone())?;
 
     config
         .save_to_file(CrabCameraConfig::default_path())
@@ -157,7 +196,7 @@ mod tests {
         let result = get_config().await;
         assert!(result.is_ok());
 
-        let config = result.unwrap();
+        let config = result.expect("config should load");
         assert_eq!(config.camera.default_fps, 30);
     }
 
@@ -166,7 +205,7 @@ mod tests {
         let result = reset_config().await;
         assert!(result.is_ok());
 
-        let config = result.unwrap();
+        let config = result.expect("config should reset");
         assert_eq!(config.camera.default_resolution, [1920, 1080]);
     }
 
@@ -175,7 +214,7 @@ mod tests {
         let result = get_camera_config().await;
         assert!(result.is_ok());
 
-        let camera_config = result.unwrap();
+        let camera_config = result.expect("camera config expected");
         assert!(camera_config.auto_reconnect);
     }
 

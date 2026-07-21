@@ -142,7 +142,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     recorder.write_frame(&frame)?;
                     frame_count += 1;
 
-                    if frame_count % 15 == 0 {
+                    if frame_count.is_multiple_of(15) {
                         let elapsed = start.elapsed().as_secs_f64();
                         let fps = frame_count as f64 / elapsed;
                         print!(

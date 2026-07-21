@@ -165,7 +165,7 @@ pub const OPUS_FRAME_DURATION_MS: u32 = 20;
 pub const OPUS_FRAME_SAMPLES: usize = 960; // 20ms at 48kHz
 /// Opus Encoding - Audio Application Profile
 pub const OPUS_APPLICATION_AUDIO: i32 = 2049;
-/// Opus Encoding - VoIP Application Profile
+/// Opus Encoding - `VoIP` Application Profile
 pub const OPUS_APPLICATION_VOIP: i32 = 2048;
 /// Opus Encoding - Low Delay Application Profile
 pub const OPUS_APPLICATION_LOW_DELAY: i32 = 2051;
@@ -210,6 +210,8 @@ pub const LUMA_B: f32 = 0.114;
 /// Size of pooling window
 pub const PYRAMID_POOLING_SIZE: usize = 2;
 /// Area of pooling window
+#[allow(clippy::cast_possible_truncation)]
+// usize→u32: product is always 4, well within u32 range
 pub const PYRAMID_POOLING_AREA: u32 = (PYRAMID_POOLING_SIZE * PYRAMID_POOLING_SIZE) as u32;
 
 /// Image Processing - Alignment

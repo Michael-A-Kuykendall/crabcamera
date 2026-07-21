@@ -1,5 +1,5 @@
 //! Smart Capture Demo
-//! 
+//!
 //! Demonstrates the "Smart Trigger" feature that automatically captures
 //! when image quality is optimal and stable.
 
@@ -28,20 +28,16 @@ fn main() {
     // In a real app, this would be your camera callback loop
     for i in 0..20 {
         // Simulate varying quality (ramping up)
-        let quality_sim = (i as f32 / 15.0).min(0.9); 
-        
+        let quality_sim = (i as f32 / 15.0).min(0.9);
+
         let frame = create_dummy_frame(quality_sim);
-        
+
         // 3. Process frame through Invariant-backed Smart Trigger
         let (status, report) = trigger.process_frame(&frame);
-        
+
         println!(
-            "Frame {}: Quality={:.2} Status={:?} | Blur={:.2} Exposure={:.2}", 
-            i, 
-            report.score.overall, 
-            status,
-            report.score.blur,
-            report.score.exposure
+            "Frame {}: Quality={:.2} Status={:?} | Blur={:.2} Exposure={:.2}",
+            i, report.score.overall, status, report.score.blur, report.score.exposure
         );
 
         match status {
@@ -72,12 +68,12 @@ fn main() {
 fn create_dummy_frame(target_quality: f32) -> CameraFrame {
     // Determine brightness based on target_quality to trick exposure analyzer
     // 128 is perfect mid-gray (good exposure)
-    let brightness = if target_quality > 0.5 { 128 } else { 10 }; 
-    
+    let brightness = if target_quality > 0.5 { 128 } else { 10 };
+
     // Create a generic frame
     let width = 640;
     let height = 480;
     let data = vec![brightness; (width * height * 3) as usize];
-    
+
     CameraFrame::new(data, width, height, "simulated".into())
 }

@@ -1,5 +1,6 @@
 use crate::constants::*;
 use crate::errors::CameraError;
+use crate::platform::metrics::PerfTracker;
 use crate::types::{CameraDeviceInfo, CameraFormat, CameraFrame, CameraInitParams};
 use nokhwa::{
     pixel_format::RgbFormat,
@@ -10,8 +11,8 @@ use nokhwa::{
 use std::sync::{Arc, Mutex};
 
 // Objective-C imports for AVFoundation integration
+use objc::runtime::{Class, Object, NO, YES};
 use objc::{msg_send, sel, sel_impl};
-use objc::runtime::{Object, Class, YES, NO};
 
 /// List available cameras on macOS
 pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
@@ -45,8 +46,16 @@ pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
 
         // Add common macOS camera formats
         let formats = vec![
-            CameraFormat::new(DEFAULT_RESOLUTION_WIDTH, DEFAULT_RESOLUTION_HEIGHT, DEFAULT_FPS),
-            CameraFormat::new(FALLBACK_RESOLUTION_WIDTH, FALLBACK_RESOLUTION_HEIGHT, DEFAULT_FPS),
+            CameraFormat::new(
+                DEFAULT_RESOLUTION_WIDTH,
+                DEFAULT_RESOLUTION_HEIGHT,
+                DEFAULT_FPS,
+            ),
+            CameraFormat::new(
+                FALLBACK_RESOLUTION_WIDTH,
+                FALLBACK_RESOLUTION_HEIGHT,
+                DEFAULT_FPS,
+            ),
             CameraFormat::new(MIN_RESOLUTION_WIDTH, MIN_RESOLUTION_HEIGHT, DEFAULT_FPS),
         ];
         device = device.with_formats(formats);
@@ -88,6 +97,7 @@ pub fn initialize_camera(params: CameraInitParams) -> Result<MacOSCamera, Camera
         device_id: params.device_id,
         format: params.format,
         callback: Arc::new(Mutex::new(None)),
+        perf: Arc::new(Mutex::new(PerfTracker::new())),
     })
 }
 
@@ -97,6 +107,8 @@ pub struct MacOSCamera {
     device_id: String,
     format: CameraFormat,
     callback: Arc<Mutex<Option<Box<dyn Fn(CameraFrame) + Send + 'static>>>>,
+    /// Real performance tracker, updated on every capture.
+    perf: Arc<Mutex<PerfTracker>>,
 }
 
 // Constants for AVFoundation
@@ -119,7 +131,7 @@ trait AVCaptureDeviceExt {
     // We omit it for this iteration to ensure stability.
 }
 
-// Wrapper struct for raw pointer to impl methods 
+// Wrapper struct for raw pointer to impl methods
 struct AVDeviceWrapper(*mut Object);
 
 impl AVDeviceWrapper {
@@ -129,10 +141,11 @@ impl AVDeviceWrapper {
             // Convert device_id string to NSString
             let ns_string_cls = Class::get("NSString")?;
             let utf8_str = std::ffi::CString::new(device_id).ok()?;
-            let ns_uuid: *mut Object = msg_send![ns_string_cls, stringWithUTF8String: utf8_str.as_ptr()];
-            
+            let ns_uuid: *mut Object =
+                msg_send![ns_string_cls, stringWithUTF8String: utf8_str.as_ptr()];
+
             let device: *mut Object = msg_send![cls, deviceWithUniqueID: ns_uuid];
-            
+
             if device.is_null() {
                 None
             } else {
@@ -151,7 +164,9 @@ impl AVCaptureDeviceExt for AVDeviceWrapper {
             if success {
                 Ok(())
             } else {
-                Err(CameraError::InitializationError("Failed to lock device configuration".to_string()))
+                Err(CameraError::InitializationError(
+                    "Failed to lock device configuration".to_string(),
+                ))
             }
         }
     }
@@ -180,14 +195,14 @@ impl AVCaptureDeviceExt for AVDeviceWrapper {
     fn set_exposure_mode(&self, mode: i64) -> Result<(), CameraError> {
         let device = self.0;
         unsafe {
-             let supported: bool = msg_send![device, isExposureModeSupported: mode];
-             if supported {
-                 let _: () = msg_send![device, setExposureMode: mode];
-                 Ok(())
-             } else {
-                 log::warn!("Exposure mode {} not supported by device", mode);
-                 Ok(())
-             }
+            let supported: bool = msg_send![device, isExposureModeSupported: mode];
+            if supported {
+                let _: () = msg_send![device, setExposureMode: mode];
+                Ok(())
+            } else {
+                log::warn!("Exposure mode {} not supported by device", mode);
+                Ok(())
+            }
         }
     }
 
@@ -211,10 +226,22 @@ impl MacOSCamera {
             .lock()
             .map_err(|_| CameraError::CaptureError("Failed to lock camera".to_string()))?;
 
-        let frame = camera
+        let start = std::time::Instant::now();
+        let frame = match camera
             .frame()
-            .map_err(|e| CameraError::CaptureError(format!("Failed to capture frame: {}", e)))?;
+            .map_err(|e| CameraError::CaptureError(format!("Failed to capture frame: {}", e)))
+        {
+            Ok(f) => f,
+            Err(e) => {
+                if let Ok(mut perf) = self.perf.lock() {
+                    perf.record_drop();
+                }
+                return Err(e);
+            }
+        };
+        let latency_ms = start.elapsed().as_secs_f32() * 1000.0;
 
+        let process_start = std::time::Instant::now();
         let camera_frame = CameraFrame::new(
             frame.buffer_bytes().to_vec(),
             frame.resolution().width_x,
@@ -227,6 +254,20 @@ impl MacOSCamera {
         // Call callback if set
         if let Some(ref cb) = *self.callback.lock().unwrap() {
             cb(camera_frame.clone());
+        }
+        let processing_ms = process_start.elapsed().as_secs_f32() * 1000.0;
+
+        if let Ok(mut perf) = self.perf.lock() {
+            perf.record_capture(
+                latency_ms,
+                processing_ms,
+                Some((
+                    frame.buffer_bytes().to_vec(),
+                    camera_frame.width,
+                    camera_frame.height,
+                    format!("{:?}", self.format),
+                )),
+            );
         }
 
         Ok(camera_frame)
@@ -285,14 +326,14 @@ impl MacOSCamera {
                 Some(w) => w,
                 None => return Ok(crate::types::CameraControls::default()),
             };
-            
+
             let device = wrapper.0;
 
             let focus_mode: i64 = msg_send![device, focusMode];
             let exposure_mode: i64 = msg_send![device, exposureMode];
             let lens_position: f32 = msg_send![device, lensPosition];
             let iso: f32 = msg_send![device, ISO];
-            
+
             Ok(crate::types::CameraControls {
                 auto_focus: Some(focus_mode == 1 || focus_mode == 2),
                 focus_distance: Some(lens_position),
@@ -319,7 +360,11 @@ impl MacOSCamera {
     ) -> Result<crate::types::ControlApplicationResult, CameraError> {
         let wrapper = match AVDeviceWrapper::new(&self.device_id) {
             Some(w) => w,
-            None => return Err(CameraError::InitializationError("Device not found".to_string())),
+            None => {
+                return Err(CameraError::InitializationError(
+                    "Device not found".to_string(),
+                ))
+            }
         };
 
         wrapper.lock_for_configuration()?;
@@ -329,7 +374,11 @@ impl MacOSCamera {
 
         // Focus
         if let Some(af) = controls.auto_focus {
-            let mode = if af { AV_CAPTURE_FOCUS_MODE_CONTINUOUS_AUTO } else { AV_CAPTURE_FOCUS_MODE_LOCKED };
+            let mode = if af {
+                AV_CAPTURE_FOCUS_MODE_CONTINUOUS_AUTO
+            } else {
+                AV_CAPTURE_FOCUS_MODE_LOCKED
+            };
             match wrapper.set_focus_mode(mode) {
                 Ok(_) => applied.push("auto_focus".to_string()),
                 Err(e) => {
@@ -351,7 +400,11 @@ impl MacOSCamera {
 
         // Exposure
         if let Some(ae) = controls.auto_exposure {
-            let mode = if ae { AV_CAPTURE_EXPOSURE_MODE_CONTINUOUS_AUTO } else { AV_CAPTURE_EXPOSURE_MODE_LOCKED };
+            let mode = if ae {
+                AV_CAPTURE_EXPOSURE_MODE_CONTINUOUS_AUTO
+            } else {
+                AV_CAPTURE_EXPOSURE_MODE_LOCKED
+            };
             match wrapper.set_exposure_mode(mode) {
                 Ok(_) => applied.push("auto_exposure".to_string()),
                 Err(e) => {
@@ -370,36 +423,53 @@ impl MacOSCamera {
     pub fn test_capabilities(&self) -> Result<crate::types::CameraCapabilities, CameraError> {
         let wrapper = match AVDeviceWrapper::new(&self.device_id) {
             Some(w) => w,
-            None => return Err(CameraError::InitializationError("Device not found".to_string())),
+            None => {
+                return Err(CameraError::InitializationError(
+                    "Device not found".to_string(),
+                ))
+            }
         };
-        
+
         // Default capabilities structure
         let mut caps = crate::types::CameraCapabilities::default();
-        
+
         unsafe {
             let device = wrapper.0;
-            
+
             // Focus Checks
-            caps.supports_manual_focus = msg_send![device, isFocusModeSupported: AV_CAPTURE_FOCUS_MODE_LOCKED];
-            caps.supports_auto_focus = msg_send![device, isFocusModeSupported: AV_CAPTURE_FOCUS_MODE_CONTINUOUS_AUTO] 
-                                    || msg_send![device, isFocusModeSupported: AV_CAPTURE_FOCUS_MODE_AUTO];
-            
+            caps.supports.manual_focus =
+                msg_send![device, isFocusModeSupported: AV_CAPTURE_FOCUS_MODE_LOCKED];
+            caps.supports.auto_focus = msg_send![device, isFocusModeSupported: AV_CAPTURE_FOCUS_MODE_CONTINUOUS_AUTO]
+                || msg_send![device, isFocusModeSupported: AV_CAPTURE_FOCUS_MODE_AUTO];
+
             // Exposure Checks
-            caps.supports_manual_exposure = msg_send![device, isExposureModeSupported: AV_CAPTURE_EXPOSURE_MODE_LOCKED];
-            caps.supports_auto_exposure = msg_send![device, isExposureModeSupported: AV_CAPTURE_EXPOSURE_MODE_CONTINUOUS_AUTO]
-                                       || msg_send![device, isExposureModeSupported: AV_CAPTURE_EXPOSURE_MODE_AUTO];
-            
+            caps.supports.manual_exposure =
+                msg_send![device, isExposureModeSupported: AV_CAPTURE_EXPOSURE_MODE_LOCKED];
+            caps.supports.auto_exposure = msg_send![device, isExposureModeSupported: AV_CAPTURE_EXPOSURE_MODE_CONTINUOUS_AUTO]
+                || msg_send![device, isExposureModeSupported: AV_CAPTURE_EXPOSURE_MODE_AUTO];
+
             // Format support is currently limited to default resolutions
         }
-        
+
         Ok(caps)
     }
 
-    /// Get performance metrics (Not implemented)
+    /// Get real performance metrics for this camera session.
+    ///
+    /// # Errors
+    /// Returns [`CameraError::CaptureError`] if the shared perf tracker mutex is
+    /// poisoned.
     pub fn get_performance_metrics(
         &self,
     ) -> Result<crate::types::CameraPerformanceMetrics, CameraError> {
-        Err(CameraError::UnsupportedOperation("Performance metrics not yet implemented on macOS".to_string()))
+        let perf = self
+            .perf
+            .lock()
+            .map_err(|_| CameraError::CaptureError("Perf tracker mutex poisoned".to_string()))?;
+        Ok(crate::platform::metrics::build_metrics(
+            &perf,
+            &self.device_id,
+        ))
     }
 
     /// Set frame callback for real-time processing

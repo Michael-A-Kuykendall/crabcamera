@@ -1,5 +1,5 @@
 use super::FocusStackError;
-use crate::constants::*;
+use crate::constants::{LUMA_B, LUMA_G, LUMA_R, PYRAMID_POOLING_AREA, PYRAMID_POOLING_SIZE};
 /// Image merging module for focus stacking
 ///
 /// Merges aligned images by selecting sharp regions from each frame.
@@ -22,6 +22,11 @@ pub struct SharpnessMap {
 ///
 /// For each pixel, selects the value from the sharpest source image.
 /// Uses pyramid blending to avoid harsh transitions.
+///
+/// # Errors
+/// Returns a [`FocusStackError::InsufficientImages`] if no frames are provided,
+/// or a [`FocusStackError::DimensionMismatch`] if the frames do not all share
+/// the same dimensions.
 pub fn merge_frames(
     frames: &[CameraFrame],
     sharpness_threshold: f32,
@@ -67,7 +72,7 @@ pub fn merge_frames(
 
     // Validate all frames have valid data
     let expected_data_size = (width * height * 3) as usize;
-    for frame in frames.iter() {
+    for frame in frames {
         if frame.data.len() != expected_data_size {
             return Err(FocusStackError::DataCorruption {
                 frame_size: frame.data.len(),
@@ -83,9 +88,9 @@ pub fn merge_frames(
     // Create merged frame
     log::debug!("Creating merged frame");
     let merged_data = if blend_levels > 0 {
-        merge_with_pyramid_blending(frames, &sharpness_maps, blend_levels)?
+        merge_with_pyramid_blending(frames, &sharpness_maps, blend_levels)
     } else {
-        merge_simple(frames, &sharpness_maps, sharpness_threshold)?
+        merge_simple(frames, &sharpness_maps, sharpness_threshold)
     };
 
     log::info!("Merge complete");
@@ -101,7 +106,7 @@ fn merge_simple(
     frames: &[CameraFrame],
     sharpness_maps: &[SharpnessMap],
     threshold: f32,
-) -> Result<Vec<u8>, FocusStackError> {
+) -> Vec<u8> {
     let width = frames[0].width as usize;
     let height = frames[0].height as usize;
     let pixel_count = width * height;
@@ -129,7 +134,7 @@ fn merge_simple(
             .copy_from_slice(&frames[best_frame_idx].data[src_idx..src_idx + 3]);
     }
 
-    Ok(merged)
+    merged
 }
 
 /// Merge with pyramid blending for smooth transitions
@@ -137,11 +142,11 @@ fn merge_with_pyramid_blending(
     frames: &[CameraFrame],
     sharpness_maps: &[SharpnessMap],
     levels: u32,
-) -> Result<Vec<u8>, FocusStackError> {
+) -> Vec<u8> {
     let width = frames[0].width as usize;
     let height = frames[0].height as usize;
 
-    log::debug!("Pyramid blending with {} levels", levels);
+    log::debug!("Pyramid blending with {levels} levels");
 
     // Create weight maps (normalized sharpness)
     let weight_maps = create_weight_maps(sharpness_maps);
@@ -173,9 +178,7 @@ fn merge_with_pyramid_blending(
 
     // Reconstruct the merged image from the blended Laplacian pyramid
     log::debug!("Reconstructing from pyramid");
-    let merged = reconstruct_from_pyramid(&blended_pyramid);
-
-    Ok(merged)
+    reconstruct_from_pyramid(&blended_pyramid)
 }
 
 /// Compute sharpness map using Laplacian edge detection
@@ -188,8 +191,8 @@ fn compute_sharpness_map(frame: &CameraFrame) -> SharpnessMap {
     if frame.data.len() < expected_size {
         // Return zero sharpness for corrupted frames
         return SharpnessMap {
-            width: width as u32,
-            height: height as u32,
+            width: u32::try_from(width).unwrap_or(u32::MAX),
+            height: u32::try_from(height).unwrap_or(u32::MAX),
             scores: vec![0.0; width * height],
         };
     }
@@ -211,13 +214,13 @@ fn compute_sharpness_map(frame: &CameraFrame) -> SharpnessMap {
             for (dy, dx) in &[(-1, 0), (1, 0), (0, -1), (0, 1)] {
                 // Safe: pixel coordinates never reach usize/i32 boundary for real camera frames
                 #[allow(clippy::cast_possible_wrap)]
-                let ny = y as i32 + dy;
+                let ny = i32::try_from(y).unwrap_or(i32::MAX) + dy;
                 #[allow(clippy::cast_possible_wrap)]
-                let nx = x as i32 + dx;
+                let nx = i32::try_from(x).unwrap_or(i32::MAX) + dx;
                 #[allow(clippy::cast_possible_wrap)]
-                if ny >= 0 && ny < height as i32 && nx >= 0 && nx < width as i32 {
-                    let ny = ny as usize;
-                    let nx = nx as usize;
+                if ny >= 0 && ny < i32::try_from(height).unwrap_or(i32::MAX) && nx >= 0 && nx < i32::try_from(width).unwrap_or(i32::MAX) {
+                    let ny = usize::try_from(ny).unwrap_or(0);
+                    let nx = usize::try_from(nx).unwrap_or(0);
                     let neighbor_idx = (ny * width + nx) * 3;
                     if neighbor_idx + 2 < frame.data.len() {
                         let neighbor = luminance(&frame.data[neighbor_idx..neighbor_idx + 3]);
@@ -227,7 +230,11 @@ fn compute_sharpness_map(frame: &CameraFrame) -> SharpnessMap {
                 }
             }
             if neighbor_count > 0 {
-                laplacian = (neighbor_count as f32 * center - laplacian).abs();
+                // neighbor_count is 0-4, well within f32 precision
+                #[allow(clippy::cast_precision_loss)]
+                {
+                    laplacian = (neighbor_count as f32 * center - laplacian).abs();
+                }
             } else {
                 laplacian = 0.0;
             }
@@ -246,7 +253,7 @@ fn compute_sharpness_map(frame: &CameraFrame) -> SharpnessMap {
 
 /// Convert RGB to luminance (Rec. 601)
 fn luminance(rgb: &[u8]) -> f32 {
-    LUMA_R * rgb[0] as f32 + LUMA_G * rgb[1] as f32 + LUMA_B * rgb[2] as f32
+    LUMA_R * f32::from(rgb[0]) + LUMA_G * f32::from(rgb[1]) + LUMA_B * f32::from(rgb[2])
 }
 
 /// Create normalized weight maps from sharpness maps
@@ -270,6 +277,8 @@ fn create_weight_maps(sharpness_maps: &[SharpnessMap]) -> Vec<Vec<f32>> {
             }
         } else {
             // If all zero, distribute equally
+            // Frame count is small (< 100 typical), well within f32 precision
+            #[allow(clippy::cast_precision_loss)]
             let equal_weight = 1.0 / sharpness_maps.len() as f32;
             for weight_map in &mut weight_maps {
                 weight_map[pixel_idx] = equal_weight;
@@ -333,16 +342,16 @@ fn downsample(data: &[u8], width: usize, height: usize) -> (Vec<u8>, usize, usiz
                     let src_idx = (src_y * width + src_x) * 3;
 
                     if src_idx + 2 < data.len() {
-                        sum[0] += data[src_idx] as u32;
-                        sum[1] += data[src_idx + 1] as u32;
-                        sum[2] += data[src_idx + 2] as u32;
+                        sum[0] += u32::from(data[src_idx]);
+                        sum[1] += u32::from(data[src_idx + 1]);
+                        sum[2] += u32::from(data[src_idx + 2]);
                     }
                 }
             }
 
-            downsampled[dst_idx] = (sum[0] / PYRAMID_POOLING_AREA) as u8;
-            downsampled[dst_idx + 1] = (sum[1] / PYRAMID_POOLING_AREA) as u8;
-            downsampled[dst_idx + 2] = (sum[2] / PYRAMID_POOLING_AREA) as u8;
+            downsampled[dst_idx] = u8::try_from(sum[0] / PYRAMID_POOLING_AREA).unwrap_or(0);
+            downsampled[dst_idx + 1] = u8::try_from(sum[1] / PYRAMID_POOLING_AREA).unwrap_or(0);
+            downsampled[dst_idx + 2] = u8::try_from(sum[2] / PYRAMID_POOLING_AREA).unwrap_or(0);
         }
     }
 
@@ -351,13 +360,9 @@ fn downsample(data: &[u8], width: usize, height: usize) -> (Vec<u8>, usize, usiz
 
 /// Upsample an f32 RGB image from `(src_w, src_h)` to `(dst_w, dst_h)`
 /// using bilinear interpolation.
-fn upsample_f32(
-    data: &[f32],
-    src_w: usize,
-    src_h: usize,
-    dst_w: usize,
-    dst_h: usize,
-) -> Vec<f32> {
+// usize→f32 precision loss acceptable: pixel coords are small (<10000) for pyramid levels
+#[allow(clippy::cast_precision_loss)]
+fn upsample_f32(data: &[f32], src_w: usize, src_h: usize, dst_w: usize, dst_h: usize) -> Vec<f32> {
     let mut out = vec![0.0f32; dst_w * dst_h * 3];
 
     for y in 0..dst_h {
@@ -373,7 +378,10 @@ fn upsample_f32(
                 0.0
             };
 
+            // clamp ensures non-negative and in-bounds; floor removes fractional part
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
             let x0 = sx.floor().clamp(0.0, (src_w - 1) as f32) as usize;
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
             let y0 = sy.floor().clamp(0.0, (src_h - 1) as f32) as usize;
             let x1 = (x0 + 1).min(src_w - 1);
             let y1 = (y0 + 1).min(src_h - 1);
@@ -403,16 +411,18 @@ fn upsample_f32(
 /// `Laplacian[i] = Gaussian[i] - upsample(Gaussian[i+1])`. The coarsest
 /// level is the residual Gaussian. Stored as `(data, width, height)` with
 /// signed `f32` values so detail (including negative differences) is kept.
-fn build_laplacian_pyramid(
-    gaussian: &[(Vec<u8>, usize, usize)],
-) -> Vec<(Vec<f32>, usize, usize)> {
+fn build_laplacian_pyramid(gaussian: &[(Vec<u8>, usize, usize)]) -> Vec<(Vec<f32>, usize, usize)> {
     let levels = gaussian.len();
     let mut laplacian = Vec::with_capacity(levels);
 
     for i in 0..levels.saturating_sub(1) {
-        let cur: Vec<f32> = gaussian[i].0.iter().map(|b| *b as f32).collect();
+        let cur: Vec<f32> = gaussian[i].0.iter().map(|b| f32::from(*b)).collect();
         let (next_f32, next_w, next_h) = (
-            gaussian[i + 1].0.iter().map(|b| *b as f32).collect::<Vec<f32>>(),
+            gaussian[i + 1]
+                .0
+                .iter()
+                .map(|b| f32::from(*b))
+                .collect::<Vec<f32>>(),
             gaussian[i + 1].1,
             gaussian[i + 1].2,
         );
@@ -427,7 +437,11 @@ fn build_laplacian_pyramid(
 
     // Coarsest level: residual Gaussian (no finer level to subtract from)
     laplacian.push((
-        gaussian[levels - 1].0.iter().map(|b| *b as f32).collect(),
+        gaussian[levels - 1]
+            .0
+            .iter()
+            .map(|b| f32::from(*b))
+            .collect(),
         gaussian[levels - 1].1,
         gaussian[levels - 1].2,
     ));
@@ -449,8 +463,13 @@ fn build_weight_pyramid(
     let mut current_height = height;
 
     for _ in 1..levels {
-        let (downsampled, new_width, new_height) =
-            downsample_weights(pyramid.last().expect("pyramid non-empty: initial element pushed above"), current_width, current_height);
+        let (downsampled, new_width, new_height) = downsample_weights(
+            pyramid
+                .last()
+                .expect("pyramid non-empty: initial element pushed above"),
+            current_width,
+            current_height,
+        );
         pyramid.push(downsampled);
         current_width = new_width;
         current_height = new_height;
@@ -476,14 +495,19 @@ fn downsample_weights(weights: &[f32], width: usize, height: usize) -> (Vec<f32>
 
             for dy in 0..PYRAMID_POOLING_SIZE {
                 for dx in 0..PYRAMID_POOLING_SIZE {
-                    let src_idx = (y * PYRAMID_POOLING_SIZE + dy) * width + (x * PYRAMID_POOLING_SIZE + dx);
+                    let src_idx =
+                        (y * PYRAMID_POOLING_SIZE + dy) * width + (x * PYRAMID_POOLING_SIZE + dx);
                     if src_idx < weights.len() {
                         sum += weights[src_idx];
                     }
                 }
             }
 
-            downsampled[dst_idx] = sum / (PYRAMID_POOLING_AREA as f32);
+            // Pooling area is a small constant (4), f32 precision is sufficient
+            #[allow(clippy::cast_precision_loss)]
+            {
+                downsampled[dst_idx] = sum / (PYRAMID_POOLING_AREA as f32);
+            }
         }
     }
 
@@ -549,6 +573,8 @@ fn reconstruct_from_pyramid(pyramid: &[(Vec<f32>, usize, usize)]) -> Vec<u8> {
         current_h = target_h;
     }
 
+    // Clamp to [0, 255] guarantees value fits in u8
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     current.iter().map(|v| v.clamp(0.0, 255.0) as u8).collect()
 }
 
@@ -581,12 +607,12 @@ mod tests {
         let height = 100;
         let data = vec![128u8; width * height * 3];
 
-        let frame = CameraFrame::new(data, width as u32, height as u32, "test_device".to_string());
+        let frame = CameraFrame::new(data, u32::try_from(width).unwrap_or(u32::MAX), u32::try_from(height).unwrap_or(u32::MAX), "test_device".to_string());
 
         let sharpness = compute_sharpness_map(&frame);
 
-        assert_eq!(sharpness.width, width as u32);
-        assert_eq!(sharpness.height, height as u32);
+        assert_eq!(sharpness.width, u32::try_from(width).unwrap_or(u32::MAX));
+        assert_eq!(sharpness.height, u32::try_from(height).unwrap_or(u32::MAX));
         assert_eq!(sharpness.scores.len(), width * height);
     }
 
@@ -611,23 +637,26 @@ mod tests {
 
         let frame = CameraFrame::new(
             data.clone(),
-            width as u32,
-            height as u32,
+            u32::try_from(width).unwrap_or(u32::MAX),
+            u32::try_from(height).unwrap_or(u32::MAX),
             "test_device".to_string(),
         );
 
         let result = merge_frames(&[frame], 0.5, 0);
 
         assert!(result.is_ok());
-        let merged = result.unwrap();
-        assert_eq!(merged.width, width as u32);
+        let merged = result.expect("merge expected");
+        assert_eq!(merged.width, u32::try_from(width).unwrap_or(u32::MAX));
         assert_eq!(merged.data, data);
     }
 
     #[test]
     fn test_merge_frames_empty_errors() {
         let empty = merge_frames(&[], 0.5, 0);
-        assert!(matches!(empty, Err(FocusStackError::InsufficientImages { .. })));
+        assert!(matches!(
+            empty,
+            Err(FocusStackError::InsufficientImages { .. })
+        ));
     }
 
     #[test]
@@ -645,7 +674,10 @@ mod tests {
         let good = mk_frame(8, 8, 120);
 
         let result = merge_frames(&[bad, good], 0.5, 0);
-        assert!(matches!(result, Err(FocusStackError::DataCorruption { .. })));
+        assert!(matches!(
+            result,
+            Err(FocusStackError::DataCorruption { .. })
+        ));
     }
 
     #[test]
@@ -655,8 +687,7 @@ mod tests {
         let sa = compute_sharpness_map(&a);
         let sb = compute_sharpness_map(&b);
 
-        let merged = merge_simple(&[a.clone(), b.clone()], &[sa.clone(), sb.clone()], 0.0)
-            .expect("simple merge should succeed");
+        let merged = merge_simple(&[a.clone(), b.clone()], &[sa.clone(), sb.clone()], 0.0);
         assert_eq!(merged.len(), (4 * 4 * 3) as usize);
 
         let weights = create_weight_maps(&[sa, sb]);

@@ -1,6 +1,9 @@
+use crate::constants::{
+    TRIGGER_CONSECUTIVE_FRAMES, TRIGGER_HISTORY_SIZE, TRIGGER_MIN_QUALITY, TRIGGER_STABILITY_MS,
+    TRIGGER_TIMEOUT_SECS,
+};
 use crate::quality::{QualityReport, QualityScore, QualityValidator};
 use crate::types::CameraFrame;
-use crate::constants::*;
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
@@ -50,14 +53,14 @@ pub enum TriggerStatus {
 pub struct SmartTrigger {
     validator: QualityValidator,
     config: TriggerConfig,
-    
+
     // State tracking
     start_time: Instant,
     good_frame_streak: usize,
     last_good_frame_time: Option<Instant>,
     best_frame_so_far: Option<(CameraFrame, QualityScore)>,
     locked: bool,
-    
+
     // Analysis history for smoothing
     score_history: VecDeque<f32>,
 }
@@ -78,6 +81,7 @@ impl SmartTrigger {
     }
 
     /// Set a custom validator for quality scoring.
+    #[must_use]
     pub fn with_validator(mut self, validator: QualityValidator) -> Self {
         self.validator = validator;
         self
@@ -98,22 +102,22 @@ impl SmartTrigger {
         // Enforce Performance Invariant for analysis speed
         #[cfg(debug_assertions)]
         let _perf_guard = {
-            use crate::invariant_ppt::{PerfSnapshot, assert_performance_invariant};
+            use crate::invariant_ppt::{assert_performance_invariant, PerfSnapshot};
             struct Guard(Instant);
             impl Drop for Guard {
-                 fn drop(&mut self) {
-                     let elapsed = self.0.elapsed().as_secs_f64() * 1000.0;
-                     assert_performance_invariant(
-                         &PerfSnapshot {
-                             label: "smart_trigger_analysis".into(),
-                             latency_ms: elapsed,
-                             throughput_ops: 0.0,
-                             memory_delta_kb: 0,
-                         },
-                         500.0, // Generous budget for debug mode analysis
-                         1.0   
-                     );
-                 }
+                fn drop(&mut self) {
+                    let elapsed = self.0.elapsed().as_secs_f64() * 1000.0;
+                    assert_performance_invariant(
+                        &PerfSnapshot {
+                            label: "smart_trigger_analysis".into(),
+                            latency_ms: elapsed,
+                            throughput_ops: 0.0,
+                            memory_delta_kb: 0,
+                        },
+                        500.0, // Generous budget for debug mode analysis
+                        1.0,
+                    );
+                }
             }
             Guard(Instant::now())
         };
@@ -152,17 +156,17 @@ impl SmartTrigger {
         // Check quality threshold
         if score >= self.config.min_quality_score {
             self.good_frame_streak += 1;
-            
+
             if self.last_good_frame_time.is_none() {
                 self.last_good_frame_time = Some(Instant::now());
             }
 
-            let stability_duration = self.last_good_frame_time
-                .map(|t| t.elapsed())
-                .unwrap_or(Duration::ZERO);
+            let stability_duration = self
+                .last_good_frame_time
+                .map_or(Duration::ZERO, |t| t.elapsed());
 
-            if self.good_frame_streak >= self.config.required_consecutive_good_frames 
-               && stability_duration >= self.config.min_stability_duration 
+            if self.good_frame_streak >= self.config.required_consecutive_good_frames
+                && stability_duration >= self.config.min_stability_duration
             {
                 if self.config.lock_after_ready {
                     self.locked = true;
@@ -178,9 +182,10 @@ impl SmartTrigger {
         let status_msg = if score < self.config.min_quality_score {
             "Improving quality...".to_string()
         } else {
-            format!("Stabilizing ({}/{})", 
-                self.good_frame_streak, 
-                self.config.required_consecutive_good_frames)
+            format!(
+                "Stabilizing ({}/{})",
+                self.good_frame_streak, self.config.required_consecutive_good_frames
+            )
         };
 
         (TriggerStatus::Thinking(status_msg), report)
@@ -214,7 +219,7 @@ mod tests {
             timeout: None,
             lock_after_ready: true,
         };
-        
+
         let mut trigger = SmartTrigger::new(config);
 
         // Frame 1: Low Quality (Black frame triggers underexposed/noise often)
@@ -227,7 +232,7 @@ mod tests {
 
         // Frame 2: Good Quality (Mid gray)
         let frame_good = create_test_frame(128);
-        
+
         // First good frame - starts streak
         let (status, _) = trigger.process_frame(&frame_good);
         match status {
@@ -251,15 +256,15 @@ mod tests {
             timeout: Some(Duration::from_millis(1)), // Immediate timeout
             lock_after_ready: true,
         };
-        
+
         let mut trigger = SmartTrigger::new(config);
-        
+
         // Wait a small amount to ensure timeout elapses
         std::thread::sleep(Duration::from_millis(10));
 
         let frame = create_test_frame(128);
         let (status, _) = trigger.process_frame(&frame);
-        
+
         assert_eq!(status, TriggerStatus::Timeout);
         assert!(trigger.get_best_frame().is_some());
     }

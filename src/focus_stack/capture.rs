@@ -1,6 +1,9 @@
 use super::{FocusStackConfig, FocusStackError};
+use crate::constants::{
+    CAPTURE_RETRY_COUNT, FOCUS_STACK_MAX_BRACKETS, FOCUS_STACK_MAX_DIST, FOCUS_STACK_MAX_SHOTS,
+    FOCUS_STACK_MIN_BRACKETS, FOCUS_STACK_MIN_DIST, FOCUS_STACK_MIN_SHOTS, FOCUS_STACK_MIN_STEPS,
+};
 use crate::platform::capture_with_reconnect;
-use crate::constants::*;
 /// Focus stack capture module
 ///
 /// Handles capturing multiple images at different focus distances
@@ -11,17 +14,22 @@ use crate::types::{CameraFormat, CameraFrame};
 ///
 /// This function captures multiple images with varying focus distances.
 /// For cameras without programmable focus, user must manually adjust focus
-/// between captures (using step_delay_ms for time to adjust).
+/// between captures (using `step_delay_ms` for time to adjust).
+///
+/// # Errors
+/// Returns a [`FocusStackError::InvalidConfig`] if `num_steps` or the focus
+/// range is invalid, a [`FocusStackError::MergeFailed`] if a capture fails, or
+/// a [`FocusStackError::DimensionMismatch`] if captured frames differ in size.
 pub async fn capture_focus_sequence(
     device_id: String,
     config: FocusStackConfig,
     format: Option<CameraFormat>,
 ) -> Result<Vec<CameraFrame>, FocusStackError> {
     // Validate config
-    if config.num_steps < FOCUS_STACK_MIN_STEPS as u32 {
-        return Err(FocusStackError::InvalidConfig(
-            format!("num_steps must be at least {}", FOCUS_STACK_MIN_STEPS),
-        ));
+    if config.num_steps < FOCUS_STACK_MIN_STEPS {
+        return Err(FocusStackError::InvalidConfig(format!(
+            "num_steps must be at least {FOCUS_STACK_MIN_STEPS}"
+        )));
     }
 
     if config.focus_start < FOCUS_STACK_MIN_DIST
@@ -30,7 +38,7 @@ pub async fn capture_focus_sequence(
         || config.focus_end > FOCUS_STACK_MAX_DIST
     {
         return Err(FocusStackError::InvalidConfig(
-            format!("focus_start and focus_end must be between {:.1} and {:.1}", FOCUS_STACK_MIN_DIST, FOCUS_STACK_MAX_DIST),
+            format!("focus_start and focus_end must be between {FOCUS_STACK_MIN_DIST:.1} and {FOCUS_STACK_MAX_DIST:.1}"),
         ));
     }
 
@@ -47,6 +55,7 @@ pub async fn capture_focus_sequence(
 
     // Calculate focus step size
     let focus_range = config.focus_end - config.focus_start;
+    #[allow(clippy::cast_precision_loss)]
     let focus_step = if config.num_steps > 1 {
         focus_range / (config.num_steps - 1) as f32
     } else {
@@ -55,6 +64,7 @@ pub async fn capture_focus_sequence(
 
     // Capture each step
     for step in 0..config.num_steps {
+        #[allow(clippy::cast_precision_loss)]
         let focus_distance = config.focus_start + (step as f32 * focus_step);
 
         log::debug!(
@@ -72,7 +82,13 @@ pub async fn capture_focus_sequence(
         // Use config.step_delay_ms to allow time for manual adjustment between captures.
 
         // Capture frame with reconnection support
-        match capture_with_reconnect(device_id.clone(), capture_format.clone(), CAPTURE_RETRY_COUNT).await {
+        match capture_with_reconnect(
+            device_id.clone(),
+            capture_format.clone(),
+            CAPTURE_RETRY_COUNT,
+        )
+        .await
+        {
             Ok(frame) => {
                 log::debug!(
                     "Captured frame: {}x{} ({} bytes)",
@@ -94,9 +110,9 @@ pub async fn capture_focus_sequence(
 
         // Delay before next capture (except for last frame)
         if step < config.num_steps - 1 {
-            tokio::time::sleep(tokio::time::Duration::from_millis(
-                config.step_delay_ms as u64,
-            ))
+            tokio::time::sleep(tokio::time::Duration::from_millis(u64::from(
+                config.step_delay_ms,
+            )))
             .await;
         }
     }
@@ -125,6 +141,11 @@ pub async fn capture_focus_sequence(
 ///
 /// This captures overlapping focus ranges for better coverage.
 /// Uses a bracketing approach: near, mid, far with overlap.
+///
+/// # Errors
+/// Returns a [`FocusStackError::InvalidConfig`] if the bracket or shots-per-
+/// bracket counts are out of range, or propagates any error from
+/// [`capture_focus_sequence`].
 pub async fn capture_focus_brackets(
     device_id: String,
     brackets: u32,
@@ -132,27 +153,25 @@ pub async fn capture_focus_brackets(
     format: Option<CameraFormat>,
 ) -> Result<Vec<CameraFrame>, FocusStackError> {
     if !(FOCUS_STACK_MIN_BRACKETS..=FOCUS_STACK_MAX_BRACKETS).contains(&brackets) {
-        return Err(FocusStackError::InvalidConfig(
-            format!("brackets must be between {} and {}", FOCUS_STACK_MIN_BRACKETS, FOCUS_STACK_MAX_BRACKETS),
-        ));
+        return Err(FocusStackError::InvalidConfig(format!(
+            "brackets must be between {FOCUS_STACK_MIN_BRACKETS} and {FOCUS_STACK_MAX_BRACKETS}"
+        )));
     }
 
     if !(FOCUS_STACK_MIN_SHOTS..=FOCUS_STACK_MAX_SHOTS).contains(&shots_per_bracket) {
-        return Err(FocusStackError::InvalidConfig(
-            format!("shots_per_bracket must be between {} and {}", FOCUS_STACK_MIN_SHOTS, FOCUS_STACK_MAX_SHOTS),
-        ));
+        return Err(FocusStackError::InvalidConfig(format!(
+            "shots_per_bracket must be between {FOCUS_STACK_MIN_SHOTS} and {FOCUS_STACK_MAX_SHOTS}"
+        )));
     }
 
-    log::info!(
-        "Capturing {} brackets with {} shots each",
-        brackets,
-        shots_per_bracket
-    );
+    log::info!("Capturing {brackets} brackets with {shots_per_bracket} shots each");
 
     let mut all_frames = Vec::new();
+    #[allow(clippy::cast_precision_loss)]
     let bracket_step = 1.0 / brackets as f32;
 
     for bracket_idx in 0..brackets {
+        #[allow(clippy::cast_precision_loss)]
         let focus_start = bracket_idx as f32 * bracket_step;
         let focus_end = focus_start + bracket_step * 1.2; // 20% overlap
 
@@ -205,12 +224,14 @@ mod tests {
         let focus_end = 1.0;
 
         let focus_range = focus_end - focus_start;
+        #[allow(clippy::cast_precision_loss)]
         let focus_step = focus_range / (num_steps - 1) as f32;
 
-        assert_eq!(focus_step, 0.25);
+        assert!((focus_step - 0.25).abs() < 1e-6);
 
         // Verify all steps are in range
         for step in 0..num_steps {
+            #[allow(clippy::cast_precision_loss)]
             let focus = focus_start + (step as f32 * focus_step);
             assert!((0.0..=1.0).contains(&focus));
         }
@@ -219,11 +240,13 @@ mod tests {
     #[test]
     fn test_bracket_calculation() {
         let brackets = 3;
+        #[allow(clippy::cast_precision_loss)]
         let bracket_step = 1.0 / brackets as f32;
 
         assert!((bracket_step - 0.333).abs() < 0.01);
 
         for i in 0..brackets {
+            #[allow(clippy::cast_precision_loss)]
             let start = i as f32 * bracket_step;
             let end = (start + bracket_step * 1.2).min(1.0);
 

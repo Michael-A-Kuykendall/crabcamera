@@ -13,6 +13,11 @@ use std::time::Instant;
 use tauri::command;
 
 /// Capture and merge a focus stack
+///
+/// # Errors
+/// Returns an `Err` if capturing the focus sequence fails, if frame alignment
+/// fails (when enabled) or applying an alignment transform fails, or if merging
+/// the frames fails.
 #[command]
 pub async fn capture_focus_stack(
     device_id: String,
@@ -38,36 +43,38 @@ pub async fn capture_focus_stack(
     let (aligned_frames, avg_alignment_error) = if config.enable_alignment {
         let alignments = align_frames(&frames).map_err(|e| e.to_string())?;
 
+        #[allow(clippy::cast_precision_loss)]
+        // usize→f32: alignment count is small, no precision loss
         let avg_error = alignments.iter().map(|a| a.error).sum::<f32>() / alignments.len() as f32;
 
-        log::info!("Alignment complete, avg error: {:.3} pixels", avg_error);
+    log::info!("Alignment complete, avg error: {avg_error:.3} pixels");
 
-        // Apply alignment transforms to frames
-        let mut aligned = Vec::with_capacity(frames.len());
-        for (frame, alignment) in frames.iter().zip(alignments.iter()) {
-            let aligned_frame = crate::focus_stack::align::apply_alignment(frame, alignment)
-                .map_err(|e| e.to_string())?;
-            aligned.push(aligned_frame);
-        }
+    // Apply alignment transforms to frames
+    let mut aligned = Vec::with_capacity(frames.len());
+    for (frame, alignment) in frames.iter().zip(alignments.iter()) {
+        let aligned_frame = crate::focus_stack::align::apply_alignment(frame, alignment)
+            .map_err(|e| e.to_string())?;
+        aligned.push(aligned_frame);
+    }
 
-        (aligned, avg_error)
-    } else {
-        (frames, 0.0)
-    };
+    (aligned, avg_error)
+} else {
+    (frames, 0.0)
+};
 
-    log::info!("Starting merge with {} blend levels", config.blend_levels);
+log::info!("Starting merge with {} blend levels", config.blend_levels);
 
-    // Merge frames
-    let merged_frame = merge_frames(
-        &aligned_frames,
-        config.sharpness_threshold,
-        config.blend_levels,
-    )
-    .map_err(|e| e.to_string())?;
+// Merge frames
+let merged_frame = merge_frames(
+    &aligned_frames,
+    config.sharpness_threshold,
+    config.blend_levels,
+)
+.map_err(|e| e.to_string())?;
 
-    let processing_time_ms = start_time.elapsed().as_millis() as u64;
+let processing_time_ms = u64::try_from(start_time.elapsed().as_millis()).unwrap_or(u64::MAX);
 
-    log::info!("Focus stack complete in {}ms", processing_time_ms);
+    log::info!("Focus stack complete in {processing_time_ms}ms");
 
     Ok(FocusStackResult {
         merged_frame,
@@ -82,6 +89,10 @@ pub async fn capture_focus_stack(
 /// ## Deprecation
 /// Prefer [`capture_focus_stack`] with a [`FocusStackConfig`] instead.
 /// This granular command is retained for backward compatibility.
+///
+/// # Errors
+/// Returns an `Err` if capturing the focus brackets fails, if frame alignment
+/// fails, or if merging the frames fails.
 #[command]
 pub async fn capture_focus_brackets_command(
     device_id: String,
@@ -91,11 +102,7 @@ pub async fn capture_focus_brackets_command(
     blend_levels: u32,
     format: Option<CameraFormat>,
 ) -> Result<FocusStackResult, String> {
-    log::info!(
-        "Starting focus bracket capture: {} brackets x {} shots",
-        brackets,
-        shots_per_bracket
-    );
+    log::info!("Starting focus bracket capture: {brackets} brackets x {shots_per_bracket} shots");
 
     let start_time = Instant::now();
 
@@ -109,14 +116,16 @@ pub async fn capture_focus_brackets_command(
     // Align and merge
     let alignments = align_frames(&frames).map_err(|e| e.to_string())?;
 
+    #[allow(clippy::cast_precision_loss)]
+    // usize→f32: alignment count is small, no precision loss
     let avg_error = alignments.iter().map(|a| a.error).sum::<f32>() / alignments.len() as f32;
 
     let merged_frame =
         merge_frames(&frames, sharpness_threshold, blend_levels).map_err(|e| e.to_string())?;
 
-    let processing_time_ms = start_time.elapsed().as_millis() as u64;
+    let processing_time_ms = u64::try_from(start_time.elapsed().as_millis()).unwrap_or(u64::MAX);
 
-    log::info!("Focus bracket stack complete in {}ms", processing_time_ms);
+    log::info!("Focus bracket stack complete in {processing_time_ms}ms");
 
     Ok(FocusStackResult {
         merged_frame,
@@ -133,33 +142,37 @@ pub fn get_default_focus_config() -> FocusStackConfig {
 }
 
 /// Validate focus stack configuration
+///
+/// # Errors
+/// Returns an `Err` if `num_steps`, `focus_start`, `focus_end`,
+/// `sharpness_threshold`, or `blend_levels` fall outside their allowed ranges.
+// Owned `FocusStackConfig` is REQUIRED: this is a Tauri `#[command]` and the
+// invoke bridge only deserializes arguments by value. `needless_pass_by_value`
+// is a false positive here — there is no sound `&T` form (Tauri's `CommandArg`
+// is not implemented for `&FocusStackConfig`). Tracked as crabcamera-4lz allow
+// exception pending a decision on framework-forced lints.
+#[allow(clippy::needless_pass_by_value)]
 #[command]
 pub fn validate_focus_config(config: FocusStackConfig) -> Result<String, String> {
     if config.num_steps < FOCUS_STACK_MIN_STEPS {
         return Err(format!(
-            "num_steps must be at least {}",
-            FOCUS_STACK_MIN_STEPS
+            "num_steps must be at least {FOCUS_STACK_MIN_STEPS}"
         ));
     }
 
     if config.num_steps > FOCUS_STACK_MAX_STEPS {
-        return Err(format!(
-            "num_steps must be at most {}",
-            FOCUS_STACK_MAX_STEPS
-        ));
+        return Err(format!("num_steps must be at most {FOCUS_STACK_MAX_STEPS}"));
     }
 
     if config.focus_start < FOCUS_STACK_MIN_DIST || config.focus_start > FOCUS_STACK_MAX_DIST {
         return Err(format!(
-            "focus_start must be between {:.1} and {:.1}",
-            FOCUS_STACK_MIN_DIST, FOCUS_STACK_MAX_DIST
+            "focus_start must be between {FOCUS_STACK_MIN_DIST:.1} and {FOCUS_STACK_MAX_DIST:.1}"
         ));
     }
 
     if config.focus_end < FOCUS_STACK_MIN_DIST || config.focus_end > FOCUS_STACK_MAX_DIST {
         return Err(format!(
-            "focus_end must be between {:.1} and {:.1}",
-            FOCUS_STACK_MIN_DIST, FOCUS_STACK_MAX_DIST
+            "focus_end must be between {FOCUS_STACK_MIN_DIST:.1} and {FOCUS_STACK_MAX_DIST:.1}"
         ));
     }
 
@@ -200,7 +213,9 @@ mod tests {
         };
         let result = validate_focus_config(config);
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("at least 2"));
+        assert!(result
+            .expect_err("steps error expected")
+            .contains("at least 2"));
     }
 
     #[test]
@@ -246,15 +261,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_capture_focus_brackets_command_rejects_invalid_inputs_early() {
-        let result = capture_focus_brackets_command(
-            "0".to_string(),
-            0,
-            3,
-            0.5,
-            5,
-            None,
-        )
-        .await;
+        let result = capture_focus_brackets_command("0".to_string(), 0, 3, 0.5, 5, None).await;
         assert!(result.is_err());
     }
 }

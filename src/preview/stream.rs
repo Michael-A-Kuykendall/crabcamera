@@ -6,6 +6,7 @@ use tokio_util::sync::CancellationToken;
 
 #[cfg(feature = "tauri")]
 use tauri::Emitter;
+use tauri::Runtime;
 
 use crate::platform::PlatformCamera;
 use crate::preview::encode::{downsample_frame, encode_frame_jpeg};
@@ -13,12 +14,14 @@ use crate::preview::types::{PreviewConfig, PreviewFrameEvent};
 use crate::quality::smart_trigger::{SmartTrigger, TriggerStatus};
 use crate::quality::QualityReport;
 
+/// Streams low-latency preview frames (as JPEG) and quality metadata to subscribers.
 pub struct PreviewStream {
     tx: broadcast::Sender<PreviewFrameEvent>,
     cancel: CancellationToken,
 }
 
 impl PreviewStream {
+    /// Create a new preview stream with an empty broadcast channel.
     pub fn new() -> Self {
         let (tx, _) = broadcast::channel(16);
         Self {
@@ -27,16 +30,27 @@ impl PreviewStream {
         }
     }
 
+    /// Subscribe to the preview frame broadcast channel.
     pub fn subscribe(&self) -> broadcast::Receiver<PreviewFrameEvent> {
         self.tx.subscribe()
     }
 
-    pub async fn start(
+    /// Start streaming preview frames from the camera.
+    ///
+    /// # Errors
+    /// Returns an `Err` if the provided [`PreviewConfig`] fails validation.
+    ///
+    /// # Panics
+    /// Panics if the shared camera mutex is poisoned (the internal
+    /// `expect("camera lock")`).
+    // `config` must be owned: it is moved into a `tokio::spawn` `'static` closure.
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn start<R: Runtime>(
         &self,
         camera: Arc<StdMutex<PlatformCamera>>,
         config: PreviewConfig,
         mut trigger: SmartTrigger,
-        #[cfg(feature = "tauri")] app: Option<tauri::AppHandle>,
+        #[cfg(feature = "tauri")] app: Option<tauri::AppHandle<R>>,
     ) -> Result<(), String> {
         config.validate()?;
 
@@ -48,77 +62,86 @@ impl PreviewStream {
 
         #[cfg(feature = "tauri")]
         if let Some(ref a) = app {
-            let _ = a.emit("crabcamera://preview-state", &serde_json::json!({"running": true}));
+            let _ = a.emit(
+                "crabcamera://preview-state",
+                &serde_json::json!({"running": true}),
+            );
         }
 
         tokio::spawn(async move {
             loop {
                 tokio::select! {
-                    _ = cancel.cancelled() => {
+                    () = cancel.cancelled() => {
                         #[cfg(feature = "tauri")]
                         if let Some(ref a) = app {
                             let _ = a.emit("crabcamera://preview-state", &serde_json::json!({"running": false}));
                         }
                         break;
                     }
-                    _ = tokio::time::sleep(Duration::from_millis((1000 / config.fps_target) as u64)) => {}
+                    () = tokio::time::sleep(Duration::from_millis(u64::from(1000 / config.fps_target))) => {}
                 }
 
                 let camera_arc = camera.clone();
-                let frame = match tokio::task::spawn_blocking(move || {
+                let Ok(Ok(frame)) = tokio::task::spawn_blocking(move || {
                     let mut cam = camera_arc.lock().expect("camera lock");
                     cam.capture_frame()
                 })
                 .await
-                {
-                    Ok(Ok(f)) => f,
-                    _ => continue,
+                else {
+                    continue;
                 };
 
                 frame_number += 1;
 
                 let should_analyze =
-                    frame_number % u64::from(config.quality_sample_rate) == 0;
+                    frame_number.is_multiple_of(u64::from(config.quality_sample_rate));
 
-                let (quality_event, stale_flag, trigger_ready, jpeg_data) = if config.downscale < 1.0 {
-                    let preview = downsample_frame(&frame, config.downscale);
+                let (quality_event, stale_flag, trigger_ready, jpeg_data) =
+                    if config.downscale < 1.0 {
+                        let preview = downsample_frame(&frame, config.downscale);
 
-                    let (quality, stale, trigger_status) = if should_analyze {
-                        let (status, report) = trigger.process_frame(&preview);
-                        last_quality = Some(report.clone());
-                        last_sampled_frame = frame_number;
-                        (Some(report), false, status)
-                    } else if let Some(ref cached) = last_quality {
-                        (Some(cached.clone()), true, TriggerStatus::Thinking("stale".into()))
+                        let (quality, stale, trigger_status) = if should_analyze {
+                            let (status, report) = trigger.process_frame(&preview);
+                            last_quality = Some(report.clone());
+                            last_sampled_frame = frame_number;
+                            (Some(report), false, status)
+                        } else if let Some(ref cached) = last_quality {
+                            (
+                                Some(cached.clone()),
+                                true,
+                                TriggerStatus::Thinking("stale".into()),
+                            )
+                        } else {
+                            (None, false, TriggerStatus::Thinking("initial".into()))
+                        };
+
+                        let Ok(jpeg) = encode_frame_jpeg(&preview, config.jpeg_quality) else {
+                            continue;
+                        };
+
+                        (quality, stale, trigger_status == TriggerStatus::Ready, jpeg)
                     } else {
-                        (None, false, TriggerStatus::Thinking("initial".into()))
-                    };
+                        let (quality, stale, trigger_status) = if should_analyze {
+                            let (status, report) = trigger.process_frame(&frame);
+                            last_quality = Some(report.clone());
+                            last_sampled_frame = frame_number;
+                            (Some(report), false, status)
+                        } else if let Some(ref cached) = last_quality {
+                            (
+                                Some(cached.clone()),
+                                true,
+                                TriggerStatus::Thinking("stale".into()),
+                            )
+                        } else {
+                            (None, false, TriggerStatus::Thinking("initial".into()))
+                        };
 
-                    let jpeg = match encode_frame_jpeg(&preview, config.jpeg_quality) {
-                        Ok(d) => d,
-                        Err(_) => continue,
-                    };
+                        let Ok(jpeg) = encode_frame_jpeg(&frame, config.jpeg_quality) else {
+                            continue;
+                        };
 
-                    (quality, stale, trigger_status == TriggerStatus::Ready, jpeg)
-                } else {
-                    let (quality, stale, trigger_status) = if should_analyze {
-                        let (status, report) = trigger.process_frame(&frame);
-                        last_quality = Some(report.clone());
-                        last_sampled_frame = frame_number;
-                        (Some(report), false, status)
-                    } else if let Some(ref cached) = last_quality {
-                        (Some(cached.clone()), true, TriggerStatus::Thinking("stale".into()))
-                    } else {
-                        (None, false, TriggerStatus::Thinking("initial".into()))
+                        (quality, stale, trigger_status == TriggerStatus::Ready, jpeg)
                     };
-
-                    let jpeg = match encode_frame_jpeg(&frame, config.jpeg_quality) {
-                        Ok(d) => d,
-                        Err(_) => continue,
-                    };
-
-                    (quality, stale, trigger_status == TriggerStatus::Ready, jpeg)
-                };
 
                 let event = PreviewFrameEvent {
                     jpeg_data,
@@ -142,6 +165,7 @@ impl PreviewStream {
         Ok(())
     }
 
+    /// Stop the preview stream, cancelling the capture task.
     pub fn stop(&self) {
         self.cancel.cancel();
     }

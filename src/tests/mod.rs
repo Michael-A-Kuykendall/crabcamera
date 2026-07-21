@@ -66,7 +66,7 @@ impl MockCameraSystem {
     ///
     /// Panics if the internal mutex is poisoned.
     pub fn get_devices(&self) -> Vec<CameraDeviceInfo> {
-        self.devices.lock().unwrap().clone()
+        self.devices.lock().expect("Devices mutex poisoned").clone()
     }
 
     /// Set capture mode
@@ -75,7 +75,10 @@ impl MockCameraSystem {
     ///
     /// Panics if the internal mutex is poisoned.
     pub fn set_capture_mode(&self, mode: MockCaptureMode) {
-        *self.capture_mode.lock().expect("Capture mode mutex poisoned") = mode;
+        *self
+            .capture_mode
+            .lock()
+            .expect("Capture mode mutex poisoned") = mode;
     }
 
     /// Set error mode
@@ -157,9 +160,9 @@ pub fn init_test_env() {
 
 // Mock camera mode storage for testing
 use std::collections::HashMap;
-lazy_static::lazy_static! {
-    static ref MOCK_CAMERA_MODES: Arc<Mutex<HashMap<String, MockCaptureMode>>> = Arc::new(Mutex::new(HashMap::new()));
-}
+use std::sync::LazyLock;
+static MOCK_CAMERA_MODES: LazyLock<Arc<Mutex<HashMap<String, MockCaptureMode>>>> =
+    LazyLock::new(|| Arc::new(Mutex::new(HashMap::new())));
 
 /// Set mock camera mode for testing
 ///
@@ -190,7 +193,7 @@ pub fn get_mock_camera_mode(device_id: &str) -> MockCaptureMode {
 }
 
 #[cfg(test)]
-mod tests {
+mod mock_tests {
     use super::*;
 
     #[test]
@@ -255,16 +258,10 @@ mod tests {
     fn test_mock_camera_mode_registry() {
         let id = "mode-cam";
 
-        assert!(matches!(
-            get_mock_camera_mode(id),
-            MockCaptureMode::Success
-        ));
+        assert!(matches!(get_mock_camera_mode(id), MockCaptureMode::Success));
 
         set_mock_camera_mode(id, MockCaptureMode::Failure);
-        assert!(matches!(
-            get_mock_camera_mode(id),
-            MockCaptureMode::Failure
-        ));
+        assert!(matches!(get_mock_camera_mode(id), MockCaptureMode::Failure));
     }
 
     #[test]

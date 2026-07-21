@@ -18,14 +18,14 @@ pub fn synthetic_video_frame(frame_number: u64, width: u32, height: u32) -> Came
     let mut data = vec![0u8; (width * height * 3) as usize];
 
     // Create a gradient pattern that changes each frame (tests temporal encoding)
-    let base = (frame_number % 256) as u8;
+    let base = u8::try_from(frame_number % 256).unwrap_or(u8::MAX);
     for y in 0..height {
         for x in 0..width {
             let idx = ((y * width + x) * 3) as usize;
             // RGB gradient that varies by position and frame
-            data[idx] = base.wrapping_add((x % 256) as u8); // R
-            data[idx + 1] = base.wrapping_add((y % 256) as u8); // G
-            data[idx + 2] = base.wrapping_add(((x + y) % 256) as u8); // B
+            data[idx] = base.wrapping_add(u8::try_from(x % 256).unwrap_or(u8::MAX)); // R
+            data[idx + 1] = base.wrapping_add(u8::try_from(y % 256).unwrap_or(u8::MAX)); // G
+            data[idx + 2] = base.wrapping_add(u8::try_from((x + y) % 256).unwrap_or(u8::MAX)); // B
         }
     }
 
@@ -49,6 +49,8 @@ pub fn synthetic_audio_frame(frame_number: u64, samples_per_frame: usize) -> Aud
     for i in 0..samples_per_frame {
         #[allow(clippy::cast_precision_loss)]
         let t = (frame_number as f64).mul_add(samples_per_frame as f64, i as f64) / sample_rate;
+        #[allow(clippy::cast_possible_truncation)]
+        // f64→f32: audio amplitude range fits well within f32 mantissa
         let value = (2.0 * std::f64::consts::PI * frequency * t).sin() as f32 * 0.3;
 
         // Stereo: same value in both channels
@@ -131,12 +133,8 @@ mod tests {
         let frame = synthetic_audio_frame(0, 960);
         let max_level: f32 = frame.samples.iter().map(|s| s.abs()).fold(0.0, f32::max);
         // Should have non-zero signal (0.3 amplitude sine wave)
-        assert!(
-            max_level > 0.1,
-            "Audio should have signal, got {}",
-            max_level
-        );
-        assert!(max_level < 0.5, "Audio shouldn't clip, got {}", max_level);
+        assert!(max_level > 0.1, "Audio should have signal, got {max_level}");
+        assert!(max_level < 0.5, "Audio shouldn't clip, got {max_level}");
     }
 
     #[cfg(feature = "audio")]

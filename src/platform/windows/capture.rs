@@ -1,4 +1,8 @@
-use crate::constants::*;
+use crate::constants::{
+    DEFAULT_FPS, DEFAULT_RESOLUTION_HEIGHT, DEFAULT_RESOLUTION_WIDTH, FALLBACK_RESOLUTION_HEIGHT,
+    FALLBACK_RESOLUTION_WIDTH, FORMAT_RGB, MIN_RESOLUTION_HEIGHT, MIN_RESOLUTION_WIDTH,
+    MJPEG_SIGNATURE, VALID_FRAME_NONZERO_PERCENT,
+};
 use crate::errors::CameraError;
 use crate::types::{CameraDeviceInfo, CameraFormat, CameraFrame};
 use nokhwa::{
@@ -9,6 +13,10 @@ use nokhwa::{
 };
 
 /// List available cameras on Windows  
+///
+/// # Errors
+/// Returns a [`CameraError::InitializationError`] if no cameras are found
+/// on any query backend.
 pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
     let mut all_cameras = Vec::new();
 
@@ -42,7 +50,7 @@ pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
                 }
             }
             Err(e) => {
-                log::debug!("Backend {:?} failed: {}", backend, e);
+                log::debug!("Backend {backend:?} failed: {e}");
                 // Continue trying other backends
             }
         }
@@ -63,8 +71,16 @@ pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
 
         // Add common Windows camera formats
         let formats = vec![
-            CameraFormat::new(DEFAULT_RESOLUTION_WIDTH, DEFAULT_RESOLUTION_HEIGHT, DEFAULT_FPS),
-            CameraFormat::new(FALLBACK_RESOLUTION_WIDTH, FALLBACK_RESOLUTION_HEIGHT, DEFAULT_FPS),
+            CameraFormat::new(
+                DEFAULT_RESOLUTION_WIDTH,
+                DEFAULT_RESOLUTION_HEIGHT,
+                DEFAULT_FPS,
+            ),
+            CameraFormat::new(
+                FALLBACK_RESOLUTION_WIDTH,
+                FALLBACK_RESOLUTION_HEIGHT,
+                DEFAULT_FPS,
+            ),
             CameraFormat::new(MIN_RESOLUTION_WIDTH, MIN_RESOLUTION_HEIGHT, DEFAULT_FPS),
         ];
         device = device.with_formats(formats);
@@ -75,17 +91,21 @@ pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
     Ok(device_list)
 }
 
-/// Initialize camera on Windows with MediaFoundation backend
+/// Initialize camera on Windows with `MediaFoundation` backend
 ///
 /// # Arguments
 /// * `device_id` - The camera device index as a string
 /// * `format` - Requested camera format (currently ignored - nokhwa uses highest resolution)
 ///
 /// # Note
-/// The `format` parameter is currently not applied because nokhwa's MediaFoundation
-/// backend works best with AbsoluteHighestResolution mode. Format negotiation happens
+/// The `format` parameter is currently not applied because nokhwa's `MediaFoundation`
+/// backend works best with `AbsoluteHighestResolution` mode. Format negotiation happens
 /// at the frame capture level via MJPEG decoding.
-pub fn initialize_camera(device_id: &str, format: CameraFormat) -> Result<Camera, CameraError> {
+///
+/// # Errors
+/// Returns a [`CameraError::InitializationError`] if the `device_id`
+/// cannot be parsed, or if the `nokhwa` camera cannot be created.
+pub fn initialize_camera(device_id: &str, format: &CameraFormat) -> Result<Camera, CameraError> {
     log::debug!(
         "Requested format: {}x{} @ {}fps (note: nokhwa will use highest resolution)",
         format.width,
@@ -104,18 +124,22 @@ pub fn initialize_camera(device_id: &str, format: CameraFormat) -> Result<Camera
         nokhwa::utils::CameraIndex::Index(device_index),
         requested_format,
     )
-    .map_err(|e| CameraError::InitializationError(format!("Failed to initialize camera: {}", e)))?;
+    .map_err(|e| CameraError::InitializationError(format!("Failed to initialize camera: {e}")))?;
 
     Ok(camera)
 }
 
 /// Capture frame from Windows camera
-/// Note: nokhwa returns MJPEG data even when RgbFormat is requested,
+/// Note: nokhwa returns MJPEG data even when `RgbFormat` is requested,
 /// so we need to decode it manually to RGB
+///
+/// # Errors
+/// Returns a [`CameraError::CaptureError`] if the `nokhwa` frame
+/// cannot be obtained or, for MJPEG data, if it cannot be decoded.
 pub fn capture_frame(camera: &mut Camera, device_id: &str) -> Result<CameraFrame, CameraError> {
     let frame = camera
         .frame()
-        .map_err(|e| CameraError::CaptureError(format!("Failed to capture frame: {}", e)))?;
+        .map_err(|e| CameraError::CaptureError(format!("Failed to capture frame: {e}")))?;
 
     let raw_bytes = frame.buffer_bytes();
     let width = frame.resolution().width_x;
@@ -130,34 +154,40 @@ pub fn capture_frame(camera: &mut Camera, device_id: &str) -> Result<CameraFrame
     );
 
     // Check if the data is MJPEG
-    let rgb_data = if raw_bytes.len() >= MJPEG_SIGNATURE.len()
-        && raw_bytes.starts_with(&MJPEG_SIGNATURE)
-    {
-        // Data is MJPEG - decode to RGB
-        log::debug!("Decoding MJPEG frame ({} bytes) to RGB", raw_bytes.len());
+    let rgb_data =
+        if raw_bytes.len() >= MJPEG_SIGNATURE.len() && raw_bytes.starts_with(&MJPEG_SIGNATURE) {
+            // Data is MJPEG - decode to RGB
+            log::debug!("Decoding MJPEG frame ({} bytes) to RGB", raw_bytes.len());
 
-        let img = image::load_from_memory(&raw_bytes)
-            .map_err(|e| CameraError::CaptureError(format!("Failed to decode MJPEG: {}", e)))?;
+            let img = image::load_from_memory(&raw_bytes)
+                .map_err(|e| CameraError::CaptureError(format!("Failed to decode MJPEG: {e}")))?;
 
-        img.to_rgb8().into_raw()
-    } else {
-        // Data is already RGB (or at least not MJPEG)
-        // Check if it's mostly zeros (invalid frame)
-        let non_zero_count = raw_bytes.iter().filter(|&&b| b != 0).count();
-        let total = raw_bytes.len();
-        let pct_nonzero = (non_zero_count as f64 / total as f64) * 100.0;
-        log::debug!("RGB frame: {:.1}% non-zero pixels", pct_nonzero);
+            img.to_rgb8().into_raw()
+        } else {
+            // Data is already RGB (or at least not MJPEG)
+            // Check if it's mostly zeros (invalid frame)
+            let non_zero_count = raw_bytes.iter().filter(|&&b| b != 0).count();
+            let total = raw_bytes.len();
+            #[allow(clippy::cast_precision_loss)]
+            // usize→f64: percent calculation; full u64 precision not needed for validation
+            let pct_nonzero = (non_zero_count as f64 / total as f64) * 100.0;
+            log::debug!("RGB frame: {pct_nonzero:.1}% non-zero pixels");
 
-        if pct_nonzero < VALID_FRAME_NONZERO_PERCENT {
-            log::warn!("Frame appears to be mostly zeros ({:.1}%) - camera may not be ready", pct_nonzero);
-        }
+            if pct_nonzero < VALID_FRAME_NONZERO_PERCENT {
+                log::warn!(
+                "Frame appears to be mostly zeros ({pct_nonzero:.1}%) - camera may not be ready"
+            );
+            }
 
-        raw_bytes.to_vec()
-    };
+            raw_bytes.to_vec()
+        };
 
     let camera_frame = CameraFrame::new(rgb_data, width, height, device_id.to_string());
 
-    Ok(camera_frame.with_format(frame.source_frame_format().to_string()))
+    // The frame is delivered as RGB8: MJPEG input is decoded above, and raw
+    // frames are treated as RGB per the Windows pipeline contract. The label
+    // must reflect the decoded output, not the camera's raw source format.
+    Ok(camera_frame.with_format(FORMAT_RGB.to_string()))
 }
 
 #[cfg(test)]
@@ -166,7 +196,7 @@ mod tests {
 
     #[test]
     fn test_initialize_camera_rejects_non_numeric_device_id() {
-        let result = initialize_camera("not-a-number", CameraFormat::standard());
+        let result = initialize_camera("not-a-number", &CameraFormat::standard());
         assert!(result.is_err());
         assert!(matches!(result, Err(CameraError::InitializationError(_))));
     }
@@ -181,7 +211,7 @@ mod tests {
     #[test]
     fn test_initialize_camera_numeric_id_best_effort() {
         // May fail if no device is available, but should still execute the numeric-id path.
-        let result = initialize_camera("0", CameraFormat::standard());
+        let result = initialize_camera("0", &CameraFormat::standard());
         assert!(result.is_ok() || result.is_err());
     }
 }

@@ -4,9 +4,16 @@
 //! different platforms (Windows, macOS, Linux) while maintaining platform-specific
 //! optimizations and features.
 
+use crate::constants::{
+    DEFAULT_RESOLUTION_HEIGHT, DEFAULT_RESOLUTION_WIDTH, HIGH_FPS, MAX_ISO, MIN_ISO,
+    MOCK_CAPTURE_LATENCY_MS, MOCK_FPS, MOCK_MEMORY_USAGE_MB, MOCK_PROCESSING_TIME_MS,
+    MOCK_QUALITY_SCORE, MOCK_SLOW_CAPTURE_DELAY_MS,
+};
 use crate::errors::CameraError;
-use crate::constants::*;
-use crate::types::{CameraDeviceInfo, CameraFormat, CameraFrame, CameraInitParams, ControlApplicationResult, Platform};
+use crate::types::{
+    CameraDeviceInfo, CameraFormat, CameraFrame, CameraInitParams, ControlApplicationResult,
+    Platform,
+};
 
 // Type alias for frame callback to reduce complexity
 type FrameCallback = Box<dyn Fn(CameraFrame) + Send + 'static>;
@@ -23,6 +30,9 @@ pub mod linux;
 
 // Device monitoring module
 pub mod device_monitor;
+
+// Shared real performance tracking
+pub mod metrics;
 
 pub use device_monitor::{DeviceEvent, DeviceMonitor};
 
@@ -66,8 +76,11 @@ impl MockCamera {
         }
     }
 
-
     /// Capture a single frame from the mock camera.
+    ///
+    /// # Errors
+    /// Returns a [`CameraError::CaptureError`] when the mock camera is in its
+    /// failure simulation mode.
     pub fn capture_frame(&mut self) -> Result<CameraFrame, CameraError> {
         // Check global registry first, then fall back to local mode
         let mode = crate::tests::get_mock_camera_mode(&self.device_id);
@@ -98,6 +111,9 @@ impl MockCamera {
     }
 
     /// Start the stream.
+    ///
+    /// # Errors
+    /// This function currently always returns `Ok` and never returns an `Err`.
     pub fn start_stream(&self) -> Result<(), CameraError> {
         if let Ok(mut streaming) = self.is_streaming.lock() {
             *streaming = true;
@@ -106,6 +122,9 @@ impl MockCamera {
     }
 
     /// Stop the stream.
+    ///
+    /// # Errors
+    /// This function currently always returns `Ok` and never returns an `Err`.
     pub fn stop_stream(&self) -> Result<(), CameraError> {
         if let Ok(mut streaming) = self.is_streaming.lock() {
             *streaming = false;
@@ -113,8 +132,10 @@ impl MockCamera {
         Ok(())
     }
 
-
     /// Register a callback for new frames.
+    ///
+    /// # Errors
+    /// This function currently always returns `Ok` and never returns an `Err`.
     pub fn frame_callback<F>(&mut self, callback: F) -> Result<(), CameraError>
     where
         F: Fn(CameraFrame) + Send + 'static,
@@ -136,6 +157,9 @@ impl MockCamera {
     }
 
     /// Apply camera controls.
+    ///
+    /// # Errors
+    /// This function currently always returns `Ok` and never returns an `Err`.
     pub fn apply_controls(
         &mut self,
         controls: &crate::types::CameraControls,
@@ -145,24 +169,58 @@ impl MockCamera {
         }
         // Mock accepts every control requested
         let mut applied = Vec::new();
-        if controls.auto_focus.is_some() { applied.push("auto_focus".to_string()); }
-        if controls.focus_distance.is_some() { applied.push("focus_distance".to_string()); }
-        if controls.auto_exposure.is_some() { applied.push("auto_exposure".to_string()); }
-        if controls.exposure_time.is_some() { applied.push("exposure_time".to_string()); }
-        if controls.iso_sensitivity.is_some() { applied.push("iso_sensitivity".to_string()); }
-        if controls.white_balance.is_some() { applied.push("white_balance".to_string()); }
-        if controls.aperture.is_some() { applied.push("aperture".to_string()); }
-        if controls.zoom.is_some() { applied.push("zoom".to_string()); }
-        if controls.brightness.is_some() { applied.push("brightness".to_string()); }
-        if controls.contrast.is_some() { applied.push("contrast".to_string()); }
-        if controls.saturation.is_some() { applied.push("saturation".to_string()); }
-        if controls.sharpness.is_some() { applied.push("sharpness".to_string()); }
-        if controls.noise_reduction.is_some() { applied.push("noise_reduction".to_string()); }
-        if controls.image_stabilization.is_some() { applied.push("image_stabilization".to_string()); }
-        Ok(ControlApplicationResult { applied, rejected: vec![] })
+        if controls.auto_focus.is_some() {
+            applied.push("auto_focus".to_string());
+        }
+        if controls.focus_distance.is_some() {
+            applied.push("focus_distance".to_string());
+        }
+        if controls.auto_exposure.is_some() {
+            applied.push("auto_exposure".to_string());
+        }
+        if controls.exposure_time.is_some() {
+            applied.push("exposure_time".to_string());
+        }
+        if controls.iso_sensitivity.is_some() {
+            applied.push("iso_sensitivity".to_string());
+        }
+        if controls.white_balance.is_some() {
+            applied.push("white_balance".to_string());
+        }
+        if controls.aperture.is_some() {
+            applied.push("aperture".to_string());
+        }
+        if controls.zoom.is_some() {
+            applied.push("zoom".to_string());
+        }
+        if controls.brightness.is_some() {
+            applied.push("brightness".to_string());
+        }
+        if controls.contrast.is_some() {
+            applied.push("contrast".to_string());
+        }
+        if controls.saturation.is_some() {
+            applied.push("saturation".to_string());
+        }
+        if controls.sharpness.is_some() {
+            applied.push("sharpness".to_string());
+        }
+        if controls.noise_reduction.is_some() {
+            applied.push("noise_reduction".to_string());
+        }
+        if controls.image_stabilization.is_some() {
+            applied.push("image_stabilization".to_string());
+        }
+        Ok(ControlApplicationResult {
+            applied,
+            rejected: vec![],
+        })
     }
 
     /// Get current camera controls.
+    ///
+    /// # Errors
+    /// This function currently always returns `Ok` and never returns an `Err`.
     pub fn get_controls(&self) -> Result<crate::types::CameraControls, CameraError> {
         if let Ok(controls) = self.controls.lock() {
             Ok(controls.clone())
@@ -172,17 +230,22 @@ impl MockCamera {
     }
 
     /// Create a mock capabilities report.
+    ///
+    /// # Errors
+    /// This function currently always returns `Ok` and never returns an `Err`.
     pub fn test_capabilities(&self) -> Result<crate::types::CameraCapabilities, CameraError> {
         Ok(crate::types::CameraCapabilities {
-            supports_auto_focus: true,
-            supports_manual_focus: true,
-            supports_auto_exposure: true,
-            supports_manual_exposure: true,
-            supports_white_balance: true,
-            supports_zoom: true,
-            supports_flash: false,
-            supports_burst_mode: true,
-            supports_hdr: true,
+            supports: crate::types::CameraCapabilityFlags {
+                auto_focus: true,
+                manual_focus: true,
+                auto_exposure: true,
+                manual_exposure: true,
+                white_balance: true,
+                zoom: true,
+                flash: false,
+                burst_mode: true,
+                hdr: true,
+            },
             max_resolution: (DEFAULT_RESOLUTION_WIDTH, DEFAULT_RESOLUTION_HEIGHT),
             max_fps: HIGH_FPS,
             exposure_range: Some((0.001, 10.0)),
@@ -192,6 +255,9 @@ impl MockCamera {
     }
 
     /// Get mock performance metrics.
+    ///
+    /// # Errors
+    /// This function currently always returns `Ok` and never returns an `Err`.
     pub fn get_performance_metrics(
         &self,
     ) -> Result<crate::types::CameraPerformanceMetrics, CameraError> {
@@ -231,6 +297,11 @@ pub enum PlatformCamera {
 
 impl PlatformCamera {
     /// Create new platform camera from initialization parameters
+    ///
+    /// # Errors
+    /// Returns a [`CameraError::InitializationError`] if the current platform
+    /// is unsupported, or propagates any error from the platform-specific camera
+    /// creation.
     pub fn new(params: CameraInitParams) -> Result<Self, CameraError> {
         // Only use mock camera when explicitly requested via environment variable
         // or when running in unit test threads (thread name contains "test")
@@ -250,7 +321,7 @@ impl PlatformCamera {
         match Platform::current() {
             #[cfg(target_os = "windows")]
             Platform::Windows => {
-                let camera = windows::WindowsCamera::new(params.device_id, params.format)?;
+                let camera = windows::WindowsCamera::new(params.device_id, &params.format)?;
                 Ok(PlatformCamera::Windows(camera))
             }
 
@@ -273,6 +344,10 @@ impl PlatformCamera {
     }
 
     /// Capture a single frame from the camera
+    ///
+    /// # Errors
+    /// Returns a [`CameraError::InitializationError`] on an unsupported platform,
+    /// or propagates any error from the underlying platform camera's capture.
     pub fn capture_frame(&mut self) -> Result<CameraFrame, CameraError> {
         match self {
             #[cfg(target_os = "windows")]
@@ -294,6 +369,10 @@ impl PlatformCamera {
     }
 
     /// Start camera stream
+    ///
+    /// # Errors
+    /// Returns a [`CameraError::InitializationError`] on an unsupported platform,
+    /// or propagates any error from the underlying platform camera's stream start.
     pub fn start_stream(&mut self) -> Result<(), CameraError> {
         match self {
             #[cfg(target_os = "windows")]
@@ -315,6 +394,10 @@ impl PlatformCamera {
     }
 
     /// Stop camera stream
+    ///
+    /// # Errors
+    /// Returns a [`CameraError::InitializationError`] on an unsupported platform,
+    /// or propagates any error from the underlying platform camera's stream stop.
     pub fn stop_stream(&mut self) -> Result<(), CameraError> {
         match self {
             #[cfg(target_os = "windows")]
@@ -355,6 +438,11 @@ impl PlatformCamera {
     }
 
     /// Set frame callback for real-time processing
+    ///
+    /// # Errors
+    /// Returns a [`CameraError::UnsupportedOperation`] on an unsupported platform,
+    /// or propagates any error from the underlying platform camera's callback
+    /// registration.
     pub fn frame_callback<F>(&mut self, callback: F) -> Result<(), CameraError>
     where
         F: Fn(CameraFrame) + Send + 'static,
@@ -398,6 +486,11 @@ impl PlatformCamera {
     }
 
     /// Apply camera controls
+    ///
+    /// # Errors
+    /// Returns a [`CameraError::InitializationError`] on an unsupported platform,
+    /// or propagates any error from the underlying platform camera's control
+    /// application.
     pub fn apply_controls(
         &mut self,
         controls: &crate::types::CameraControls,
@@ -422,6 +515,10 @@ impl PlatformCamera {
     }
 
     /// Get current camera controls
+    ///
+    /// # Errors
+    /// Returns a [`CameraError::InitializationError`] on an unsupported platform,
+    /// or propagates any error from the underlying platform camera's control read.
     pub fn get_controls(&self) -> Result<crate::types::CameraControls, CameraError> {
         match self {
             #[cfg(target_os = "windows")]
@@ -443,6 +540,11 @@ impl PlatformCamera {
     }
 
     /// Test camera capabilities
+    ///
+    /// # Errors
+    /// Returns a [`CameraError::InitializationError`] on an unsupported platform,
+    /// or propagates any error from the underlying platform camera's capability
+    /// query.
     pub fn test_capabilities(&self) -> Result<crate::types::CameraCapabilities, CameraError> {
         match self {
             #[cfg(target_os = "windows")]
@@ -464,21 +566,17 @@ impl PlatformCamera {
     }
 
     /// Get performance metrics
+    ///
+    /// # Errors
+    /// Returns a [`CameraError::InitializationError`] on an unsupported platform,
+    /// or propagates any error from the underlying platform camera's metrics
+    /// query.
     pub fn get_performance_metrics(
         &self,
     ) -> Result<crate::types::CameraPerformanceMetrics, CameraError> {
         match self {
             #[cfg(target_os = "windows")]
-            PlatformCamera::Windows(_camera) => Ok(crate::types::CameraPerformanceMetrics {
-                // Estimated baseline values until per-frame timing hooks are wired on Windows.
-                capture_latency_ms: MOCK_CAPTURE_LATENCY_MS,
-                processing_time_ms: MOCK_PROCESSING_TIME_MS,
-                memory_usage_mb: MOCK_MEMORY_USAGE_MB,
-                fps_actual: MOCK_FPS,
-                dropped_frames: 0,
-                buffer_overruns: 0,
-                quality_score: MOCK_QUALITY_SCORE,
-            }),
+            PlatformCamera::Windows(camera) => camera.get_performance_metrics(),
 
             #[cfg(target_os = "macos")]
             PlatformCamera::MacOS(camera) => camera.get_performance_metrics(),
@@ -508,6 +606,11 @@ pub struct CameraSystem;
 
 impl CameraSystem {
     /// List all available cameras on the current platform
+    ///
+    /// # Errors
+    /// Returns a [`CameraError::InitializationError`] if the current platform
+    /// is unsupported, or propagates any error from the platform-specific camera
+    /// enumeration.
     pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
         match Platform::current() {
             #[cfg(target_os = "windows")]
@@ -526,6 +629,11 @@ impl CameraSystem {
     }
 
     /// Initialize the camera system for the current platform
+    ///
+    /// # Errors
+    /// Returns a [`CameraError::InitializationError`] if the platform is
+    /// unknown, if V4L2 is unavailable on Linux, or if Linux support was not
+    /// compiled in.
     pub fn initialize() -> Result<String, CameraError> {
         match Platform::current() {
             Platform::Windows => {
@@ -555,6 +663,9 @@ impl CameraSystem {
     }
 
     /// Get platform-specific information
+    ///
+    /// # Errors
+    /// This function currently always returns `Ok` and never returns an `Err`.
     pub fn get_platform_info() -> Result<PlatformInfo, CameraError> {
         let platform = Platform::current();
 
@@ -597,6 +708,10 @@ impl CameraSystem {
     }
 
     /// Test camera system functionality
+    ///
+    /// # Errors
+    /// This function always returns a test report and never returns an `Err`;
+    /// individual camera failures are captured in the report's `test_results`.
     pub fn test_system() -> Result<SystemTestResult, CameraError> {
         let platform = Platform::current();
         let cameras = Self::list_cameras()?;
@@ -635,7 +750,7 @@ impl CameraSystem {
 pub struct PlatformInfo {
     /// The operating system platform.
     pub platform: Platform,
-    /// The camera backend in use (e.g. "MediaFoundation", "V4L2").
+    /// The camera backend in use (e.g. "`MediaFoundation`", "V4L2").
     pub backend: String,
     /// List of supported camera features.
     pub features: Vec<String>,
@@ -667,7 +782,7 @@ pub enum CameraTestResult {
 
 /// Platform-specific optimizations and utilities
 pub mod optimizations {
-    use super::*;
+    use super::{CameraFormat, CameraInitParams, Platform};
 
     /// Get recommended format for high-quality photography on current platform
     pub fn get_photography_format() -> CameraFormat {
@@ -742,8 +857,10 @@ mod tests {
     fn test_platform_camera_mock_end_to_end() {
         std::env::set_var("CRABCAMERA_USE_MOCK", "1");
 
-        let params = CameraInitParams::new("pcam-1".to_string()).with_format(CameraFormat::standard());
-        let mut camera = PlatformCamera::new(params).expect("mock platform camera should initialize");
+        let params =
+            CameraInitParams::new("pcam-1".to_string()).with_format(CameraFormat::standard());
+        let mut camera =
+            PlatformCamera::new(params).expect("mock platform camera should initialize");
 
         camera.start_stream().expect("start should work");
         let frame = camera.capture_frame().expect("capture should work");
@@ -765,7 +882,7 @@ mod tests {
         assert_eq!(current.brightness, Some(0.1));
 
         let caps = camera.test_capabilities().expect("caps should work");
-        assert!(caps.supports_auto_focus);
+        assert!(caps.supports.auto_focus);
 
         let metrics = camera
             .get_performance_metrics()
@@ -806,7 +923,7 @@ mod tests {
                     || result
                         .as_ref()
                         .err()
-                        .map_or(false, |e| e.to_string().contains("camera")
+                        .is_some_and(|e| e.to_string().contains("camera")
                             || e.to_string().contains("device")
                             || e.to_string().contains("init"))
             ),

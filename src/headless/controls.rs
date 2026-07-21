@@ -108,20 +108,20 @@ pub struct ControlInfo {
 /// and introspection.
 #[must_use]
 pub fn all_controls() -> Vec<ControlInfo> {
+    let mut controls = boolean_controls();
+    controls.extend(f32_controls());
+    controls.extend(u32_controls());
+    controls
+}
+
+/// Boolean-typed control descriptors.
+fn boolean_controls() -> Vec<ControlInfo> {
     vec![
         ControlInfo {
             id: ControlId::AutoFocus,
             kind: ControlKind::Bool,
             min_f32: None,
             max_f32: None,
-            min_u32: None,
-            max_u32: None,
-        },
-        ControlInfo {
-            id: ControlId::FocusDistance,
-            kind: ControlKind::F32,
-            min_f32: Some(0.0),
-            max_f32: Some(1.0),
             min_u32: None,
             max_u32: None,
         },
@@ -134,25 +134,47 @@ pub fn all_controls() -> Vec<ControlInfo> {
             max_u32: None,
         },
         ControlInfo {
-            id: ControlId::ExposureTime,
-            kind: ControlKind::F32,
-            min_f32: Some(0.0),
+            id: ControlId::WhiteBalance,
+            kind: ControlKind::WhiteBalance,
+            min_f32: None,
             max_f32: None,
             min_u32: None,
             max_u32: None,
         },
         ControlInfo {
-            id: ControlId::IsoSensitivity,
-            kind: ControlKind::U32,
+            id: ControlId::NoiseReduction,
+            kind: ControlKind::Bool,
             min_f32: None,
             max_f32: None,
-            min_u32: Some(0),
+            min_u32: None,
             max_u32: None,
         },
         ControlInfo {
-            id: ControlId::WhiteBalance,
-            kind: ControlKind::WhiteBalance,
+            id: ControlId::ImageStabilization,
+            kind: ControlKind::Bool,
             min_f32: None,
+            max_f32: None,
+            min_u32: None,
+            max_u32: None,
+        },
+    ]
+}
+
+/// Floating-point ranged control descriptors.
+fn f32_controls() -> Vec<ControlInfo> {
+    vec![
+        ControlInfo {
+            id: ControlId::FocusDistance,
+            kind: ControlKind::F32,
+            min_f32: Some(0.0),
+            max_f32: Some(1.0),
+            min_u32: None,
+            max_u32: None,
+        },
+        ControlInfo {
+            id: ControlId::ExposureTime,
+            kind: ControlKind::F32,
+            min_f32: Some(0.0),
             max_f32: None,
             min_u32: None,
             max_u32: None,
@@ -205,23 +227,19 @@ pub fn all_controls() -> Vec<ControlInfo> {
             min_u32: None,
             max_u32: None,
         },
-        ControlInfo {
-            id: ControlId::NoiseReduction,
-            kind: ControlKind::Bool,
-            min_f32: None,
-            max_f32: None,
-            min_u32: None,
-            max_u32: None,
-        },
-        ControlInfo {
-            id: ControlId::ImageStabilization,
-            kind: ControlKind::Bool,
-            min_f32: None,
-            max_f32: None,
-            min_u32: None,
-            max_u32: None,
-        },
     ]
+}
+
+/// Unsigned-integer ranged control descriptors.
+fn u32_controls() -> Vec<ControlInfo> {
+    vec![ControlInfo {
+        id: ControlId::IsoSensitivity,
+        kind: ControlKind::U32,
+        min_f32: None,
+        max_f32: None,
+        min_u32: Some(0),
+        max_u32: None,
+    }]
 }
 
 /// Validates if a given value is appropriate for a specific control.
@@ -240,7 +258,8 @@ pub fn validate_control_value(id: ControlId, value: &ControlValue) -> Result<(),
         .ok_or_else(|| HeadlessError::unsupported(format!("control {id:?} not supported")))?;
 
     match (info.kind, value) {
-        (ControlKind::Bool, ControlValue::Bool(_)) => Ok(()),
+        (ControlKind::Bool, ControlValue::Bool(_))
+        | (ControlKind::WhiteBalance, ControlValue::WhiteBalance(_)) => Ok(()),
         (ControlKind::F32, ControlValue::F32(v)) => {
             if let Some(min) = info.min_f32 {
                 if *v < min {
@@ -267,7 +286,6 @@ pub fn validate_control_value(id: ControlId, value: &ControlValue) -> Result<(),
             }
             Ok(())
         }
-        (ControlKind::WhiteBalance, ControlValue::WhiteBalance(_)) => Ok(()),
         _ => Err(HeadlessError::invalid_argument(
             "control value kind mismatch",
         )),
@@ -281,8 +299,14 @@ mod tests {
 
     #[test]
     fn test_control_id_from_str_and_unknown() {
-        assert_eq!(ControlId::from_str("AutoFocus").ok(), Some(ControlId::AutoFocus));
-        assert_eq!(ControlId::from_str("ExposureTime").ok(), Some(ControlId::ExposureTime));
+        assert_eq!(
+            ControlId::from_str("AutoFocus").ok(),
+            Some(ControlId::AutoFocus)
+        );
+        assert_eq!(
+            ControlId::from_str("ExposureTime").ok(),
+            Some(ControlId::ExposureTime)
+        );
         assert!(ControlId::from_str("Nope").is_err());
     }
 
@@ -290,10 +314,18 @@ mod tests {
     fn test_all_controls_contains_expected_shape() {
         let controls = all_controls();
         assert!(controls.len() >= 10);
-        assert!(controls.iter().any(|c| c.id == ControlId::AutoFocus && c.kind == ControlKind::Bool));
-        assert!(controls.iter().any(|c| c.id == ControlId::FocusDistance && c.kind == ControlKind::F32));
-        assert!(controls.iter().any(|c| c.id == ControlId::IsoSensitivity && c.kind == ControlKind::U32));
-        assert!(controls.iter().any(|c| c.id == ControlId::WhiteBalance && c.kind == ControlKind::WhiteBalance));
+        assert!(controls
+            .iter()
+            .any(|c| c.id == ControlId::AutoFocus && c.kind == ControlKind::Bool));
+        assert!(controls
+            .iter()
+            .any(|c| c.id == ControlId::FocusDistance && c.kind == ControlKind::F32));
+        assert!(controls
+            .iter()
+            .any(|c| c.id == ControlId::IsoSensitivity && c.kind == ControlKind::U32));
+        assert!(controls
+            .iter()
+            .any(|c| c.id == ControlId::WhiteBalance && c.kind == ControlKind::WhiteBalance));
     }
 
     #[test]
@@ -313,11 +345,17 @@ mod tests {
     fn test_validate_control_value_rejects_out_of_range_values() {
         let too_low = validate_control_value(ControlId::FocusDistance, &ControlValue::F32(-0.1));
         assert!(too_low.is_err());
-        assert_eq!(too_low.expect_err("expected min bound error").kind, HeadlessErrorKind::InvalidArgument);
+        assert_eq!(
+            too_low.expect_err("expected min bound error").kind,
+            HeadlessErrorKind::InvalidArgument
+        );
 
         let too_high = validate_control_value(ControlId::Brightness, &ControlValue::F32(1.5));
         assert!(too_high.is_err());
-        assert_eq!(too_high.expect_err("expected max bound error").kind, HeadlessErrorKind::InvalidArgument);
+        assert_eq!(
+            too_high.expect_err("expected max bound error").kind,
+            HeadlessErrorKind::InvalidArgument
+        );
     }
 
     #[test]

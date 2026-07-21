@@ -1,5 +1,9 @@
+use crate::constants::{
+    BLUR_VARIANCE_BLURRY, BLUR_VARIANCE_GOOD, BLUR_VARIANCE_MODERATE, BLUR_VARIANCE_SHARP,
+    DEFAULT_GRADIENT_THRESHOLD, DEFAULT_VARIANCE_THRESHOLD, QUALITY_SCORE_BLURRY,
+    QUALITY_SCORE_GOOD, QUALITY_SCORE_MODERATE, QUALITY_SCORE_SHARP, QUALITY_SCORE_VERY_BLURRY,
+};
 use crate::types::CameraFrame;
-use crate::constants::*;
 use serde::{Deserialize, Serialize};
 
 /// Blur detection levels
@@ -80,7 +84,7 @@ impl Default for BlurDetector {
     fn default() -> Self {
         Self {
             threshold_variance: DEFAULT_VARIANCE_THRESHOLD, // Threshold for variance-based detection
-            threshold_gradient: DEFAULT_GRADIENT_THRESHOLD,  // Threshold for gradient-based detection
+            threshold_gradient: DEFAULT_GRADIENT_THRESHOLD, // Threshold for gradient-based detection
         }
     }
 }
@@ -136,6 +140,7 @@ impl BlurDetector {
             let b = f32::from(rgb_data[i + 2]);
 
             // Standard luminance formula
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
             let gray = (0.299 * r + 0.587 * g + 0.114 * b) as u8;
             grayscale.push(gray);
         }
@@ -158,16 +163,16 @@ impl BlurDetector {
                 for ky in 0..3 {
                     for kx in 0..3 {
                         // Safe: x/y are loop indices bounded by (1..width-1)/(1..height-1)
-                        #[allow(clippy::cast_possible_wrap)]
+                        #[allow(clippy::cast_possible_wrap, clippy::cast_sign_loss)]
                         let pixel_y = (y as i32 + ky - 1) as usize;
-                        #[allow(clippy::cast_possible_wrap)]
+                        #[allow(clippy::cast_possible_wrap, clippy::cast_sign_loss)]
                         let pixel_x = (x as i32 + kx - 1) as usize;
                         let pixel_index = pixel_y * width as usize + pixel_x;
-                        
+
                         // Bounds check not strictly necessary due to loop limits but safe
                         if let Some(&val) = grayscale.get(pixel_index) {
-                             let kernel_value = laplacian_kernel[(ky * 3 + kx) as usize];
-                             sum += i32::from(val) * kernel_value;
+                            let kernel_value = laplacian_kernel[usize::try_from(ky * 3 + kx).unwrap_or(0)];
+                            sum += i32::from(val) * kernel_value;
                         }
                     }
                 }
@@ -181,9 +186,10 @@ impl BlurDetector {
             return 0.0;
         }
 
+        #[allow(clippy::cast_precision_loss)]
         let count = laplacian_values.len() as f64;
         let mean = f64::from(laplacian_values.iter().sum::<i32>()) / count;
-        
+
         laplacian_values
             .iter()
             .map(|&x| (f64::from(x) - mean).powi(2))
@@ -207,15 +213,15 @@ impl BlurDetector {
                 for ky in 0..3 {
                     for kx in 0..3 {
                         // Safe: x/y are loop indices bounded by (1..width-1)/(1..height-1)
-                        #[allow(clippy::cast_possible_wrap)]
+                        #[allow(clippy::cast_possible_wrap, clippy::cast_sign_loss)]
                         let pixel_y = (y as i32 + ky - 1) as usize;
-                        #[allow(clippy::cast_possible_wrap)]
+                        #[allow(clippy::cast_possible_wrap, clippy::cast_sign_loss)]
                         let pixel_x = (x as i32 + kx - 1) as usize;
                         let pixel_index = pixel_y * width as usize + pixel_x;
 
                         if let Some(&val) = grayscale.get(pixel_index) {
                             let pixel_value = i32::from(val);
-                            let kernel_idx = (ky * 3 + kx) as usize;
+                            let kernel_idx = usize::try_from(ky * 3 + kx).unwrap_or(0);
                             gx += pixel_value * sobel_x[kernel_idx];
                             gy += pixel_value * sobel_y[kernel_idx];
                         }
@@ -230,7 +236,9 @@ impl BlurDetector {
         if gradients.is_empty() {
             0.0
         } else {
-            gradients.iter().sum::<f64>() / gradients.len() as f64
+            #[allow(clippy::cast_precision_loss)]
+            let count = gradients.len() as f64;
+            gradients.iter().sum::<f64>() / count
         }
     }
 
@@ -244,7 +252,7 @@ impl BlurDetector {
         for y in 1..(height - 1) {
             for x in 1..(width - 1) {
                 let center_idx = (y * width + x) as usize;
-                
+
                 let center = match grayscale.get(center_idx) {
                     Some(&c) => i32::from(c),
                     None => continue,

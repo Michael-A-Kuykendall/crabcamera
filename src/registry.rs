@@ -67,6 +67,13 @@ impl SystemRegistry {
     /// Get the complete manifest of system features
     #[must_use]
     pub fn get_manifest() -> Vec<FeatureManifest> {
+        let mut features = Self::capture_and_control_features();
+        features.extend(Self::quality_and_platform_features());
+        features
+    }
+
+    /// Capture and advanced-control feature descriptors.
+    fn capture_and_control_features() -> Vec<FeatureManifest> {
         vec![
             // Core Capture
             FeatureManifest {
@@ -99,9 +106,9 @@ impl SystemRegistry {
                 status: FeatureStatus::Implemented,
                 category: FeatureCategory::Core,
                 path: "src/commands/capture.rs",
-                description: "Unified capture command routing to single/sequence/quality-retry modes",
+                description:
+                    "Unified capture command routing to single/sequence/quality-retry modes",
             },
-            
             // Advanced Controls
             FeatureManifest {
                 id: "controls.focus",
@@ -125,9 +132,15 @@ impl SystemRegistry {
                 status: FeatureStatus::Implemented,
                 category: FeatureCategory::Controls,
                 path: "src/commands/advanced.rs",
-                description: "Apply multiple camera settings (focus/exposure/ISO/WB) in a single call",
+                description:
+                    "Apply multiple camera settings (focus/exposure/ISO/WB) in a single call",
             },
-            
+        ]
+    }
+
+    /// Quality-engine and platform-driver feature descriptors.
+    fn quality_and_platform_features() -> Vec<FeatureManifest> {
+        vec![
             // Quality Engine
             FeatureManifest {
                 id: "quality.blur",
@@ -145,7 +158,6 @@ impl SystemRegistry {
                 path: "src/quality/exposure.rs",
                 description: "Histogram analysis for over/under-exposure detection",
             },
-
             // Platform Drivers
             FeatureManifest {
                 id: "platform.windows",
@@ -177,7 +189,8 @@ impl SystemRegistry {
                 status: FeatureStatus::Beta,
                 category: FeatureCategory::Core,
                 path: "src/platform/linux.rs",
-                description: "Real format enumeration via dev.enum_formats() with hardcoded fallback",
+                description:
+                    "Real format enumeration via dev.enum_formats() with hardcoded fallback",
             },
             FeatureManifest {
                 id: "platform.windows.availability",
@@ -185,7 +198,8 @@ impl SystemRegistry {
                 status: FeatureStatus::Beta,
                 category: FeatureCategory::Core,
                 path: "src/platform/windows/mod.rs",
-                description: "Availability based on is_stream_open(); deeper hardware probe deferred",
+                description:
+                    "Availability based on is_stream_open(); deeper hardware probe deferred",
             },
         ]
     }
@@ -195,23 +209,23 @@ impl SystemRegistry {
     pub fn verify_linkage() {
         // This function doesn't run logic, but referencing symbols ensures they exist
         // at compile time. If a function is deleted, this registry will fail to compile.
-        
+
         use crate::commands;
-        
+
         // Linking Core Commands
         let _ = commands::capture::capture_single_photo;
         let _ = commands::capture::capture_photo_sequence;
         let _ = commands::capture::capture;
         let _ = commands::capture::start_camera_preview;
         let _ = commands::capture::stop_camera_preview;
-        
+
         // Linking Advanced Commands
         let _ = commands::advanced::apply_camera_settings;
-        
+
         // Linking Quality
         let _ = crate::quality::BlurDetector::new;
         let _ = crate::quality::ExposureAnalyzer::new;
-        
+
         // Linking Platform (Generic)
         let _ = crate::platform::get_or_create_camera;
     }
@@ -226,7 +240,7 @@ mod tests {
         // Ensure manifest generates without error
         let manifest = SystemRegistry::get_manifest();
         assert!(!manifest.is_empty());
-        
+
         // Verify linkage (compile-time check wrapped in test)
         SystemRegistry::verify_linkage();
     }

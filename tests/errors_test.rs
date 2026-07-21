@@ -573,7 +573,7 @@ mod error_tests {
         // String on heap means size_of stays the same (just pointer + len + cap)
         // So we check that it's similar size, not larger
         assert!(
-            long_size == size || long_size > size,
+            long_size >= size,
             "Long error size should be similar or slightly larger"
         );
         assert!(
@@ -607,7 +607,7 @@ mod error_tests {
 
             // Debug output should contain error information (either variant name or message)
             assert!(
-                debug_output.len() > 0 && !display_output.is_empty(),
+                !debug_output.is_empty() && !display_output.is_empty(),
                 "Debug output should have content: {}",
                 debug_output
             );

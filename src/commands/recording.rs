@@ -3,26 +3,26 @@
 //! These commands provide an interface for recording video from cameras.
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex as SyncMutex};
+use std::sync::{Arc, LazyLock, Mutex as SyncMutex};
 use tauri::command;
 use tokio::sync::RwLock;
 
+#[cfg(feature = "audio")]
+use crate::constants::{AUDIO_BITRATE, AUDIO_CHANNELS, AUDIO_DEVICE_DEFAULT, AUDIO_SAMPLE_RATE};
 use crate::constants::{
     DEFAULT_CAMERA_ID, RECORDING_QUALITY_PRESET_1080P, RECORDING_QUALITY_PRESET_4K,
     RECORDING_QUALITY_PRESET_720P, RECORDING_QUALITY_PRESET_HIGH, RECORDING_QUALITY_PRESET_LOW,
     RECORDING_QUALITY_PRESET_MEDIUM, RECORDING_SESSION_PREFIX,
 };
-#[cfg(feature = "audio")]
-use crate::constants::{AUDIO_BITRATE, AUDIO_CHANNELS, AUDIO_DEVICE_DEFAULT, AUDIO_SAMPLE_RATE};
 use crate::platform::PlatformCamera;
 use crate::recording::{Recorder, RecordingConfig, RecordingQuality, RecordingStats};
 use crate::types::CameraFormat;
 
 // Global recorder registry
-lazy_static::lazy_static! {
-    static ref RECORDER_REGISTRY: Arc<RwLock<HashMap<String, Arc<SyncMutex<RecordingSession>>>>> =
-        Arc::new(RwLock::new(HashMap::new()));
-}
+type RecorderRegistry = LazyLock<Arc<RwLock<HashMap<String, Arc<SyncMutex<RecordingSession>>>>>>;
+
+static RECORDER_REGISTRY: RecorderRegistry =
+    LazyLock::new(|| Arc::new(RwLock::new(HashMap::new())));
 
 /// Active recording session combining camera and recorder
 struct RecordingSession {
@@ -31,57 +31,66 @@ struct RecordingSession {
     is_running: bool,
 }
 
+/// Options for [`start_recording`].
+///
+/// Grouped into a single struct so the Tauri command takes one argument
+/// (satisfying clippy's `too_many_arguments` limit); the JS `invoke` call
+/// passes a single options object.
+pub struct RecordingStartOptions {
+    /// Camera device ID (or `None` for the default camera).
+    pub device_id: Option<String>,
+    /// Path to save the MP4 file.
+    pub output_path: String,
+    /// Video width in pixels.
+    pub width: u32,
+    /// Video height in pixels.
+    pub height: u32,
+    /// Target frame rate.
+    pub fps: f64,
+    /// Recording quality preset (optional).
+    pub quality: Option<String>,
+    /// Metadata title (optional).
+    pub title: Option<String>,
+    /// Audio device ID for recording (optional, enables audio when provided).
+    #[cfg(feature = "audio")]
+    pub audio_device_id: Option<String>,
+}
+
 /// Start recording from a camera to a file
 ///
 /// # Arguments
-/// * `device_id` - Camera device ID (or "0" for default)
-/// * `output_path` - Path to save the MP4 file
-/// * `width` - Video width in pixels
-/// * `height` - Video height in pixels
-///
-/// # Note on argument count
-/// This command has more arguments than clippy's default threshold because Tauri `#[command]`
-/// functions must receive all parameters as flat primitives — Tauri's JS-to-Rust invoke bridge
-/// does not support deserializing a wrapper struct from `invoke()` without an explicit
-/// `serde` workaround. Until a `RecordingRequest` newtype is threaded through both the Rust
-/// command signature and the frontend `invoke` call (changing the public JS API surface),
-/// the flat signature is intentional. The suppression is scoped to this one function.
-/// * `fps` - Target frame rate
-/// * `quality` - Recording quality preset (optional)
-/// * `title` - Metadata title (optional)
-/// * `audio_device_id` - Audio device ID for recording (optional, enables audio when provided)
+/// * `options` - Recording configuration (see [`RecordingStartOptions`])
 ///
 /// # Returns
 /// * Session ID for tracking the recording
-#[allow(clippy::too_many_arguments)]
+///
+/// # Errors
+/// Returns an `Err` if the camera cannot be initialized or its stream cannot
+/// be started, if the camera mutex is poisoned, or if the [`Recorder`] cannot
+/// be created.
 #[command]
-pub async fn start_recording(
-    device_id: Option<String>,
-    output_path: String,
-    width: u32,
-    height: u32,
-    fps: f64,
-    quality: Option<String>,
-    title: Option<String>,
-    #[cfg(feature = "audio")] audio_device_id: Option<String>,
-) -> Result<String, String> {
+pub async fn start_recording(options: RecordingStartOptions) -> Result<String, String> {
+    let RecordingStartOptions {
+        device_id,
+        output_path,
+        width,
+        height,
+        fps,
+        quality,
+        title,
+        #[cfg(feature = "audio")]
+        audio_device_id,
+    } = options;
     let camera_id = device_id.unwrap_or_else(|| DEFAULT_CAMERA_ID.to_string());
 
     #[cfg(feature = "audio")]
     {
         if let Some(ref audio_id) = audio_device_id {
             log::info!(
-                "Starting recording from camera {} with audio {} to {}",
-                camera_id,
-                audio_id,
-                output_path
+                "Starting recording from camera {camera_id} with audio {audio_id} to {output_path}"
             );
         } else {
-            log::info!(
-                "Starting recording from camera {} (no audio) to {}",
-                camera_id,
-                output_path
-            );
+            log::info!("Starting recording from camera {camera_id} (no audio) to {output_path}");
         }
     }
     #[cfg(not(feature = "audio"))]
@@ -133,12 +142,15 @@ pub async fn start_recording(
     }
 
     // Initialize camera
+    #[allow(clippy::cast_possible_truncation)]
+    // f64→f32: fps values (typically ≤ 240) are exact in f32
+    let fps_f32 = fps as f32;
     let camera = super::capture::get_or_create_camera(
         camera_id.clone(),
-        CameraFormat::new(config.width, config.height, fps as f32),
+        CameraFormat::new(config.width, config.height, fps_f32),
     )
     .await
-    .map_err(|e| format!("Failed to initialize camera: {}", e))?;
+    .map_err(|e| format!("Failed to initialize camera: {e}"))?;
 
     // Start camera stream
     {
@@ -146,12 +158,12 @@ pub async fn start_recording(
             .lock()
             .map_err(|_| "Camera mutex poisoned".to_string())?;
         cam.start_stream()
-            .map_err(|e| format!("Failed to start camera stream: {}", e))?;
+            .map_err(|e| format!("Failed to start camera stream: {e}"))?;
     }
 
     // Create recorder
     let recorder = Recorder::new(&output_path, config)
-        .map_err(|e| format!("Failed to create recorder: {}", e))?;
+        .map_err(|e| format!("Failed to create recorder: {e}"))?;
 
     // Generate session ID
     let session_id = format!(
@@ -172,7 +184,7 @@ pub async fn start_recording(
         registry.insert(session_id.clone(), Arc::new(SyncMutex::new(session)));
     }
 
-    log::info!("Recording started: session {}", session_id);
+    log::info!("Recording started: session {session_id}");
     Ok(session_id)
 }
 
@@ -180,6 +192,11 @@ pub async fn start_recording(
 ///
 /// This should be called repeatedly to capture frames.
 /// Returns the number of frames recorded so far.
+///
+/// # Errors
+/// Returns an `Err` if the recording session is not found, if the session or
+/// camera mutex is poisoned, if recording is not running, if the camera frame
+/// capture fails, if no recorder is available, or if writing the frame fails.
 #[command]
 pub async fn record_frame(session_id: String) -> Result<u64, String> {
     let session_arc = {
@@ -187,7 +204,7 @@ pub async fn record_frame(session_id: String) -> Result<u64, String> {
         registry
             .get(&session_id)
             .cloned()
-            .ok_or_else(|| format!("Recording session not found: {}", session_id))?
+            .ok_or_else(|| format!("Recording session not found: {session_id}"))?
     };
 
     let mut session = session_arc
@@ -206,7 +223,7 @@ pub async fn record_frame(session_id: String) -> Result<u64, String> {
             .map_err(|_| "Mutex poisoned".to_string())?;
         camera
             .capture_frame()
-            .map_err(|e| format!("Failed to capture frame: {}", e))?
+            .map_err(|e| format!("Failed to capture frame: {e}"))?
     };
 
     // Write to recorder
@@ -216,7 +233,7 @@ pub async fn record_frame(session_id: String) -> Result<u64, String> {
         .ok_or_else(|| "Recorder not available".to_string())?;
     recorder
         .write_frame(&frame)
-        .map_err(|e| format!("Failed to write frame: {}", e))?;
+        .map_err(|e| format!("Failed to write frame: {e}"))?;
 
     Ok(recorder.frame_count())
 }
@@ -225,6 +242,11 @@ pub async fn record_frame(session_id: String) -> Result<u64, String> {
 ///
 /// # Returns
 /// * Recording statistics (frames, duration, file size, etc.)
+///
+/// # Errors
+/// Returns an `Err` if the recording session is not found, if the session or
+/// camera mutex is poisoned, if the recorder has already been taken, or if
+/// finalizing the recording fails.
 #[command]
 pub async fn stop_recording(session_id: String) -> Result<RecordingStats, String> {
     // Remove session from registry
@@ -232,7 +254,7 @@ pub async fn stop_recording(session_id: String) -> Result<RecordingStats, String
         let mut registry = RECORDER_REGISTRY.write().await;
         registry
             .remove(&session_id)
-            .ok_or_else(|| format!("Recording session not found: {}", session_id))?
+            .ok_or_else(|| format!("Recording session not found: {session_id}"))?
     };
 
     // Get exclusive access and stop
@@ -255,7 +277,7 @@ pub async fn stop_recording(session_id: String) -> Result<RecordingStats, String
         .take()
         .ok_or_else(|| "Recorder already taken".to_string())?
         .finish()
-        .map_err(|e| format!("Failed to finalize recording: {}", e))?;
+        .map_err(|e| format!("Failed to finalize recording: {e}"))?;
 
     log::info!(
         "Recording stopped: {} frames, {:.2}s, {} bytes",
@@ -268,6 +290,10 @@ pub async fn stop_recording(session_id: String) -> Result<RecordingStats, String
 }
 
 /// Get the status of an active recording
+///
+/// # Errors
+/// Returns an `Err` if the recording session is not found, or if the session
+/// or camera mutex is poisoned, or if no recorder is available.
 #[command]
 pub async fn get_recording_status(session_id: String) -> Result<RecordingStatus, String> {
     let session_arc = {
@@ -275,7 +301,7 @@ pub async fn get_recording_status(session_id: String) -> Result<RecordingStatus,
         registry
             .get(&session_id)
             .cloned()
-            .ok_or_else(|| format!("Recording session not found: {}", session_id))?
+            .ok_or_else(|| format!("Recording session not found: {session_id}"))?
     };
 
     let session = session_arc
@@ -310,6 +336,9 @@ pub async fn get_recording_status(session_id: String) -> Result<RecordingStatus,
 }
 
 /// List all active recording sessions
+///
+/// # Errors
+/// This function always succeeds and never returns an `Err`.
 #[command]
 pub async fn list_recording_sessions() -> Result<Vec<String>, String> {
     let registry = RECORDER_REGISTRY.read().await;
@@ -317,7 +346,7 @@ pub async fn list_recording_sessions() -> Result<Vec<String>, String> {
 }
 
 /// Recording status information
-/// Per #AudioErrorRecovery: ! session_status_reflects_audio_state
+/// Per #`AudioErrorRecovery`: ! `session_status_reflects_audio_state`
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RecordingStatus {
@@ -337,7 +366,7 @@ pub struct RecordingStatus {
 }
 
 /// Audio status within a recording session
-/// Per #AudioErrorRecovery: ! session_status_reflects_audio_state
+/// Per #`AudioErrorRecovery`: ! `session_status_reflects_audio_state`
 #[cfg(feature = "audio")]
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -367,7 +396,7 @@ mod tests {
             }),
         };
 
-        let json = serde_json::to_string(&status).unwrap();
+        let json = serde_json::to_string(&status).expect("serialize recording status");
         assert!(json.contains("test_123"));
         assert!(json.contains("100"));
         // JSON serialization uses camelCase for frontend compatibility
@@ -381,7 +410,7 @@ mod tests {
     async fn test_write_frame_to_missing_session_returns_error() {
         let result = record_frame("nonexistent_session_xyz".to_string()).await;
         assert!(result.is_err());
-        let msg = result.unwrap_err();
+        let msg = result.expect_err("missing session error expected");
         assert!(
             msg.contains("nonexistent_session_xyz"),
             "error should identify the missing session, got: {msg}"
@@ -392,7 +421,7 @@ mod tests {
     async fn test_get_recording_status_missing_session_returns_error() {
         let result = get_recording_status("no_such_session_abc".to_string()).await;
         assert!(result.is_err());
-        let msg = result.unwrap_err();
+        let msg = result.expect_err("missing session error expected");
         assert!(
             msg.contains("no_such_session_abc"),
             "error should identify the missing session, got: {msg}"
@@ -403,7 +432,7 @@ mod tests {
     async fn test_stop_recording_missing_session_returns_error() {
         let result = stop_recording("ghost_session_999".to_string()).await;
         assert!(result.is_err());
-        let msg = result.unwrap_err();
+        let msg = result.expect_err("missing session error expected");
         assert!(
             msg.contains("ghost_session_999"),
             "error should identify the missing session, got: {msg}"

@@ -1,5 +1,9 @@
+use crate::constants::{
+    EXPOSURE_BRIGHTNESS_DARK, EXPOSURE_BRIGHTNESS_GOOD, EXPOSURE_BRIGHTNESS_HIGH,
+    EXPOSURE_BRIGHTNESS_LOW, EXPOSURE_PIXEL_BRIGHT, EXPOSURE_PIXEL_DARK, QUALITY_SCORE_BLURRY,
+    QUALITY_SCORE_GOOD, QUALITY_SCORE_SHARP,
+};
 use crate::types::CameraFrame;
-use crate::constants::*;
 use serde::{Deserialize, Serialize};
 
 /// Exposure analysis levels
@@ -79,7 +83,7 @@ pub struct ExposureAnalyzer {
 impl Default for ExposureAnalyzer {
     fn default() -> Self {
         Self {
-            dark_threshold: EXPOSURE_PIXEL_DARK,    // Pixels below this are considered dark
+            dark_threshold: EXPOSURE_PIXEL_DARK, // Pixels below this are considered dark
             bright_threshold: EXPOSURE_PIXEL_BRIGHT, // Pixels above this are considered bright
         }
     }
@@ -117,7 +121,7 @@ impl ExposureAnalyzer {
         // Determine exposure level
         let exposure_level = ExposureLevel::from_brightness(mean_brightness);
         let quality_score =
-            Self::calculate_quality_score(&exposure_level, brightness_std, dynamic_range);
+            Self::calculate_quality_score(exposure_level, brightness_std, dynamic_range);
 
         ExposureMetrics {
             mean_brightness,
@@ -136,13 +140,16 @@ impl ExposureAnalyzer {
         let mut luminance = Vec::with_capacity((width * height) as usize);
 
         for i in (0..rgb_data.len()).step_by(3) {
-             if i + 2 >= rgb_data.len() { break; }
+            if i + 2 >= rgb_data.len() {
+                break;
+            }
             let r = f32::from(rgb_data[i]);
             let g = f32::from(rgb_data[i + 1]);
             let b = f32::from(rgb_data[i + 2]);
 
             // ITU-R BT.709 luminance weights
-            let y = (0.2126 * r + 0.7152 * g + 0.0722 * b) as u8;
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            let y = (0.2126 * r + 0.7152 * g + 0.0722 * b).round().clamp(0.0, 255.0) as u8;
             luminance.push(y);
         }
 
@@ -152,9 +159,9 @@ impl ExposureAnalyzer {
     /// Calculate 256-bin histogram
     fn calculate_histogram(luminance: &[u8]) -> Vec<u32> {
         let mut histogram = vec![0u32; 256];
-        luminance
-            .iter()
-            .for_each(|&pixel| histogram[pixel as usize] += 1);
+        for &pixel in luminance {
+            histogram[pixel as usize] += 1;
+        }
         histogram
     }
 
@@ -165,7 +172,11 @@ impl ExposureAnalyzer {
         }
 
         let sum: u64 = luminance.iter().map(|&x| u64::from(x)).sum();
-        (sum as f32) / (luminance.len() as f32 * 255.0)
+        #[allow(clippy::cast_precision_loss)]
+        let sum_f = sum as f32;
+        #[allow(clippy::cast_precision_loss)]
+        let len_f = luminance.len() as f32;
+        sum_f / (len_f * 255.0)
     }
 
     /// Calculate brightness standard deviation
@@ -175,12 +186,14 @@ impl ExposureAnalyzer {
         }
 
         let mean_255 = mean * 255.0; // Convert back to 0-255 scale
-        // Variance calculation
+                                     // Variance calculation
+        #[allow(clippy::cast_precision_loss)]
+        let len_f = luminance.len() as f32;
         let variance: f32 = luminance
             .iter()
             .map(|&x| (f32::from(x) - mean_255).powi(2))
             .sum::<f32>()
-            / luminance.len() as f32;
+            / len_f;
 
         variance.sqrt() / 255.0 // Normalize to 0-1 scale
     }
@@ -196,7 +209,11 @@ impl ExposureAnalyzer {
             .filter(|&&x| x < self.dark_threshold)
             .count();
 
-        dark_count as f32 / luminance.len() as f32
+        #[allow(clippy::cast_precision_loss)]
+        let dark_f = dark_count as f32;
+        #[allow(clippy::cast_precision_loss)]
+        let len_f = luminance.len() as f32;
+        dark_f / len_f
     }
 
     /// Calculate ratio of bright pixels based on threshold
@@ -210,7 +227,11 @@ impl ExposureAnalyzer {
             .filter(|&&x| x > self.bright_threshold)
             .count();
 
-        bright_count as f32 / luminance.len() as f32
+        #[allow(clippy::cast_precision_loss)]
+        let bright_f = bright_count as f32;
+        #[allow(clippy::cast_precision_loss)]
+        let len_f = luminance.len() as f32;
+        bright_f / len_f
     }
 
     /// Calculate dynamic range
@@ -235,7 +256,9 @@ impl ExposureAnalyzer {
         }
 
         if max_value > min_value {
-            (max_value - min_value) as f32 / 255.0
+            #[allow(clippy::cast_precision_loss)]
+            let range = (max_value - min_value) as f32;
+            range / 255.0
         } else {
             0.0
         }
@@ -244,7 +267,7 @@ impl ExposureAnalyzer {
     /// Calculate overall quality score
     #[allow(clippy::similar_names)]
     fn calculate_quality_score(
-        exposure_level: &ExposureLevel,
+        exposure_level: ExposureLevel,
         brightness_std: f32,
         dynamic_range: f32,
     ) -> f32 {

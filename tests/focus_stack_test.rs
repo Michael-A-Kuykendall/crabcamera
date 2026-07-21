@@ -319,7 +319,7 @@ fn test_image_alignment() {
     assert!(shifted_result.translation.0.abs() > 0.01 || shifted_result.translation.1.abs() > 0.01);
 
     // Test alignment application
-    let aligned_frame = apply_alignment(&shifted, &shifted_result);
+    let aligned_frame = apply_alignment(&shifted, shifted_result);
     assert!(aligned_frame.is_ok());
 
     let aligned = aligned_frame.unwrap();
@@ -449,7 +449,7 @@ fn test_merge_dimension_mismatch() {
 fn test_merge_dimension_mismatch_invariants() {
     // Clear invariants so we don't pollute other tests if they share state (though they shouldn't)
     crabcamera::invariant_ppt::clear_invariant_log();
-    
+
     let frame1 = create_test_frame_with_focus(100, 100, "uniform_sharp");
     let frame2 = create_test_frame_with_focus(50, 50, "uniform_sharp");
 
@@ -590,15 +590,15 @@ fn test_extreme_sharpness_patterns() {
     let all_blur = create_test_frame_with_focus(width, height, "uniform_blur");
 
     // Test with very high threshold
-    let high_threshold_result = merge_frames(&vec![all_sharp.clone(), all_blur.clone()], 0.9, 0);
+    let high_threshold_result = merge_frames(&[all_sharp.clone(), all_blur.clone()], 0.9, 0);
     assert!(high_threshold_result.is_ok());
 
     // Test with very low threshold
-    let low_threshold_result = merge_frames(&vec![all_sharp.clone(), all_blur.clone()], 0.1, 0);
+    let low_threshold_result = merge_frames(&[all_sharp.clone(), all_blur.clone()], 0.1, 0);
     assert!(low_threshold_result.is_ok());
 
     // Test with zero threshold
-    let zero_threshold_result = merge_frames(&vec![all_sharp, all_blur], 0.0, 0);
+    let zero_threshold_result = merge_frames(&[all_sharp, all_blur], 0.0, 0);
     assert!(zero_threshold_result.is_ok());
 
     println!("Extreme sharpness pattern tests completed");

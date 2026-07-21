@@ -20,7 +20,7 @@ mod capture;
 mod device;
 mod encoder;
 
-pub use capture::{AudioCapture, AudioFrame};
 pub use crate::timing::PTSClock;
+pub use capture::{AudioCapture, AudioFrame};
 pub use device::{get_default_audio_device, list_audio_devices, AudioDevice};
 pub use encoder::{EncodedAudio, OpusEncoder};

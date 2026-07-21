@@ -41,25 +41,25 @@ impl fmt::Display for CameraError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             CameraError::InitializationError(msg) => {
-                write!(f, "Camera initialization error: {}", msg)
+                write!(f, "Camera initialization error: {msg}")
             }
-            CameraError::PermissionDenied(msg) => write!(f, "Permission denied error: {}", msg),
-            CameraError::CaptureError(msg) => write!(f, "Capture error: {}", msg),
-            CameraError::ControlError(msg) => write!(f, "Camera control error: {}", msg),
-            CameraError::StreamError(msg) => write!(f, "Stream error: {}", msg),
-            CameraError::UnsupportedOperation(msg) => write!(f, "Unsupported operation: {}", msg),
+            CameraError::PermissionDenied(msg) => write!(f, "Permission denied error: {msg}"),
+            CameraError::CaptureError(msg) => write!(f, "Capture error: {msg}"),
+            CameraError::ControlError(msg) => write!(f, "Camera control error: {msg}"),
+            CameraError::StreamError(msg) => write!(f, "Stream error: {msg}"),
+            CameraError::UnsupportedOperation(msg) => write!(f, "Unsupported operation: {msg}"),
             #[cfg(feature = "recording")]
-            CameraError::EncodingError(msg) => write!(f, "Encoding error: {}", msg),
+            CameraError::EncodingError(msg) => write!(f, "Encoding error: {msg}"),
             #[cfg(feature = "recording")]
-            CameraError::MuxingError(msg) => write!(f, "Muxing error: {}", msg),
+            CameraError::MuxingError(msg) => write!(f, "Muxing error: {msg}"),
             #[cfg(feature = "recording")]
-            CameraError::IoError(msg) => write!(f, "IO error: {}", msg),
+            CameraError::IoError(msg) => write!(f, "IO error: {msg}"),
             #[cfg(feature = "audio")]
-            CameraError::AudioError(msg) => write!(f, "Audio error: {}", msg),
-            CameraError::AccessError(msg) => write!(f, "Access error: {}", msg),
-            CameraError::ConnectionError(msg) => write!(f, "Connection error: {}", msg),
-            CameraError::SystemError(msg) => write!(f, "System error: {}", msg),
-            CameraError::ConfigError(msg) => write!(f, "Configuration error: {}", msg),
+            CameraError::AudioError(msg) => write!(f, "Audio error: {msg}"),
+            CameraError::AccessError(msg) => write!(f, "Access error: {msg}"),
+            CameraError::ConnectionError(msg) => write!(f, "Connection error: {msg}"),
+            CameraError::SystemError(msg) => write!(f, "System error: {msg}"),
+            CameraError::ConfigError(msg) => write!(f, "Configuration error: {msg}"),
         }
     }
 }
@@ -79,16 +79,46 @@ mod tests {
     #[test]
     fn test_display_messages_for_all_core_variants() {
         let cases = vec![
-            (CameraError::InitializationError("init".to_string()), "Camera initialization error: init"),
-            (CameraError::PermissionDenied("perm".to_string()), "Permission denied error: perm"),
-            (CameraError::CaptureError("capture".to_string()), "Capture error: capture"),
-            (CameraError::ControlError("control".to_string()), "Camera control error: control"),
-            (CameraError::StreamError("stream".to_string()), "Stream error: stream"),
-            (CameraError::UnsupportedOperation("unsupported".to_string()), "Unsupported operation: unsupported"),
-            (CameraError::AccessError("access".to_string()), "Access error: access"),
-            (CameraError::ConnectionError("connection".to_string()), "Connection error: connection"),
-            (CameraError::SystemError("system".to_string()), "System error: system"),
-            (CameraError::ConfigError("config".to_string()), "Configuration error: config"),
+            (
+                CameraError::InitializationError("init".to_string()),
+                "Camera initialization error: init",
+            ),
+            (
+                CameraError::PermissionDenied("perm".to_string()),
+                "Permission denied error: perm",
+            ),
+            (
+                CameraError::CaptureError("capture".to_string()),
+                "Capture error: capture",
+            ),
+            (
+                CameraError::ControlError("control".to_string()),
+                "Camera control error: control",
+            ),
+            (
+                CameraError::StreamError("stream".to_string()),
+                "Stream error: stream",
+            ),
+            (
+                CameraError::UnsupportedOperation("unsupported".to_string()),
+                "Unsupported operation: unsupported",
+            ),
+            (
+                CameraError::AccessError("access".to_string()),
+                "Access error: access",
+            ),
+            (
+                CameraError::ConnectionError("connection".to_string()),
+                "Connection error: connection",
+            ),
+            (
+                CameraError::SystemError("system".to_string()),
+                "System error: system",
+            ),
+            (
+                CameraError::ConfigError("config".to_string()),
+                "Configuration error: config",
+            ),
         ];
 
         for (error, expected) in cases {
@@ -100,8 +130,14 @@ mod tests {
     #[test]
     fn test_display_messages_for_recording_variants() {
         let cases = vec![
-            (CameraError::EncodingError("enc".to_string()), "Encoding error: enc"),
-            (CameraError::MuxingError("mux".to_string()), "Muxing error: mux"),
+            (
+                CameraError::EncodingError("enc".to_string()),
+                "Encoding error: enc",
+            ),
+            (
+                CameraError::MuxingError("mux".to_string()),
+                "Muxing error: mux",
+            ),
             (CameraError::IoError("io".to_string()), "IO error: io"),
         ];
 

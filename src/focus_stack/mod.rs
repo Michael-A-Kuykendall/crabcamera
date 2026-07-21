@@ -111,11 +111,7 @@ impl std::fmt::Display for FocusStackError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::InsufficientImages { required, provided } => {
-                write!(
-                    f,
-                    "Insufficient images: need {}, got {}",
-                    required, provided
-                )
+                write!(f, "Insufficient images: need {required}, got {provided}")
             }
             Self::DimensionMismatch { expected, got } => {
                 write!(
@@ -130,13 +126,12 @@ impl std::fmt::Display for FocusStackError {
             } => {
                 write!(
                     f,
-                    "Frame data corruption: got {} bytes, expected {}",
-                    frame_size, expected_size
+                    "Frame data corruption: got {frame_size} bytes, expected {expected_size}"
                 )
             }
-            Self::AlignmentFailed(msg) => write!(f, "Alignment failed: {}", msg),
-            Self::MergeFailed(msg) => write!(f, "Merge failed: {}", msg),
-            Self::InvalidConfig(msg) => write!(f, "Invalid config: {}", msg),
+            Self::AlignmentFailed(msg) => write!(f, "Alignment failed: {msg}"),
+            Self::MergeFailed(msg) => write!(f, "Merge failed: {msg}"),
+            Self::InvalidConfig(msg) => write!(f, "Invalid config: {msg}"),
         }
     }
 }
@@ -152,10 +147,10 @@ mod tests {
         let config = FocusStackConfig::default();
         assert_eq!(config.num_steps, 10);
         assert_eq!(config.step_delay_ms, 200);
-        assert_eq!(config.focus_start, 0.0);
-        assert_eq!(config.focus_end, 1.0);
+        assert!((config.focus_start - 0.0).abs() < 1e-6);
+        assert!((config.focus_end - 1.0).abs() < 1e-6);
         assert!(config.enable_alignment);
-        assert_eq!(config.sharpness_threshold, 0.5);
+        assert!((config.sharpness_threshold - 0.5).abs() < 1e-6);
         assert_eq!(config.blend_levels, 5);
     }
 

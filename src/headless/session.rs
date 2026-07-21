@@ -223,6 +223,10 @@ impl SessionHandle {
     /// * `HeadlessError::AlreadyStarted`: If the session is already running.
     /// * `HeadlessError::AlreadyClosed`: If the session has been permanently closed.
     /// * `HeadlessError::InvalidArgument`: If thread spawning fails.
+    ///
+    /// # Panics
+    /// Panics if any internal mutex is poisoned (the `expect("lock poisoned")`
+    /// calls on the session state, capture-thread, and audio-thread guards).
     pub fn start(&self) -> Result<(), HeadlessError> {
         let mut state = self.inner.state.lock().expect("lock poisoned");
         match *state {
@@ -280,13 +284,18 @@ impl SessionHandle {
     /// * `HeadlessError::AlreadyClosed`: If the session has already been closed.
     /// * `HeadlessError::AlreadyStopped`: If the session is already stopped.
     /// * `HeadlessError::ThreadJoin`: If the capture thread panics or times out.
+    ///
+    /// # Panics
+    /// Panics if any internal mutex is poisoned (the `expect("lock poisoned")`
+    /// calls on the session state, capture-thread, and audio-thread guards).
     pub fn stop(&self, join_timeout: Duration) -> Result<(), HeadlessError> {
         let state = self.inner.state.lock().expect("lock poisoned");
         match *state {
             SessionState::Closed => return Err(HeadlessError::already_closed()),
-            SessionState::Stopped => return Err(HeadlessError::already_stopped()),
+            SessionState::Stopped | SessionState::Open => {
+                return Err(HeadlessError::already_stopped())
+            } // Open is like stopped
             SessionState::Started => {}
-            SessionState::Open => return Err(HeadlessError::already_stopped()), // Open is like stopped
         }
 
         self.inner
@@ -305,9 +314,13 @@ impl SessionHandle {
             let start = Instant::now();
             let mut handle = Some(handle);
             loop {
-                let finished = handle.as_ref().is_some_and(|h| h.is_finished());
+                let finished = handle
+                    .as_ref()
+                    .is_some_and(std::thread::JoinHandle::is_finished);
                 if finished {
-                    let _ = handle.take().unwrap().join();
+                    if let Some(h) = handle.take() {
+                        let _ = h.join();
+                    }
                     break;
                 }
                 if start.elapsed() >= join_timeout {
@@ -331,9 +344,13 @@ impl SessionHandle {
                 let start = Instant::now();
                 let mut handle = Some(handle);
                 loop {
-                    let finished = handle.as_ref().is_some_and(|h| h.is_finished());
+                    let finished = handle
+                        .as_ref()
+                        .is_some_and(std::thread::JoinHandle::is_finished);
                     if finished {
-                        let _ = handle.take().unwrap().join();
+                        if let Some(h) = handle.take() {
+                            let _ = h.join();
+                        }
                         break;
                     }
                     if start.elapsed() >= join_timeout {
@@ -365,6 +382,10 @@ impl SessionHandle {
     ///
     /// * `HeadlessError::AlreadyClosed`: If the session has already been closed.
     /// * `HeadlessError`: Propagates any error encountered during `stop()`.
+    ///
+    /// # Panics
+    /// Panics if any internal mutex is poisoned (the `expect("lock poisoned")`
+    /// calls on the session state, camera, and capture-thread guards).
     pub fn close(&self, join_timeout: Duration) -> Result<(), HeadlessError> {
         {
             let state = *self.inner.state.lock().expect("lock poisoned");
@@ -374,7 +395,7 @@ impl SessionHandle {
         }
 
         if let Err(e) = self.stop(join_timeout) {
-            log::warn!("Error stopping session during close: {}", e);
+            log::warn!("Error stopping session during close: {e}");
         }
 
         self.inner.queue.close();
@@ -415,6 +436,10 @@ impl SessionHandle {
     /// * `HeadlessError::Closed`: If called on a closed session.
     /// * `HeadlessError::Stopped`: If called on a stopped session.
     /// * `HeadlessError::InvalidArgument`: If called on a session that has not been started.
+    ///
+    /// # Panics
+    /// Panics if the session state mutex is poisoned (the `expect("lock poisoned")`
+    /// call).
     pub fn get_frame(&self, timeout: Duration) -> Result<Option<Frame>, HeadlessError> {
         self.ensure_not_closed()?;
         let state = *self.inner.state.lock().expect("lock poisoned");
@@ -446,6 +471,10 @@ impl SessionHandle {
     /// * `HeadlessError::Closed`: If called on a closed session.
     /// * `HeadlessError::Stopped`: If called on a stopped session.
     /// * `HeadlessError::InvalidArgument`: If called on a session that has not been started.
+    ///
+    /// # Panics
+    /// Panics if the session state mutex is poisoned (the `expect("lock poisoned")`
+    /// call).
     pub fn get_audio_packet(
         &self,
         timeout: Duration,
@@ -490,6 +519,10 @@ impl SessionHandle {
     /// * `HeadlessError::BackendError`: If the camera backend rejects the setting.
     /// * `HeadlessError::InvalidControl`: If the value is out of range or incorrect type.
     /// * `HeadlessError::Closed`: If the session is closed.
+    ///
+    /// # Panics
+    /// Panics if the camera mutex is poisoned (the `expect("lock poisoned")`
+    /// call).
     pub fn set_control(
         &self,
         control_id: ControlId,
@@ -519,6 +552,10 @@ impl SessionHandle {
     ///
     /// * `HeadlessError::BackendError`: If the query fails.
     /// * `HeadlessError::Closed`: If the session is closed.
+    ///
+    /// # Panics
+    /// Panics if the camera mutex is poisoned (the `expect("lock poisoned")`
+    /// call).
     pub fn get_controls(&self) -> Result<CameraControls, HeadlessError> {
         self.ensure_not_closed()?;
         let camera_guard = self.inner.camera.lock().expect("lock poisoned");
@@ -637,15 +674,16 @@ impl SessionHandle {
 impl Drop for SessionHandle {
     fn drop(&mut self) {
         if let Err(e) = self.close(Duration::from_millis(100)) {
-            log::warn!("Error closing session in drop: {}", e);
+            log::warn!("Error closing session in drop: {e}");
         }
     }
 }
 
+// `Arc<Inner>` must be owned: this function runs on a spawned thread via `move`.
+#[allow(clippy::needless_pass_by_value)]
 fn capture_loop(inner: Arc<Inner>) {
-    let mut camera = match inner.camera.lock().expect("lock poisoned").take() {
-        Some(cam) => cam,
-        None => return,
+    let Some(mut camera) = inner.camera.lock().expect("lock poisoned").take() else {
+        return;
     };
 
     let _ = camera.start_stream();
@@ -674,14 +712,16 @@ fn capture_loop(inner: Arc<Inner>) {
     *inner.camera.lock().expect("lock poisoned") = Some(camera);
 }
 
+// `Arc<Inner>` must be owned: this function runs on a spawned thread via `move`.
+#[allow(clippy::needless_pass_by_value)]
 #[cfg(feature = "audio")]
 fn audio_capture_loop(inner: Arc<Inner>) {
     let pts_clock = PTSClock::new();
-    let mut audio_capture =
-        match AudioCapture::new(inner.config.audio_device_id.as_deref(), 48000, 2, pts_clock) {
-            Ok(cap) => cap,
-            Err(_) => return, // Audio failed
-        };
+    let Ok(mut audio_capture) =
+        AudioCapture::new(inner.config.audio_device_id.as_deref(), 48000, 2, pts_clock)
+    else {
+        return; // Audio failed
+    };
 
     if audio_capture.start().is_err() {
         // Audio failed, but don't stop video
@@ -696,7 +736,7 @@ fn audio_capture_loop(inner: Arc<Inner>) {
         match audio_capture.recv_timeout(Duration::from_millis(100)) {
             Ok(frame) => {
                 if let Some(audio_queue) = &inner.audio_queue {
-                    let normalized = normalize_audio_packet(&inner, frame);
+                    let normalized = normalize_audio_packet(&inner, &frame);
                     audio_queue.push_drop_oldest(normalized);
                 }
             }
@@ -714,6 +754,8 @@ fn audio_capture_loop(inner: Arc<Inner>) {
     // Audio capture ends here
 }
 
+// `Arc<Inner>` must be owned to mirror the `audio` variant's `move` thread signature.
+#[allow(clippy::needless_pass_by_value)]
 #[cfg(not(feature = "audio"))]
 fn audio_capture_loop(_inner: Arc<Inner>) {
     // No-op
@@ -728,8 +770,12 @@ fn normalize_frame(inner: &Inner, frame: CameraFrame) -> Frame {
     };
 
     #[cfg(feature = "audio")]
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    // f64→u64: PTS values are non-negative microseconds, always fit in u64
     let timestamp_us = (inner.pts_clock.pts() * 1_000_000.0) as u64;
     #[cfg(not(feature = "audio"))]
+    #[allow(clippy::cast_possible_truncation)]
+    // u128→u64: elapsed microseconds since startup will not exceed u64::MAX
     let timestamp_us = inner.start_instant.elapsed().as_micros() as u64;
 
     Frame {
@@ -744,7 +790,7 @@ fn normalize_frame(inner: &Inner, frame: CameraFrame) -> Frame {
 }
 
 #[cfg(feature = "audio")]
-fn normalize_audio_packet(inner: &Inner, frame: AudioFrame) -> AudioPacket {
+fn normalize_audio_packet(inner: &Inner, frame: &AudioFrame) -> AudioPacket {
     let sequence = {
         let mut g = inner.audio_sequence.lock().expect("lock poisoned");
         let v = *g;
@@ -752,6 +798,8 @@ fn normalize_audio_packet(inner: &Inner, frame: AudioFrame) -> AudioPacket {
         v
     };
 
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    // f64→u64: audio timestamps are non-negative, product fits in u64
     let timestamp_us = (frame.timestamp * 1_000_000.0) as u64;
 
     // Convert f32 samples to bytes
@@ -779,7 +827,7 @@ fn apply_control_to_struct(controls: &mut CameraControls, id: ControlId, value: 
         (ControlId::ExposureTime, ControlValue::F32(v)) => controls.exposure_time = Some(v),
         (ControlId::IsoSensitivity, ControlValue::U32(v)) => controls.iso_sensitivity = Some(v),
         (ControlId::WhiteBalance, ControlValue::WhiteBalance(v)) => {
-            controls.white_balance = Some(v)
+            controls.white_balance = Some(v);
         }
         (ControlId::Aperture, ControlValue::F32(v)) => controls.aperture = Some(v),
         (ControlId::Zoom, ControlValue::F32(v)) => controls.zoom = Some(v),
@@ -789,7 +837,7 @@ fn apply_control_to_struct(controls: &mut CameraControls, id: ControlId, value: 
         (ControlId::Sharpness, ControlValue::F32(v)) => controls.sharpness = Some(v),
         (ControlId::NoiseReduction, ControlValue::Bool(v)) => controls.noise_reduction = Some(v),
         (ControlId::ImageStabilization, ControlValue::Bool(v)) => {
-            controls.image_stabilization = Some(v)
+            controls.image_stabilization = Some(v);
         }
         _ => {}
     }
@@ -835,8 +883,14 @@ mod tests {
         q.push_drop_oldest(3u8); // drops 1
 
         assert_eq!(q.dropped(), 1);
-        assert_eq!(q.pop_timeout(Duration::ZERO).expect("pop should work"), Some(2));
-        assert_eq!(q.pop_timeout(Duration::ZERO).expect("pop should work"), Some(3));
+        assert_eq!(
+            q.pop_timeout(Duration::ZERO).expect("pop should work"),
+            Some(2)
+        );
+        assert_eq!(
+            q.pop_timeout(Duration::ZERO).expect("pop should work"),
+            Some(3)
+        );
         assert_eq!(q.pop_timeout(Duration::ZERO).expect("empty queue"), None);
 
         q.close();
@@ -852,7 +906,10 @@ mod tests {
         q.push_drop_oldest(10u8);
         q.push_drop_oldest(11u8);
         assert_eq!(q.dropped(), 1);
-        assert_eq!(q.pop_timeout(Duration::ZERO).expect("pop should work"), Some(11));
+        assert_eq!(
+            q.pop_timeout(Duration::ZERO).expect("pop should work"),
+            Some(11)
+        );
     }
 
     #[test]
@@ -870,18 +927,29 @@ mod tests {
             data: vec![0, 0, 0],
         });
 
-        handle.start().expect("start should succeed from open state");
-        assert_eq!(*handle.inner.state.lock().expect("state lock"), SessionState::Started);
+        handle
+            .start()
+            .expect("start should succeed from open state");
+        assert_eq!(
+            *handle.inner.state.lock().expect("state lock"),
+            SessionState::Started
+        );
 
         handle
             .stop(Duration::from_millis(50))
             .expect("stop should succeed from started state");
-        assert_eq!(*handle.inner.state.lock().expect("state lock"), SessionState::Stopped);
+        assert_eq!(
+            *handle.inner.state.lock().expect("state lock"),
+            SessionState::Stopped
+        );
 
         handle
             .close(Duration::from_millis(50))
             .expect("close should succeed");
-        assert_eq!(*handle.inner.state.lock().expect("state lock"), SessionState::Closed);
+        assert_eq!(
+            *handle.inner.state.lock().expect("state lock"),
+            SessionState::Closed
+        );
     }
 
     #[test]
@@ -983,7 +1051,11 @@ mod tests {
     #[test]
     fn test_apply_control_to_struct_and_normalize_frame() {
         let mut controls = CameraControls::default();
-        apply_control_to_struct(&mut controls, ControlId::AutoFocus, ControlValue::Bool(false));
+        apply_control_to_struct(
+            &mut controls,
+            ControlId::AutoFocus,
+            ControlValue::Bool(false),
+        );
         apply_control_to_struct(
             &mut controls,
             ControlId::FocusDistance,
@@ -999,7 +1071,8 @@ mod tests {
         assert_eq!(controls.white_balance, Some(WhiteBalance::Cloudy));
 
         let handle = make_test_handle(SessionState::Started);
-        let frame = CameraFrame::new(vec![1, 2, 3], 3, 1, "dev".to_string()).with_format("RGB".to_string());
+        let frame =
+            CameraFrame::new(vec![1, 2, 3], 3, 1, "dev".to_string()).with_format("RGB".to_string());
         let normalized = normalize_frame(&handle.inner, frame);
 
         assert_eq!(normalized.sequence, 1);

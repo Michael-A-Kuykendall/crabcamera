@@ -1,6 +1,7 @@
-use crate::errors::CameraError;
-use crate::types::{CameraDeviceInfo, CameraFormat, CameraFrame, CameraInitParams};
 use crate::constants::*;
+use crate::errors::CameraError;
+use crate::platform::metrics::PerfTracker;
+use crate::types::{CameraDeviceInfo, CameraFormat, CameraFrame, CameraInitParams};
 use nokhwa::{
     pixel_format::RgbFormat,
     query,
@@ -30,7 +31,7 @@ pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
         let mut formats = Vec::new();
         let device_index = camera_info.index().as_index().unwrap_or(0);
         let path = format!("{}{}", LINUX_VIDEO_DEVICE_PREFIX, device_index);
-        
+
         if let Ok(dev) = Device::with_path(&path) {
             if let Ok(format_iter) = dev.enum_formats() {
                 for fmt_desc in format_iter {
@@ -45,7 +46,9 @@ pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
                                 }
                             };
                             for (width, height) in sizes {
-                                if let Ok(intervals) = dev.enum_frameintervals(fmt_desc.fourcc, width, height) {
+                                if let Ok(intervals) =
+                                    dev.enum_frameintervals(fmt_desc.fourcc, width, height)
+                                {
                                     for interval in intervals {
                                         let fps = match &interval.interval {
                                             v4l::frameinterval::FrameIntervalEnum::Discrete(f) => {
@@ -62,14 +65,14 @@ pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
                                             b"YUYV" => "YUYV",
                                             b"MJPG" => "MJPEG",
                                             b"RGB3" => "RGB",
-                                            other => std::str::from_utf8(other).unwrap_or("UNKNOWN"),
-                                        }.to_string();
+                                            other => {
+                                                std::str::from_utf8(other).unwrap_or("UNKNOWN")
+                                            }
+                                        }
+                                        .to_string();
 
-                                        let cf = CameraFormat::new(
-                                            width,
-                                            height,
-                                            fps
-                                        ).with_format_type(format_str);
+                                        let cf = CameraFormat::new(width, height, fps)
+                                            .with_format_type(format_str);
 
                                         formats.push(cf);
                                     }
@@ -83,11 +86,22 @@ pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
 
         // Fallback to defaults if real enumeration failed (e.g. permission error) but warn
         if formats.is_empty() {
-             log::warn!("Could not enumerate formats for {}, using defaults", path);
-             formats = vec![
-                CameraFormat::new(DEFAULT_RESOLUTION_WIDTH, DEFAULT_RESOLUTION_HEIGHT, DEFAULT_FPS).with_format_type(DEFAULT_FORMAT_TYPE.to_string()),
-                CameraFormat::new(FALLBACK_RESOLUTION_WIDTH, FALLBACK_RESOLUTION_HEIGHT, DEFAULT_FPS).with_format_type(DEFAULT_FORMAT_TYPE.to_string()),
-                CameraFormat::new(MIN_RESOLUTION_WIDTH, MIN_RESOLUTION_HEIGHT, DEFAULT_FPS).with_format_type(DEFAULT_FORMAT_TYPE.to_string()),
+            log::warn!("Could not enumerate formats for {}, using defaults", path);
+            formats = vec![
+                CameraFormat::new(
+                    DEFAULT_RESOLUTION_WIDTH,
+                    DEFAULT_RESOLUTION_HEIGHT,
+                    DEFAULT_FPS,
+                )
+                .with_format_type(DEFAULT_FORMAT_TYPE.to_string()),
+                CameraFormat::new(
+                    FALLBACK_RESOLUTION_WIDTH,
+                    FALLBACK_RESOLUTION_HEIGHT,
+                    DEFAULT_FPS,
+                )
+                .with_format_type(DEFAULT_FORMAT_TYPE.to_string()),
+                CameraFormat::new(MIN_RESOLUTION_WIDTH, MIN_RESOLUTION_HEIGHT, DEFAULT_FPS)
+                    .with_format_type(DEFAULT_FORMAT_TYPE.to_string()),
             ];
         }
 
@@ -119,6 +133,7 @@ pub fn initialize_camera(params: CameraInitParams) -> Result<LinuxCamera, Camera
         device_id: params.device_id,
         format: params.format,
         callback: Arc::new(Mutex::new(None)),
+        perf: Arc::new(Mutex::new(PerfTracker::new())),
     })
 }
 
@@ -128,6 +143,8 @@ pub struct LinuxCamera {
     device_id: String,
     format: CameraFormat,
     callback: Arc<Mutex<Option<Box<dyn Fn(CameraFrame) + Send + 'static>>>>,
+    /// Real performance tracker, updated on every capture.
+    perf: Arc<Mutex<PerfTracker>>,
 }
 
 impl LinuxCamera {
@@ -138,10 +155,22 @@ impl LinuxCamera {
             .lock()
             .map_err(|_| CameraError::CaptureError("Failed to lock camera".to_string()))?;
 
-        let frame = camera
+        let start = std::time::Instant::now();
+        let frame = match camera
             .frame()
-            .map_err(|e| CameraError::CaptureError(format!("Failed to capture frame: {}", e)))?;
+            .map_err(|e| CameraError::CaptureError(format!("Failed to capture frame: {}", e)))
+        {
+            Ok(f) => f,
+            Err(e) => {
+                if let Ok(mut perf) = self.perf.lock() {
+                    perf.record_drop();
+                }
+                return Err(e);
+            }
+        };
+        let latency_ms = start.elapsed().as_secs_f32() * 1000.0;
 
+        let process_start = std::time::Instant::now();
         let camera_frame = CameraFrame::new(
             frame.buffer_bytes().to_vec(),
             frame.resolution().width_x,
@@ -154,6 +183,20 @@ impl LinuxCamera {
         // Call callback if set
         if let Some(ref cb) = *self.callback.lock().unwrap() {
             cb(camera_frame.clone());
+        }
+        let processing_ms = process_start.elapsed().as_secs_f32() * 1000.0;
+
+        if let Ok(mut perf) = self.perf.lock() {
+            perf.record_capture(
+                latency_ms,
+                processing_ms,
+                Some((
+                    frame.buffer_bytes().to_vec(),
+                    camera_frame.width,
+                    camera_frame.height,
+                    format!("{:?}", self.format),
+                )),
+            );
         }
 
         Ok(camera_frame)
@@ -208,9 +251,14 @@ impl LinuxCamera {
     /// Get supported V4L2 formats for this device
     pub fn get_supported_formats(&self) -> Result<Vec<CameraFormat>, CameraError> {
         let device_index = self.device_id.parse::<usize>().unwrap_or(0);
-        let path = format!("{}{}", crate::constants::LINUX_VIDEO_DEVICE_PREFIX, device_index);
-        let dev = Device::with_path(&path)
-            .map_err(|e| CameraError::InitializationError(format!("Failed to open device: {}", e)))?;
+        let path = format!(
+            "{}{}",
+            crate::constants::LINUX_VIDEO_DEVICE_PREFIX,
+            device_index
+        );
+        let dev = Device::with_path(&path).map_err(|e| {
+            CameraError::InitializationError(format!("Failed to open device: {}", e))
+        })?;
 
         let mut formats = Vec::new();
         if let Ok(format_iter) = dev.enum_formats() {
@@ -226,7 +274,9 @@ impl LinuxCamera {
                             }
                         };
                         for (width, height) in sizes {
-                            if let Ok(intervals) = dev.enum_frameintervals(fmt_desc.fourcc, width, height) {
+                            if let Ok(intervals) =
+                                dev.enum_frameintervals(fmt_desc.fourcc, width, height)
+                            {
                                 for interval in intervals {
                                     let fps = match &interval.interval {
                                         v4l::frameinterval::FrameIntervalEnum::Discrete(f) => {
@@ -243,7 +293,8 @@ impl LinuxCamera {
                                         b"MJPG" => "MJPEG",
                                         b"RGB3" => "RGB",
                                         other => std::str::from_utf8(other).unwrap_or("UNKNOWN"),
-                                    }.to_string();
+                                    }
+                                    .to_string();
                                     formats.push(
                                         CameraFormat::new(width, height, fps)
                                             .with_format_type(format_str),
@@ -275,7 +326,9 @@ impl LinuxCamera {
     pub fn set_control(&self, control: &str, value: i32) -> Result<(), CameraError> {
         let device_index = self.device_id.parse::<usize>().unwrap_or(0);
         let path = format!("/dev/video{}", device_index);
-        let dev = Device::with_path(&path).map_err(|e| CameraError::InitializationError(format!("Failed to open device: {}", e)))?;
+        let dev = Device::with_path(&path).map_err(|e| {
+            CameraError::InitializationError(format!("Failed to open device: {}", e))
+        })?;
 
         // Standard V4L2 CIDs (from videodev2.h)
         const V4L2_CID_BRIGHTNESS: u32 = 0x00980900;
@@ -292,7 +345,12 @@ impl LinuxCamera {
             "hue" => V4L2_CID_HUE,
             "gamma" => V4L2_CID_GAMMA,
             "sharpness" => V4L2_CID_SHARPNESS,
-            _ => return Err(CameraError::InitializationError(format!("Unsupported control: {}", control))),
+            _ => {
+                return Err(CameraError::InitializationError(format!(
+                    "Unsupported control: {}",
+                    control
+                )))
+            }
         };
 
         // Create control struct
@@ -300,9 +358,11 @@ impl LinuxCamera {
             id,
             value: v4l::control::Value::Integer(value as i64),
         };
-        
-        dev.set_control(ctrl).map_err(|e| CameraError::InitializationError(format!("Failed to set control {}: {}", control, e)))?;
-        
+
+        dev.set_control(ctrl).map_err(|e| {
+            CameraError::InitializationError(format!("Failed to set control {}: {}", control, e))
+        })?;
+
         Ok(())
     }
 
@@ -310,7 +370,7 @@ impl LinuxCamera {
     pub fn get_controls(&self) -> Result<crate::types::CameraControls, CameraError> {
         let device_index = self.device_id.parse::<usize>().unwrap_or(0);
         let path = format!("/dev/video{}", device_index);
-        
+
         // Return default if we can't open device (e.g. if it's busy and driver doesn't support multiple handles)
         // But we should try.
         let dev = match Device::with_path(&path) {
@@ -330,47 +390,60 @@ impl LinuxCamera {
 
         // Helper to normalize value: (val - min) / (max - min)
         let get_norm = |id: u32| -> Option<f32> {
-             // Query description for range
-             if let Ok(controls) = dev.query_controls() {
-                 if let Some(desc) = controls.iter().find(|d| d.id == id) {
-                     if let Ok(val) = dev.control(id) {
-                         match val.value {
-                             v4l::control::Value::Integer(v) => {
-                                 // Access min/max from description
-                                 let min = desc.minimum;
-                                 let max = desc.maximum;
-                                 if max > min {
-                                     Some((v - min) as f32 / (max - min) as f32)
-                                 } else {
-                                     Some(0.0)
-                                 }
-                             },
-                             _ => None
-                         }
-                     } else { None }
-                 } else { None }
-             } else { None }
+            // Query description for range
+            if let Ok(controls) = dev.query_controls() {
+                if let Some(desc) = controls.iter().find(|d| d.id == id) {
+                    if let Ok(val) = dev.control(id) {
+                        match val.value {
+                            v4l::control::Value::Integer(v) => {
+                                // Access min/max from description
+                                let min = desc.minimum;
+                                let max = desc.maximum;
+                                if max > min {
+                                    Some((v - min) as f32 / (max - min) as f32)
+                                } else {
+                                    Some(0.0)
+                                }
+                            }
+                            _ => None,
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
         };
 
         // Optimized helper that uses query_control directly if v4l exposed it, but we use query_controls list
         // Actually v4l might not have query_control(id), only query_controls() -> Vec
-        
+
         // Helper to get raw value
-        let get_val = |id: u32| -> Option<v4l::control::Value> {
-            dev.control(id).map(|c| c.value).ok()
-        };
+        let get_val =
+            |id: u32| -> Option<v4l::control::Value> { dev.control(id).map(|c| c.value).ok() };
 
         let auto_focus = get_val(V4L2_CID_FOCUS_AUTO)
-             .map(|v| match v { v4l::control::Value::Boolean(b) => Some(b), _ => None }).unwrap_or(None);
-             
+            .map(|v| match v {
+                v4l::control::Value::Boolean(b) => Some(b),
+                _ => None,
+            })
+            .unwrap_or(None);
+
         let auto_exposure = get_val(V4L2_CID_EXPOSURE_AUTO)
-             .map(|v| match v { v4l::control::Value::Integer(i) => Some(i != 1), _ => None }).unwrap_or(None); // 1 is manual usually
+            .map(|v| match v {
+                v4l::control::Value::Integer(i) => Some(i != 1),
+                _ => None,
+            })
+            .unwrap_or(None); // 1 is manual usually
 
         Ok(crate::types::CameraControls {
             auto_focus,
             focus_distance: get_norm(V4L2_CID_FOCUS_ABSOLUTE),
             auto_exposure, // Boolean
-            exposure_time: get_norm(V4L2_CID_EXPOSURE_ABSOLUTE), 
+            exposure_time: get_norm(V4L2_CID_EXPOSURE_ABSOLUTE),
             iso_sensitivity: None, // V4L2 ISO handling is complex/device specific
             white_balance: Some(crate::types::WhiteBalance::Auto), // Simplified
             aperture: None,
@@ -391,8 +464,10 @@ impl LinuxCamera {
     ) -> Result<crate::types::ControlApplicationResult, CameraError> {
         let device_index = self.device_id.parse::<usize>().unwrap_or(0);
         let path = format!("/dev/video{}", device_index);
-        let dev = Device::with_path(&path).map_err(|e| CameraError::InitializationError(format!("Failed to open device for controls: {}", e)))?;
-        
+        let dev = Device::with_path(&path).map_err(|e| {
+            CameraError::InitializationError(format!("Failed to open device for controls: {}", e))
+        })?;
+
         const V4L2_CID_BRIGHTNESS: u32 = 0x00980900;
         const V4L2_CID_CONTRAST: u32 = 0x00980901;
         const V4L2_CID_SATURATION: u32 = 0x00980902;
@@ -419,7 +494,9 @@ impl LinuxCamera {
                     };
                     match dev.set_control(ctrl) {
                         Ok(_) => return true,
-                        Err(e) => { log::warn!("V4L2 set_control(id=0x{:08x}) failed: {}", id, e); }
+                        Err(e) => {
+                            log::warn!("V4L2 set_control(id=0x{:08x}) failed: {}", id, e);
+                        }
                     }
                 } else {
                     log::warn!("V4L2 control id=0x{:08x} not found on device", id);
@@ -431,8 +508,11 @@ impl LinuxCamera {
         macro_rules! try_norm {
             ($field:expr, $id:expr, $name:literal) => {
                 if let Some(v) = $field {
-                    if try_set_norm($id, v) { applied.push($name.to_string()); }
-                    else { rejected.push($name.to_string()); }
+                    if try_set_norm($id, v) {
+                        applied.push($name.to_string());
+                    } else {
+                        rejected.push($name.to_string());
+                    }
                 }
             };
         }
@@ -459,8 +539,11 @@ impl LinuxCamera {
 
         if let Some(fd) = controls.focus_distance {
             if controls.auto_focus != Some(true) {
-                if try_set_norm(V4L2_CID_FOCUS_ABSOLUTE, fd) { applied.push("focus_distance".to_string()); }
-                else { rejected.push("focus_distance".to_string()); }
+                if try_set_norm(V4L2_CID_FOCUS_ABSOLUTE, fd) {
+                    applied.push("focus_distance".to_string());
+                } else {
+                    rejected.push("focus_distance".to_string());
+                }
             }
         }
 
@@ -481,8 +564,11 @@ impl LinuxCamera {
 
         if let Some(et) = controls.exposure_time {
             if controls.auto_exposure != Some(true) {
-                if try_set_norm(V4L2_CID_EXPOSURE_ABSOLUTE, et) { applied.push("exposure_time".to_string()); }
-                else { rejected.push("exposure_time".to_string()); }
+                if try_set_norm(V4L2_CID_EXPOSURE_ABSOLUTE, et) {
+                    applied.push("exposure_time".to_string());
+                } else {
+                    rejected.push("exposure_time".to_string());
+                }
             }
         }
 
@@ -493,48 +579,62 @@ impl LinuxCamera {
     pub fn test_capabilities(&self) -> Result<crate::types::CameraCapabilities, CameraError> {
         let device_index = self.device_id.parse::<usize>().unwrap_or(0);
         let path = format!("/dev/video{}", device_index);
-        let dev = Device::with_path(&path).map_err(|e| CameraError::InitializationError(format!("Failed to open device: {}", e)))?;
-        
+        let dev = Device::with_path(&path).map_err(|e| {
+            CameraError::InitializationError(format!("Failed to open device: {}", e))
+        })?;
+
         let mut caps = crate::types::CameraCapabilities::default();
-        
+
         // Check controls for capabilities
         if let Ok(controls) = dev.query_controls() {
             // Manual Focus
             const V4L2_CID_FOCUS_ABSOLUTE: u32 = 0x009a090a;
-            caps.supports_manual_focus = controls.iter().any(|c| c.id == V4L2_CID_FOCUS_ABSOLUTE);
-            
+            caps.supports.manual_focus = controls.iter().any(|c| c.id == V4L2_CID_FOCUS_ABSOLUTE);
+
             // Manual Exposure
             const V4L2_CID_EXPOSURE_ABSOLUTE: u32 = 0x009a0902;
-            caps.supports_manual_exposure = controls.iter().any(|c| c.id == V4L2_CID_EXPOSURE_ABSOLUTE);
-            
+            caps.supports.manual_exposure =
+                controls.iter().any(|c| c.id == V4L2_CID_EXPOSURE_ABSOLUTE);
+
             // Zoom
             const V4L2_CID_ZOOM_ABSOLUTE: u32 = 0x009a090d;
-            caps.supports_zoom = controls.iter().any(|c| c.id == V4L2_CID_ZOOM_ABSOLUTE);
+            caps.supports.zoom = controls.iter().any(|c| c.id == V4L2_CID_ZOOM_ABSOLUTE);
 
             // Auto Focus/Exposure usually supported if the CID exists for the mode
             const V4L2_CID_FOCUS_AUTO: u32 = 0x009a090c;
-            caps.supports_auto_focus = controls.iter().any(|c| c.id == V4L2_CID_FOCUS_AUTO);
+            caps.supports.auto_focus = controls.iter().any(|c| c.id == V4L2_CID_FOCUS_AUTO);
 
-             const V4L2_CID_EXPOSURE_AUTO: u32 = 0x009a0901;
-             caps.supports_auto_exposure = controls.iter().any(|c| c.id == V4L2_CID_EXPOSURE_AUTO);
+            const V4L2_CID_EXPOSURE_AUTO: u32 = 0x009a0901;
+            caps.supports.auto_exposure = controls.iter().any(|c| c.id == V4L2_CID_EXPOSURE_AUTO);
         }
 
         // Get actual ranges/resolutions if possible (requires more complex enumeration)
         if let Ok(formats) = self.get_supported_formats() {
             if let Some(max) = formats.iter().max_by_key(|f| (f.width * f.height) as u64) {
-                 caps.max_resolution = (max.width, max.height);
-                 caps.max_fps = max.fps;
+                caps.max_resolution = (max.width, max.height);
+                caps.max_fps = max.fps;
             }
         }
 
         Ok(caps)
     }
 
-    /// Get performance metrics (Not implemented)
+    /// Get real performance metrics for this camera session.
+    ///
+    /// # Errors
+    /// Returns [`CameraError::CaptureError`] if the shared perf tracker mutex is
+    /// poisoned.
     pub fn get_performance_metrics(
         &self,
     ) -> Result<crate::types::CameraPerformanceMetrics, CameraError> {
-        Err(CameraError::UnsupportedOperation("Performance metrics not yet implemented on Linux".to_string()))
+        let perf = self
+            .perf
+            .lock()
+            .map_err(|_| CameraError::CaptureError("Perf tracker mutex poisoned".to_string()))?;
+        Ok(crate::platform::metrics::build_metrics(
+            &perf,
+            &self.device_id,
+        ))
     }
 
     /// Set frame callback for real-time processing

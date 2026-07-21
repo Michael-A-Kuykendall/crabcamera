@@ -17,7 +17,7 @@ use crate::audio::{list_audio_devices as enumerate_audio_devices, AudioDevice};
 
 /// Audio device information exposed to Tauri frontend
 ///
-/// Per #TauriAudioCommands: ! list_audio_devices_returns_structured_data
+/// Per #`TauriAudioCommands`: ! `list_audio_devices_returns_structured_data`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AudioDeviceInfo {
@@ -47,19 +47,22 @@ impl From<AudioDevice> for AudioDeviceInfo {
 
 /// List all available audio input devices
 ///
-/// Per #TauriAudioCommands:
-/// - ! list_audio_devices_returns_structured_data
-/// - ! user_safe_error_strings  
-/// - - leaking_internal_error_types
+/// Per #`TauriAudioCommands`:
+/// - ! `list_audio_devices_returns_structured_data`
+/// - ! `user_safe_error_strings`  
+/// - - `leaking_internal_error_types`
 ///
 /// # Returns
 /// List of audio devices, sorted with default device first
+///
+/// # Errors
+/// Returns an `Err` if the audio devices cannot be enumerated.
 #[command]
 pub fn list_audio_devices() -> Result<Vec<AudioDeviceInfo>, String> {
     enumerate_audio_devices()
         .map(|devices| devices.into_iter().map(AudioDeviceInfo::from).collect())
         .map_err(|e| {
-            log::error!("Failed to enumerate audio devices: {:?}", e);
+            log::error!("Failed to enumerate audio devices: {e:?}");
             "Unable to list audio devices. Please check that your audio drivers are installed correctly.".to_string()
         })
 }
@@ -68,12 +71,15 @@ pub fn list_audio_devices() -> Result<Vec<AudioDeviceInfo>, String> {
 ///
 /// # Returns
 /// The default audio device, or an error if none available
+///
+/// # Errors
+/// Returns an `Err` if no default audio input device is available.
 #[command]
 pub fn get_default_audio_device() -> Result<AudioDeviceInfo, String> {
     crate::audio::get_default_audio_device()
         .map(AudioDeviceInfo::from)
         .map_err(|e| {
-            log::error!("Failed to get default audio device: {:?}", e);
+            log::error!("Failed to get default audio device: {e:?}");
             "No default audio input device available. Please connect a microphone.".to_string()
         })
 }
@@ -92,7 +98,7 @@ mod tests {
             is_default: true,
         };
 
-        let json = serde_json::to_string(&device).unwrap();
+        let json = serde_json::to_string(&device).expect("serialize audio device");
         // JSON serialization uses camelCase for frontend compatibility
         assert!(json.contains("sampleRate"));
         assert!(json.contains("isDefault"));
