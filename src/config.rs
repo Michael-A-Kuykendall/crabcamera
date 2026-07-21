@@ -3,8 +3,14 @@
 //! Provides configuration loading, saving, and management for camera settings,
 //! quality thresholds, storage preferences, and other runtime options.
 
+use crate::constants::{
+    DEFAULT_BLUR_THRESHOLD, DEFAULT_DATE_FORMAT, DEFAULT_EXPOSURE_THRESHOLD,
+    DEFAULT_FOCUS_STACK_STEPS, DEFAULT_FPS, DEFAULT_HDR_BRACKETS, DEFAULT_IMAGE_FORMAT,
+    DEFAULT_JPEG_QUALITY, DEFAULT_MAX_RETRY_ATTEMPTS, DEFAULT_OUTPUT_DIRECTORY,
+    DEFAULT_OVERALL_THRESHOLD, DEFAULT_RECONNECT_ATTEMPTS, DEFAULT_RECONNECT_DELAY_MS,
+    DEFAULT_RESOLUTION_HEIGHT, DEFAULT_RESOLUTION_WIDTH, DEFAULT_RETRY_DELAY_MS,
+};
 use crate::errors::CameraError;
-use crate::constants::{DEFAULT_RESOLUTION_WIDTH, DEFAULT_RESOLUTION_HEIGHT, DEFAULT_FPS, DEFAULT_RECONNECT_ATTEMPTS, DEFAULT_RECONNECT_DELAY_MS, DEFAULT_MAX_RETRY_ATTEMPTS, DEFAULT_BLUR_THRESHOLD, DEFAULT_EXPOSURE_THRESHOLD, DEFAULT_OVERALL_THRESHOLD, DEFAULT_RETRY_DELAY_MS, DEFAULT_OUTPUT_DIRECTORY, DEFAULT_DATE_FORMAT, DEFAULT_IMAGE_FORMAT, DEFAULT_JPEG_QUALITY, DEFAULT_FOCUS_STACK_STEPS, DEFAULT_HDR_BRACKETS};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -86,10 +92,13 @@ pub struct AdvancedConfig {
 
 impl Default for CrabCameraConfig {
     fn default() -> Self {
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        // f32→u32: DEFAULT_FPS is a known positive constant (30.0)
+        let default_fps_val = DEFAULT_FPS as u32;
         Self {
             camera: CameraConfig {
                 default_resolution: [DEFAULT_RESOLUTION_WIDTH, DEFAULT_RESOLUTION_HEIGHT],
-                default_fps: DEFAULT_FPS as u32,
+                default_fps: default_fps_val,
                 auto_reconnect: true,
                 reconnect_attempts: DEFAULT_RECONNECT_ATTEMPTS,
                 reconnect_delay_ms: DEFAULT_RECONNECT_DELAY_MS,
@@ -130,7 +139,10 @@ impl CrabCameraConfig {
         let path = path.as_ref();
 
         if !path.exists() {
-            log::info!("Config file not found at {path:?}, using defaults");
+            log::info!(
+                "Config file not found at {}, using defaults",
+                path.display()
+            );
             return Ok(Self::default());
         }
 
@@ -142,7 +154,7 @@ impl CrabCameraConfig {
             CameraError::InitializationError(format!("Failed to parse config file: {e}"))
         })?;
 
-        log::info!("Loaded configuration from {path:?}");
+        log::info!("Loaded configuration from {}", path.display());
         Ok(config)
     }
 
@@ -158,9 +170,7 @@ impl CrabCameraConfig {
         // Create parent directories if needed
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(|e| {
-                CameraError::InitializationError(format!(
-                    "Failed to create config directory: {e}"
-                ))
+                CameraError::InitializationError(format!("Failed to create config directory: {e}"))
             })?;
         }
 
@@ -172,7 +182,7 @@ impl CrabCameraConfig {
             CameraError::InitializationError(format!("Failed to write config file: {e}"))
         })?;
 
-        log::info!("Saved configuration to {path:?}");
+        log::info!("Saved configuration to {}", path.display());
         Ok(())
     }
 
@@ -269,7 +279,7 @@ mod tests {
         let config = CrabCameraConfig::default();
         assert!(config.save_to_file(&config_path).is_ok());
 
-        let loaded = CrabCameraConfig::load_from_file(&config_path).unwrap();
+        let loaded = CrabCameraConfig::load_from_file(&config_path).expect("load saved config");
         assert_eq!(loaded.camera.default_fps, config.camera.default_fps);
         assert_eq!(
             loaded.quality.max_retry_attempts,
@@ -283,7 +293,7 @@ mod tests {
     #[test]
     fn test_config_toml_format() {
         let config = CrabCameraConfig::default();
-        let toml_string = toml::to_string_pretty(&config).unwrap();
+        let toml_string = toml::to_string_pretty(&config).expect("serialize config to TOML");
 
         // Verify TOML contains expected sections
         assert!(toml_string.contains("[camera]"));
@@ -298,7 +308,7 @@ mod tests {
     fn test_load_nonexistent_file() {
         let result = CrabCameraConfig::load_from_file("nonexistent_file.toml");
         assert!(result.is_ok()); // Should return default
-        assert_eq!(result.unwrap().camera.default_fps, 30);
+        assert_eq!(result.expect("load default config").camera.default_fps, 30);
     }
 
     #[test]
@@ -377,11 +387,17 @@ mod tests {
 
     #[test]
     fn test_default_path_and_load_or_default() {
-        assert_eq!(CrabCameraConfig::default_path(), PathBuf::from("crabcamera.toml"));
+        assert_eq!(
+            CrabCameraConfig::default_path(),
+            PathBuf::from("crabcamera.toml")
+        );
 
         // Ensure missing default file path still returns a usable default.
         let loaded = CrabCameraConfig::load_or_default();
-        assert_eq!(loaded.camera.default_fps, CrabCameraConfig::default().camera.default_fps);
+        assert_eq!(
+            loaded.camera.default_fps,
+            CrabCameraConfig::default().camera.default_fps
+        );
     }
 
     #[test]
@@ -407,7 +423,8 @@ mod tests {
         let _ = fs::remove_dir_all(&base);
 
         let cfg = CrabCameraConfig::default();
-        cfg.save_to_file(&nested).expect("save should create parent dirs");
+        cfg.save_to_file(&nested)
+            .expect("save should create parent dirs");
         assert!(nested.exists());
 
         let loaded = CrabCameraConfig::load_from_file(&nested).expect("load saved config");

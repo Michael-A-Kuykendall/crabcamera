@@ -13,8 +13,8 @@
 //! - Maintains channel count
 
 use super::capture::AudioFrame;
+use crate::constants::{OPUS_APPLICATION_AUDIO, OPUS_FRAME_SAMPLES, OPUS_SAMPLE_RATE};
 use crate::errors::CameraError;
-use crate::constants::{OPUS_SAMPLE_RATE, OPUS_APPLICATION_AUDIO, OPUS_FRAME_SAMPLES};
 
 /// Encoded Opus audio packet
 #[derive(Debug, Clone)]
@@ -51,6 +51,9 @@ pub struct OpusEncoder {
     buffer_start_pts: Option<f64>,
     /// Total samples encoded (for PTS calculation)
     samples_encoded: u64,
+    /// Running PTS accumulator in samples, stored as `f64` to avoid an
+    /// `u64 -> f64` precision-loss cast when computing presentation timestamps.
+    samples_encoded_f64: f64,
 }
 
 // SAFETY: OpusEncoder can be sent to another thread because:
@@ -74,9 +77,9 @@ impl OpusEncoder {
     /// underlying Opus encoder cannot be created.
     pub fn new(sample_rate: u32, channels: u16, bitrate: u32) -> Result<Self, CameraError> {
         if sample_rate != OPUS_SAMPLE_RATE {
-            return Err(CameraError::AudioError(
-                format!("Opus requires {OPUS_SAMPLE_RATE} Hz sample rate"),
-            ));
+            return Err(CameraError::AudioError(format!(
+                "Opus requires {OPUS_SAMPLE_RATE} Hz sample rate"
+            )));
         }
 
         if channels != 1 && channels != 2 {
@@ -85,10 +88,13 @@ impl OpusEncoder {
             ));
         }
 
+        let sample_rate_i32 = i32::try_from(sample_rate)
+            .map_err(|_| CameraError::AudioError("sample rate exceeds i32 range".to_string()))?;
+
         let mut error: i32 = 0;
         let encoder = unsafe {
             libopus_sys::opus_encoder_create(
-                sample_rate as i32,
+                sample_rate_i32,
                 i32::from(channels),
                 OPUS_APPLICATION_AUDIO,
                 &raw mut error,
@@ -102,13 +108,12 @@ impl OpusEncoder {
         }
 
         // Set bitrate
+        let bitrate_i32 = i32::try_from(bitrate)
+            .map_err(|_| CameraError::AudioError("bitrate exceeds i32 range".to_string()))?;
+        let bitrate_request = i32::try_from(libopus_sys::OPUS_SET_BITRATE_REQUEST)
+            .map_err(|_| CameraError::AudioError("OPUS_SET_BITRATE_REQUEST exceeds i32".to_string()))?;
         let result = unsafe {
-            #[allow(clippy::cast_possible_wrap)] // Safe: constant is valid i32
-            libopus_sys::opus_encoder_ctl(
-                encoder,
-                libopus_sys::OPUS_SET_BITRATE_REQUEST as i32,
-                bitrate as i32,
-            )
+            libopus_sys::opus_encoder_ctl(encoder, bitrate_request, bitrate_i32)
         };
 
         if result != 0 {
@@ -125,6 +130,7 @@ impl OpusEncoder {
             sample_buffer: Vec::with_capacity(OPUS_FRAME_SAMPLES * channels as usize * 2),
             buffer_start_pts: None,
             samples_encoded: 0,
+            samples_encoded_f64: 0.0,
         })
     }
 
@@ -166,27 +172,31 @@ impl OpusEncoder {
 
         // Use f64::from for safe lossless casting where possible
         let sample_rate_f64 = f64::from(self.sample_rate);
-        #[allow(clippy::cast_precision_loss)] // u64 -> f64 is lossy but acceptable for timestamps here
-        let opus_samples_f64 = OPUS_FRAME_SAMPLES as f64;
+        let opus_samples_f64 = f64::from(
+            u32::try_from(OPUS_FRAME_SAMPLES)
+                .map_err(|_| CameraError::AudioError("OPUS_FRAME_SAMPLES exceeds u32".to_string()))?,
+        );
         let frame_duration = opus_samples_f64 / sample_rate_f64;
 
         while self.sample_buffer.len() >= samples_per_frame {
             let frame_samples: Vec<f32> = self.sample_buffer.drain(..samples_per_frame).collect();
 
             // Calculate PTS for this frame
-            #[allow(clippy::cast_precision_loss)] // u64 -> f64 is lossy but acceptable for timestamps here
-            let pts = self.samples_encoded as f64 / sample_rate_f64;
+            let pts = self.samples_encoded_f64 / sample_rate_f64;
 
             // Encode to Opus
             let mut output = vec![0u8; 4000]; // Max Opus packet size
+            let frame_samples_i32 = i32::try_from(OPUS_FRAME_SAMPLES)
+                .map_err(|_| CameraError::AudioError("OPUS_FRAME_SAMPLES exceeds i32".to_string()))?;
+            let max_bytes = i32::try_from(output.len())
+                .map_err(|_| CameraError::AudioError("output buffer length exceeds i32".to_string()))?;
             let len = unsafe {
-                #[allow(clippy::cast_possible_wrap)] // Safe for small Opus frame sizes
                 libopus_sys::opus_encode_float(
                     self.encoder,
                     frame_samples.as_ptr(),
-                    OPUS_FRAME_SAMPLES as i32,
+                    frame_samples_i32,
                     output.as_mut_ptr(),
-                    output.len() as i32,
+                    max_bytes,
                 )
             };
 
@@ -196,7 +206,7 @@ impl OpusEncoder {
                 )));
             }
 
-            output.truncate(len as usize);
+            output.truncate(usize::try_from(len).unwrap_or(0));
 
             encoded_packets.push(EncodedAudio {
                 data: output,
@@ -204,7 +214,12 @@ impl OpusEncoder {
                 duration: frame_duration,
             });
 
-            self.samples_encoded += OPUS_FRAME_SAMPLES as u64;
+            self.samples_encoded += u64::try_from(OPUS_FRAME_SAMPLES)
+                .map_err(|_| CameraError::AudioError("OPUS_FRAME_SAMPLES exceeds u64".to_string()))?;
+            self.samples_encoded_f64 += f64::from(
+                u32::try_from(OPUS_FRAME_SAMPLES)
+                    .map_err(|_| CameraError::AudioError("OPUS_FRAME_SAMPLES exceeds u32".to_string()))?,
+            );
         }
 
         // NOTE: Do NOT update buffer_start_pts here. The samples_encoded counter
@@ -237,24 +252,29 @@ impl OpusEncoder {
         let mut encoded_packets = Vec::new();
         // Use f64::from for safe lossless casting where possible
         let sample_rate_f64 = f64::from(self.sample_rate);
-        #[allow(clippy::cast_precision_loss)] // Safe for small Opus frame sizes
-        let opus_samples_f64 = OPUS_FRAME_SAMPLES as f64;
+        let opus_samples_f64 = f64::from(
+            u32::try_from(OPUS_FRAME_SAMPLES)
+                .map_err(|_| CameraError::AudioError("OPUS_FRAME_SAMPLES exceeds u32".to_string()))?,
+        );
         let frame_duration = opus_samples_f64 / sample_rate_f64;
 
         while self.sample_buffer.len() >= samples_per_frame {
             let frame_samples: Vec<f32> = self.sample_buffer.drain(..samples_per_frame).collect();
-            #[allow(clippy::cast_precision_loss)] // u64 -> f64 is lossy but acceptable for timestamps here
-            let pts = self.samples_encoded as f64 / sample_rate_f64;
+            // Calculate PTS for this frame
+            let pts = self.samples_encoded_f64 / sample_rate_f64;
 
             let mut output = vec![0u8; 4000];
+            let frame_samples_i32 = i32::try_from(OPUS_FRAME_SAMPLES)
+                .map_err(|_| CameraError::AudioError("OPUS_FRAME_SAMPLES exceeds i32".to_string()))?;
+            let max_bytes = i32::try_from(output.len())
+                .map_err(|_| CameraError::AudioError("output buffer length exceeds i32".to_string()))?;
             let len = unsafe {
-                #[allow(clippy::cast_possible_wrap)] // Safe for small Opus frame sizes
                 libopus_sys::opus_encode_float(
                     self.encoder,
                     frame_samples.as_ptr(),
-                    OPUS_FRAME_SAMPLES as i32,
+                    frame_samples_i32,
                     output.as_mut_ptr(),
-                    output.len() as i32,
+                    max_bytes,
                 )
             };
 
@@ -264,7 +284,7 @@ impl OpusEncoder {
                 )));
             }
 
-            output.truncate(len as usize);
+            output.truncate(usize::try_from(len).unwrap_or(0));
 
             encoded_packets.push(EncodedAudio {
                 data: output,
@@ -272,7 +292,12 @@ impl OpusEncoder {
                 duration: frame_duration,
             });
 
-            self.samples_encoded += OPUS_FRAME_SAMPLES as u64;
+            self.samples_encoded += u64::try_from(OPUS_FRAME_SAMPLES)
+                .map_err(|_| CameraError::AudioError("OPUS_FRAME_SAMPLES exceeds u64".to_string()))?;
+            self.samples_encoded_f64 += f64::from(
+                u32::try_from(OPUS_FRAME_SAMPLES)
+                    .map_err(|_| CameraError::AudioError("OPUS_FRAME_SAMPLES exceeds u32".to_string()))?,
+            );
         }
 
         Ok(encoded_packets)
@@ -323,7 +348,7 @@ mod tests {
 
     #[test]
     fn test_encode_full_frame() {
-        let mut encoder = OpusEncoder::new(48000, 2, 128_000).unwrap();
+        let mut encoder = OpusEncoder::new(48000, 2, 128_000).expect("create Opus encoder");
 
         // Create a full frame worth of stereo samples (960 samples * 2 channels)
         let frame = AudioFrame {
@@ -333,14 +358,14 @@ mod tests {
             timestamp: 0.0,
         };
 
-        let encoded_packets = encoder.encode(&frame).unwrap();
+        let encoded_packets = encoder.encode(&frame).expect("encode full frame");
         assert_eq!(encoded_packets.len(), 1);
         assert!(!encoded_packets[0].data.is_empty());
     }
 
     #[test]
     fn test_encode_partial_frame() {
-        let mut encoder = OpusEncoder::new(48000, 2, 128_000).unwrap();
+        let mut encoder = OpusEncoder::new(48000, 2, 128_000).expect("create Opus encoder");
 
         // Less than a full frame
         let frame = AudioFrame {
@@ -350,7 +375,7 @@ mod tests {
             timestamp: 0.0,
         };
 
-        let encoded_packets = encoder.encode(&frame).unwrap();
+        let encoded_packets = encoder.encode(&frame).expect("encode partial frame");
         assert!(
             encoded_packets.is_empty(),
             "Partial frame should not produce output"
@@ -359,7 +384,7 @@ mod tests {
 
     #[test]
     fn test_flush_remaining() {
-        let mut encoder = OpusEncoder::new(48000, 2, 128_000).unwrap();
+        let mut encoder = OpusEncoder::new(48000, 2, 128_000).expect("create Opus encoder");
 
         // Add partial frame
         let frame = AudioFrame {
@@ -368,10 +393,10 @@ mod tests {
             channels: 2,
             timestamp: 0.0,
         };
-        encoder.encode(&frame).unwrap();
+        encoder.encode(&frame).expect("encode partial frame");
 
         // Flush should produce output
-        let flushed = encoder.flush().unwrap();
+        let flushed = encoder.flush().expect("flush encoder");
         assert_eq!(flushed.len(), 1);
     }
 }

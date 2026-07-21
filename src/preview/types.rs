@@ -1,5 +1,5 @@
-use serde::Serialize;
 use crate::quality::QualityReport;
+use serde::Serialize;
 
 /// Event emitted by `PreviewStream` for each captured frame.
 /// Carries a JPEG-compressed preview frame alongside quality metadata.

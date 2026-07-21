@@ -98,7 +98,7 @@ mod tests {
             is_default: true,
         };
 
-        let json = serde_json::to_string(&device).unwrap();
+        let json = serde_json::to_string(&device).expect("serialize audio device");
         // JSON serialization uses camelCase for frontend compatibility
         assert!(json.contains("sampleRate"));
         assert!(json.contains("isDefault"));

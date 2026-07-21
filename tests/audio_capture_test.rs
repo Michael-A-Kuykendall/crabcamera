@@ -57,22 +57,21 @@ fn test_device_enumeration_comprehensive() {
             );
 
             // If we have devices, at least one should be default OR we should be able to get default
-            if !devices.is_empty()
-                && default_devices.is_empty() {
-                    // Try to get default device explicitly
-                    match get_default_audio_device() {
-                        Ok(default) => {
-                            println!("Default device: {}", default.name);
-                            assert!(
-                                default.is_default,
-                                "Default device should be marked as default"
-                            );
-                        }
-                        Err(e) => {
-                            println!("Warning: No default device available: {}", e);
-                        }
+            if !devices.is_empty() && default_devices.is_empty() {
+                // Try to get default device explicitly
+                match get_default_audio_device() {
+                    Ok(default) => {
+                        println!("Default device: {}", default.name);
+                        assert!(
+                            default.is_default,
+                            "Default device should be marked as default"
+                        );
+                    }
+                    Err(e) => {
+                        println!("Warning: No default device available: {}", e);
                     }
                 }
+            }
         }
         Err(e) => {
             println!(

@@ -18,10 +18,12 @@ use std::time::Duration;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{Stream, StreamConfig};
 
-use crate::timing::PTSClock;
 use super::device::find_audio_device;
+use crate::constants::{
+    AUDIO_BUFFER_FRAMES, AUDIO_DEVICE_DEFAULT, AUDIO_SAMPLE_RATE_44K, AUDIO_SAMPLE_RATE_48K,
+};
 use crate::errors::CameraError;
-use crate::constants::{AUDIO_BUFFER_FRAMES, AUDIO_DEVICE_DEFAULT, AUDIO_SAMPLE_RATE_48K, AUDIO_SAMPLE_RATE_44K};
+use crate::timing::PTSClock;
 
 /// Maximum number of audio frames to buffer before dropping oldest.
 /// At 48kHz with 20ms frames (960 samples), this allows ~5 seconds of buffering.
@@ -79,9 +81,7 @@ impl AudioCapture {
                 .ok_or_else(|| CameraError::AudioError("No default audio device".to_string()))?
         } else {
             host.input_devices()
-                .map_err(|e| {
-                    CameraError::AudioError(format!("Failed to enumerate devices: {e}"))
-                })?
+                .map_err(|e| CameraError::AudioError(format!("Failed to enumerate devices: {e}")))?
                 .find(|d| d.name().ok().as_ref() == Some(&device_info.name))
                 .ok_or_else(|| {
                     CameraError::AudioError(format!("Device not found: {device_id_str}"))
@@ -93,11 +93,12 @@ impl AudioCapture {
             .default_input_config()
             .map_err(|e| CameraError::AudioError(format!("No supported config: {e}")))?;
 
-        let actual_sample_rate = if sample_rate == AUDIO_SAMPLE_RATE_48K || sample_rate == AUDIO_SAMPLE_RATE_44K {
-            sample_rate
-        } else {
-            supported_config.sample_rate().0
-        };
+        let actual_sample_rate =
+            if sample_rate == AUDIO_SAMPLE_RATE_48K || sample_rate == AUDIO_SAMPLE_RATE_44K {
+                sample_rate
+            } else {
+                supported_config.sample_rate().0
+            };
 
         let actual_channels = if channels == 1 || channels == 2 {
             channels
@@ -203,7 +204,10 @@ impl AudioCapture {
     ///
     /// # Errors
     /// Returns `RecvTimeoutError` if no frame is available within the timeout.
-    pub fn recv_timeout(&self, timeout: Duration) -> Result<AudioFrame, crossbeam_channel::RecvTimeoutError> {
+    pub fn recv_timeout(
+        &self,
+        timeout: Duration,
+    ) -> Result<AudioFrame, crossbeam_channel::RecvTimeoutError> {
         self.receiver.recv_timeout(timeout)
     }
 

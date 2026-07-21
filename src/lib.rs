@@ -43,12 +43,12 @@
 #![warn(missing_docs)]
 #![warn(clippy::pedantic)]
 #![warn(clippy::unwrap_used)]
-// Common enough reasonable exceptions
+// Exceptions where clippy is over-alert (stylistic, not correctness):
 #![allow(clippy::module_name_repetitions)]
+// must_use_candidate is a style convention, not a correctness guard
 #![allow(clippy::must_use_candidate)]
-#![allow(clippy::cast_precision_loss)]
-#![allow(clippy::cast_possible_truncation)]
-#![allow(clippy::cast_sign_loss)]
+// suppress via per-site allow when justified (not blanket)
+// -- cast_* blankets removed -- those were papering over real truncation/precision/sign errors
 
 #[cfg(feature = "tauri")]
 /// Tauri command handlers.

@@ -17,7 +17,7 @@ mod recording_tests {
         let config = RecordingConfig::from_quality(RecordingQuality::High);
         assert_eq!(config.width, 1920);
         assert_eq!(config.height, 1080);
-        assert_eq!(config.fps, 30.0);
+        assert!((config.fps - 30.0).abs() < 1e-6);
     }
 
     #[test]
@@ -80,9 +80,15 @@ mod recording_tests {
         assert!(stats.bytes_written > 0);
         assert_eq!(stats.dropped_frames, 0);
 
+        #[allow(clippy::cast_precision_loss)]
+        // u64→f64: frame count small, no precision loss in practice
         let expected_duration = total_frames as f64 / 30.0;
         let drift = (stats.duration_secs - expected_duration).abs();
-        assert!(drift < 0.001, "PTS drift too large: {drift}s (dur={}, exp={expected_duration})", stats.duration_secs);
+        assert!(
+            drift < 0.001,
+            "PTS drift too large: {drift}s (dur={}, exp={expected_duration})",
+            stats.duration_secs
+        );
 
         let _ = std::fs::remove_file(&output);
     }
@@ -106,9 +112,15 @@ mod recording_tests {
         assert_eq!(stats.video_frames, total_frames);
         assert_eq!(stats.dropped_frames, 0);
 
+        #[allow(clippy::cast_precision_loss)]
+        // u64→f64: frame count small, no precision loss in practice
         let expected_duration = total_frames as f64 / 15.0;
         let drift = (stats.duration_secs - expected_duration).abs();
-        assert!(drift < 0.001, "PTS drift exceeded bound: {drift}s (dur={}, exp={expected_duration})", stats.duration_secs);
+        assert!(
+            drift < 0.001,
+            "PTS drift exceeded bound: {drift}s (dur={}, exp={expected_duration})",
+            stats.duration_secs
+        );
 
         let _ = std::fs::remove_file(&output);
     }

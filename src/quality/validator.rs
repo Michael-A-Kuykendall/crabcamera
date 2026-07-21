@@ -1,4 +1,4 @@
-use crate::constants::{MIN_RESOLUTION_WIDTH, MIN_RESOLUTION_HEIGHT};
+use crate::constants::{MIN_RESOLUTION_HEIGHT, MIN_RESOLUTION_WIDTH};
 use crate::quality::{BlurDetector, BlurMetrics, ExposureAnalyzer, ExposureMetrics};
 use crate::types::CameraFrame;
 use serde::{Deserialize, Serialize};
@@ -58,7 +58,10 @@ impl QualityScore {
 
         let total = weights.0 + weights.1 + weights.2 + weights.3;
         let overall = if total > 0.0 {
-            (blur * weights.0 + exposure * weights.1 + composition * weights.2 + technical * weights.3)
+            (blur * weights.0
+                + exposure * weights.1
+                + composition * weights.2
+                + technical * weights.3)
                 / total
         } else {
             0.0
@@ -139,8 +142,7 @@ impl QualityGrade {
 ///   coarsely, and weights only blur + exposure (skips composition/technical).
 /// - `FinalCapture` is the accurate pass: denser noise sampling and slightly more
 ///   weight on composition/technical.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum QualityProfile {
     /// Original balanced behavior.
     #[default]
@@ -150,7 +152,6 @@ pub enum QualityProfile {
     /// Accurate pass for final captured frames.
     FinalCapture,
 }
-
 
 impl QualityProfile {
     /// Component weights `(blur, exposure, composition, technical)`.
@@ -269,11 +270,11 @@ pub struct ValidationConfig {
 impl Default for ValidationConfig {
     fn default() -> Self {
         Self {
-            blur_threshold: 0.6,        // Minimum blur quality
-            exposure_threshold: 0.6,    // Minimum exposure quality
-            overall_threshold: 0.7,     // Minimum overall quality
+            blur_threshold: 0.6,     // Minimum blur quality
+            exposure_threshold: 0.6, // Minimum exposure quality
+            overall_threshold: 0.7,  // Minimum overall quality
             min_resolution: (MIN_RESOLUTION_WIDTH, MIN_RESOLUTION_HEIGHT), // Minimum resolution (VGA)
-            max_noise_level: 0.3,       // Maximum acceptable noise
+            max_noise_level: 0.3, // Maximum acceptable noise
         }
     }
 }
@@ -371,6 +372,7 @@ impl QualityValidator {
     fn analyze_technical_aspects(frame: &CameraFrame, noise_step: usize) -> TechnicalDetails {
         let resolution = (frame.width, frame.height);
         let pixel_count = frame.width * frame.height;
+        #[allow(clippy::cast_precision_loss)] // u32 fits in f32 mantissa for typical resolutions
         let aspect_ratio = frame.width as f32 / frame.height as f32;
 
         // Estimate noise level (sampling density is controlled by the profile)
@@ -437,6 +439,7 @@ impl QualityValidator {
             return 0.5;
         }
 
+        #[allow(clippy::cast_precision_loss)] // len() is small; f32 mantissa sufficient
         let mean_noise = noise_values.iter().sum::<f32>() / noise_values.len() as f32;
         (mean_noise / 255.0).clamp(0.0, 1.0)
     }
@@ -479,9 +482,13 @@ impl QualityValidator {
             saturation_sum += saturation;
         }
 
+        #[allow(clippy::cast_precision_loss)] // u64 sum / pixel_count in 0..1e6 range, f32 mantissa sufficient
         let red_mean = red_sum as f32 / (pixel_count as f32 * 255.0);
+        #[allow(clippy::cast_precision_loss)] // u64 sum / pixel_count in 0..1e6 range, f32 mantissa sufficient
         let green_mean = green_sum as f32 / (pixel_count as f32 * 255.0);
+        #[allow(clippy::cast_precision_loss)] // u64 sum / pixel_count in 0..1e6 range, f32 mantissa sufficient
         let blue_mean = blue_sum as f32 / (pixel_count as f32 * 255.0);
+        #[allow(clippy::cast_precision_loss)] // pixel_count in 0..1e6 range, f32 mantissa sufficient
         let saturation_mean = saturation_sum / pixel_count as f32;
 
         // Calculate color balance score (how balanced are the R, G, B channels)
@@ -515,7 +522,7 @@ impl QualityValidator {
         let factor = max_side.div_ceil(max_dim) as usize;
         let new_w = (frame.width as usize / factor).max(1);
         let new_h = (frame.height as usize / factor).max(1);
-        let area = (factor * factor) as u32;
+        let area = u32::try_from(factor * factor).unwrap_or(u32::MAX);
 
         let mut out = vec![0u8; new_w * new_h * 3];
         for y in 0..new_h {
@@ -536,13 +543,13 @@ impl QualityValidator {
                     }
                 }
                 let dst = (y * new_w + x) * 3;
-                out[dst] = (sr / area) as u8;
-                out[dst + 1] = (sg / area) as u8;
-                out[dst + 2] = (sb / area) as u8;
+                out[dst] = u8::try_from(sr / area).unwrap_or(u8::MAX);
+                out[dst + 1] = u8::try_from(sg / area).unwrap_or(u8::MAX);
+                out[dst + 2] = u8::try_from(sb / area).unwrap_or(u8::MAX);
             }
         }
 
-        CameraFrame::new(out, new_w as u32, new_h as u32, frame.device_id.clone())
+        CameraFrame::new(out, u32::try_from(new_w).unwrap_or(u32::MAX), u32::try_from(new_h).unwrap_or(u32::MAX), frame.device_id.clone())
             .with_format(frame.format.clone())
     }
 
@@ -685,10 +692,10 @@ mod tests {
         let score = QualityScore::new(0.8, 0.9, 0.7, 0.6);
 
         assert!(score.overall > 0.0 && score.overall <= 1.0);
-        assert_eq!(score.blur, 0.8);
-        assert_eq!(score.exposure, 0.9);
-        assert_eq!(score.composition, 0.7);
-        assert_eq!(score.technical, 0.6);
+        assert!((score.blur - 0.8).abs() < 1e-6);
+        assert!((score.exposure - 0.9).abs() < 1e-6);
+        assert!((score.composition - 0.7).abs() < 1e-6);
+        assert!((score.technical - 0.6).abs() < 1e-6);
     }
 
     #[test]
@@ -707,7 +714,7 @@ mod tests {
     #[test]
     fn test_quality_validator_creation() {
         let validator = QualityValidator::default();
-        assert_eq!(validator.config.overall_threshold, 0.7);
+        assert!((validator.config.overall_threshold - 0.7).abs() < 1e-6);
 
         let custom_config = ValidationConfig {
             blur_threshold: 0.8,
@@ -718,7 +725,7 @@ mod tests {
         };
 
         let custom_validator = QualityValidator::new(custom_config);
-        assert_eq!(custom_validator.config.overall_threshold, 0.9);
+        assert!((custom_validator.config.overall_threshold - 0.9).abs() < 1e-6);
     }
 
     #[test]
@@ -802,7 +809,7 @@ mod tests {
         // Build a frame with deterministic per-pixel luminance variation (noise-like).
         let mut data = vec![128u8; 1920 * 1080 * 3];
         for i in (0..data.len()).step_by(3) {
-            let n = (i % 17) as u8;
+            let n = u8::try_from(i % 17).unwrap_or(u8::MAX);
             data[i] = data[i].wrapping_add(n);
         }
         let frame = CameraFrame::new(data, 1920, 1080, "test".to_string());
@@ -811,7 +818,10 @@ mod tests {
         let final_v = QualityValidator::with_profile(QualityProfile::FinalCapture);
 
         let nf = fast.validate_frame(&frame).technical_details.noise_estimate;
-        let nc = final_v.validate_frame(&frame).technical_details.noise_estimate;
+        let nc = final_v
+            .validate_frame(&frame)
+            .technical_details
+            .noise_estimate;
 
         // Both estimates are valid; FinalCapture samples far more pixels so it
         // surfaces the injected variation rather than averaging it away.

@@ -1,14 +1,18 @@
+use crate::constants::{
+    CAPTURE_RECONNECT_WARMUP_DELAY_MS, CAPTURE_RECONNECT_WARMUP_FRAMES, CAPTURE_WARMUP_DELAY_MS,
+    CAPTURE_WARMUP_FRAMES, CONNECTION_BACKOFF_INITIAL_MS, CONNECTION_BACKOFF_MAX_MS,
+};
+use crate::errors::CameraError;
 use crate::platform::PlatformCamera;
 use crate::types::{CameraFormat, CameraFrame, CameraInitParams};
-use crate::errors::CameraError;
-use crate::constants::{CONNECTION_BACKOFF_INITIAL_MS, CONNECTION_BACKOFF_MAX_MS, CAPTURE_WARMUP_FRAMES, CAPTURE_WARMUP_DELAY_MS, CAPTURE_RECONNECT_WARMUP_FRAMES, CAPTURE_RECONNECT_WARMUP_DELAY_MS};
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock, Mutex as SyncMutex};
 use tokio::sync::RwLock;
 
 // Global camera registry with async-friendly locking for the map, but sync locking for the camera
-static CAMERA_REGISTRY: LazyLock<Arc<RwLock<HashMap<String, Arc<SyncMutex<PlatformCamera>>>>>> =
-    LazyLock::new(|| Arc::new(RwLock::new(HashMap::new())));
+type CameraRegistry = LazyLock<Arc<RwLock<HashMap<String, Arc<SyncMutex<PlatformCamera>>>>>>;
+
+static CAMERA_REGISTRY: CameraRegistry = LazyLock::new(|| Arc::new(RwLock::new(HashMap::new())));
 
 /// Get existing camera without creating if it doesn't exist
 pub async fn get_existing_camera(device_id: &str) -> Option<Arc<SyncMutex<PlatformCamera>>> {
@@ -98,9 +102,7 @@ pub async fn reconnect_camera(
     format: CameraFormat,
     max_retries: u32,
 ) -> Result<Arc<SyncMutex<PlatformCamera>>, CameraError> {
-    log::info!(
-        "Attempting to reconnect camera: {device_id} (max retries: {max_retries})"
-    );
+    log::info!("Attempting to reconnect camera: {device_id} (max retries: {max_retries})");
 
     // Remove old camera from registry
     {
@@ -120,9 +122,7 @@ pub async fn reconnect_camera(
 
     // Retry connection with exponential backoff
     for attempt in 1..=max_retries {
-        log::debug!(
-            "Reconnection attempt {attempt}/{max_retries} for camera: {device_id}"
-        );
+        log::debug!("Reconnection attempt {attempt}/{max_retries} for camera: {device_id}");
 
         match get_or_create_camera(device_id.clone(), format.clone()).await {
             Ok(camera) => {
@@ -132,7 +132,8 @@ pub async fn reconnect_camera(
             Err(e) => {
                 log::warn!("Reconnection attempt {attempt} failed: {e}");
                 if attempt < max_retries {
-                    let backoff_ms = (CONNECTION_BACKOFF_INITIAL_MS * 2_u64.pow(attempt - 1)).min(CONNECTION_BACKOFF_MAX_MS);
+                    let backoff_ms = (CONNECTION_BACKOFF_INITIAL_MS * 2_u64.pow(attempt - 1))
+                        .min(CONNECTION_BACKOFF_MAX_MS);
                     tokio::time::sleep(tokio::time::Duration::from_millis(backoff_ms)).await;
                 }
             }
@@ -156,9 +157,7 @@ pub async fn capture_with_reconnect(
     format: CameraFormat,
     max_reconnect_attempts: u32,
 ) -> Result<CameraFrame, CameraError> {
-    log::debug!(
-        "Attempting capture with reconnect for device: {device_id}"
-    );
+    log::debug!("Attempting capture with reconnect for device: {device_id}");
 
     let camera_result = get_or_create_camera(device_id.clone(), format.clone()).await;
     let camera = match camera_result {
@@ -199,9 +198,9 @@ pub async fn capture_with_reconnect(
         }
 
         // Now capture the real frame
-        camera_guard
-            .capture_frame()
-            .map_err(|e| CameraError::CaptureError(format!("Initial capture failed: {e}, attempting reconnect")))
+        camera_guard.capture_frame().map_err(|e| {
+            CameraError::CaptureError(format!("Initial capture failed: {e}, attempting reconnect"))
+        })
     })
     .await
     .map_err(|e| CameraError::SystemError(format!("Task join error: {e}")))?;
@@ -227,12 +226,14 @@ pub async fn capture_with_reconnect(
         // Warmup after reconnect too
         for _ in 0..CAPTURE_RECONNECT_WARMUP_FRAMES {
             let _ = camera_guard.capture_frame();
-            std::thread::sleep(std::time::Duration::from_millis(CAPTURE_RECONNECT_WARMUP_DELAY_MS));
+            std::thread::sleep(std::time::Duration::from_millis(
+                CAPTURE_RECONNECT_WARMUP_DELAY_MS,
+            ));
         }
 
-        camera_guard
-            .capture_frame()
-            .map_err(|e| CameraError::CaptureError(format!("Capture failed after reconnection: {e}")))
+        camera_guard.capture_frame().map_err(|e| {
+            CameraError::CaptureError(format!("Capture failed after reconnection: {e}"))
+        })
     })
     .await
     .map_err(|e| CameraError::SystemError(format!("Task join error: {e}")))?

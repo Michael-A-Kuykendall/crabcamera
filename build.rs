@@ -65,8 +65,7 @@ const COMMANDS: &[&str] = &[
 
 fn main() {
     #[cfg(feature = "tauri")]
-    tauri_plugin::Builder::new(COMMANDS)
-        .build();
+    tauri_plugin::Builder::new(COMMANDS).build();
 
     // When the audio feature is enabled, we need to ensure the opus library is linked.
     // opus-static-sys builds opus and sets up link paths, but we need to propagate them.

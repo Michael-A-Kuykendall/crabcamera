@@ -47,6 +47,7 @@ impl Default for PerfTracker {
 }
 
 impl PerfTracker {
+    /// Create a new performance tracker with zeroed counters.
     pub fn new() -> Self {
         Self {
             capture_latency_ms: 0.0,
@@ -149,7 +150,14 @@ pub fn current_process_memory_mb() -> f32 {
             ) -> i32;
         }
 
-        let ret = unsafe { task_info(mach_task_self(), MACH_TASK_BASIC_INFO, info.as_mut_ptr(), &mut count) };
+        let ret = unsafe {
+            task_info(
+                mach_task_self(),
+                MACH_TASK_BASIC_INFO,
+                info.as_mut_ptr(),
+                &mut count,
+            )
+        };
         if ret == 0 {
             // resident_size is the u64 at byte offset 8 (after virtual_size),
             // i.e. i32 indices [2] (low) and [3] (high).
@@ -168,10 +176,16 @@ pub fn current_process_memory_mb() -> f32 {
 
         unsafe {
             let handle = GetCurrentProcess();
-            let mut counters = PROCESS_MEMORY_COUNTERS::default();
-            counters.cb = std::mem::size_of::<PROCESS_MEMORY_COUNTERS>() as u32;
+            let mut counters = PROCESS_MEMORY_COUNTERS {
+                cb: u32::try_from(std::mem::size_of::<PROCESS_MEMORY_COUNTERS>())
+                    .unwrap_or(u32::MAX),
+                ..Default::default()
+            };
             if GetProcessMemoryInfo(handle, &raw mut counters, counters.cb).is_ok() {
-                counters.WorkingSetSize as f32 / (1024.0 * 1024.0)
+                #[allow(clippy::cast_precision_loss)]
+                // usize→f32: WorkingSetSize in MB, f32 precision (>16M) is more than sufficient for this value
+                let ws = counters.WorkingSetSize as f32;
+                ws / (1024.0 * 1024.0)
             } else {
                 0.0
             }

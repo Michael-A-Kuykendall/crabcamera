@@ -284,7 +284,8 @@ pub async fn get_system_diagnostics() -> Result<SystemDiagnostics, String> {
         crate_version,
         platform: platform.as_str().to_string(),
         backend: platform_info
-            .as_ref().map_or_else(|| "unknown".to_string(), |p| p.backend.clone()),
+            .as_ref()
+            .map_or_else(|| "unknown".to_string(), |p| p.backend.clone()),
         camera_count,
         cameras: camera_summaries,
         permission_status,
@@ -367,8 +368,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_current_platform_returns_known_value() {
-        let platform = get_current_platform().await.expect("platform query should succeed");
-        assert!(matches!(platform.as_str(), "windows" | "macos" | "linux" | "unknown"));
+        let platform = get_current_platform()
+            .await
+            .expect("platform query should succeed");
+        assert!(matches!(
+            platform.as_str(),
+            "windows" | "macos" | "linux" | "unknown"
+        ));
     }
 
     #[tokio::test]
@@ -411,7 +417,10 @@ mod tests {
             .expect("diagnostics should always return a report");
 
         assert!(!diagnostics.crate_version.is_empty());
-        assert!(matches!(diagnostics.platform.as_str(), "windows" | "macos" | "linux" | "unknown"));
+        assert!(matches!(
+            diagnostics.platform.as_str(),
+            "windows" | "macos" | "linux" | "unknown"
+        ));
         assert!(!diagnostics.backend.is_empty());
         assert!(!diagnostics.permission_status.is_empty());
         assert!(!diagnostics.timestamp.is_empty());

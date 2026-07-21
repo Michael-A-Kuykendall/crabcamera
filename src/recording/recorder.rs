@@ -21,9 +21,12 @@ use muxide::api::{Metadata, MuxerBuilder, VideoCodec};
 #[cfg(feature = "audio")]
 use muxide::api::AudioCodec;
 
-use crate::constants::{RECORDING_AUDIO_CHANNEL_CAPACITY, RECORDING_AUDIO_SLEEP_MS, RECORDING_JITTER_TOLERANCE, RECORDING_DROP_LOG_INTERVAL};
 use super::config::{RecordingConfig, RecordingStats};
 use super::encoder::H264Encoder;
+use crate::constants::{
+    RECORDING_AUDIO_CHANNEL_CAPACITY, RECORDING_AUDIO_SLEEP_MS, RECORDING_DROP_LOG_INTERVAL,
+    RECORDING_JITTER_TOLERANCE,
+};
 use crate::errors::CameraError;
 use crate::types::CameraFrame;
 
@@ -173,7 +176,8 @@ impl Recorder {
         };
 
         // Channel for encoded audio packets
-        let (sender, receiver) = crossbeam_channel::bounded::<EncodedAudio>(RECORDING_AUDIO_CHANNEL_CAPACITY);
+        let (sender, receiver) =
+            crossbeam_channel::bounded::<EncodedAudio>(RECORDING_AUDIO_CHANNEL_CAPACITY);
         let stop_flag = Arc::new(AtomicBool::new(false));
         // Per #`AudioErrorRecovery`: ! `session_status_reflects_audio_state`
         let error_flag = Arc::new(AtomicBool::new(false));
@@ -196,14 +200,14 @@ impl Recorder {
             };
 
             // Create capture and encoder in this thread (they stay here)
-            let mut capture = match AudioCapture::new(device_id.as_deref(), sample_rate, channels, clock_clone)
-            {
-                Ok(c) => c,
-                Err(e) => {
-                    report_error(&format!("Audio capture init failed: {e}"));
-                    return;
-                }
-            };
+            let mut capture =
+                match AudioCapture::new(device_id.as_deref(), sample_rate, channels, clock_clone) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        report_error(&format!("Audio capture init failed: {e}"));
+                        return;
+                    }
+                };
 
             let mut encoder = match OpusEncoder::new(sample_rate, channels, bitrate) {
                 Ok(e) => e,
@@ -318,9 +322,13 @@ impl Recorder {
         let pts = if let Some(ref clock) = self.pts_clock {
             clock.pts() // Real elapsed time from shared clock
         } else {
-            self.frame_count as f64 * self.frame_duration_secs
+            #[allow(clippy::cast_precision_loss)]
+            {
+                self.frame_count as f64 * self.frame_duration_secs
+            }
         };
         #[cfg(not(feature = "audio"))]
+        #[allow(clippy::cast_precision_loss)]
         let pts = self.frame_count as f64 * self.frame_duration_secs;
 
         // Write to muxer (use the keyframe info from the encoder)
@@ -417,9 +425,13 @@ impl Recorder {
         let pts = if let Some(ref clock) = self.pts_clock {
             clock.pts()
         } else {
-            self.frame_count as f64 * self.frame_duration_secs
+            #[allow(clippy::cast_precision_loss)]
+            {
+                self.frame_count as f64 * self.frame_duration_secs
+            }
         };
         #[cfg(not(feature = "audio"))]
+        #[allow(clippy::cast_precision_loss)]
         let pts = self.frame_count as f64 * self.frame_duration_secs;
 
         self.muxer
@@ -448,16 +460,20 @@ impl Recorder {
         self.finish_audio();
 
         // Use finish_with_stats() which returns Result<MuxerStats, MuxerError>
-        let muxer_stats = self.muxer.finish_with_stats().map_err(|e| {
-            CameraError::MuxingError(format!("Failed to finalize recording: {e}"))
-        })?;
+        let muxer_stats = self
+            .muxer
+            .finish_with_stats()
+            .map_err(|e| CameraError::MuxingError(format!("Failed to finalize recording: {e}")))?;
 
-        let actual_duration = self
-            .start_time
-            .map_or(muxer_stats.duration_secs, |start| start.elapsed().as_secs_f64());
+        let actual_duration = self.start_time.map_or(muxer_stats.duration_secs, |start| {
+            start.elapsed().as_secs_f64()
+        });
 
         let actual_fps = if actual_duration > 0.0 {
-            self.frame_count as f64 / actual_duration
+            #[allow(clippy::cast_precision_loss)]
+            {
+                self.frame_count as f64 / actual_duration
+            }
         } else {
             0.0
         };
@@ -579,7 +595,7 @@ mod tests {
 
         // Create test frames (gray gradient)
         for i in 0..30 {
-            let gray = (i * 8) as u8;
+            let gray: u8 = u8::try_from(i * 8).unwrap_or(0);
             let rgb = vec![gray; 640 * 480 * 3];
 
             assert!(

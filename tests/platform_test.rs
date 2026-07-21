@@ -138,19 +138,19 @@ mod platform_tests {
 
         let capabilities = result.unwrap();
         assert!(
-            capabilities.supports_auto_focus,
+            capabilities.supports.auto_focus,
             "Should support auto focus"
         );
         assert!(
-            capabilities.supports_manual_focus,
+            capabilities.supports.manual_focus,
             "Should support manual focus"
         );
         assert!(
-            capabilities.supports_auto_exposure,
+            capabilities.supports.auto_exposure,
             "Should support auto exposure"
         );
         assert!(
-            capabilities.supports_white_balance,
+            capabilities.supports.white_balance,
             "Should support white balance"
         );
         assert_eq!(capabilities.max_resolution, (1920, 1080));
@@ -653,15 +653,15 @@ mod platform_tests {
         assert!(capabilities.max_fps > 0.0, "Max FPS should be positive");
 
         // Boolean capabilities should be present (can be true or false)
-        let _ = capabilities.supports_auto_focus;
-        let _ = capabilities.supports_manual_focus;
-        let _ = capabilities.supports_auto_exposure;
-        let _ = capabilities.supports_manual_exposure;
-        let _ = capabilities.supports_white_balance;
-        let _ = capabilities.supports_zoom;
-        let _ = capabilities.supports_flash;
-        let _ = capabilities.supports_burst_mode;
-        let _ = capabilities.supports_hdr;
+        let _ = capabilities.supports.auto_focus;
+        let _ = capabilities.supports.manual_focus;
+        let _ = capabilities.supports.auto_exposure;
+        let _ = capabilities.supports.manual_exposure;
+        let _ = capabilities.supports.white_balance;
+        let _ = capabilities.supports.zoom;
+        let _ = capabilities.supports.flash;
+        let _ = capabilities.supports.burst_mode;
+        let _ = capabilities.supports.hdr;
 
         // Optional ranges can be None or Some - both are valid
         if let Some((min_exp, max_exp)) = capabilities.exposure_range {
@@ -748,11 +748,17 @@ mod platform_tests {
         assert!(capture_result.is_ok(), "Capture should succeed");
 
         // Verify callback was called
-        assert!(*callback_called.lock().unwrap(), "Callback should have been called");
+        assert!(
+            *callback_called.lock().unwrap(),
+            "Callback should have been called"
+        );
 
         // Verify callback received the correct frame
         let callback_frame_data = callback_frame.lock().unwrap().take();
-        assert!(callback_frame_data.is_some(), "Callback should have received a frame");
+        assert!(
+            callback_frame_data.is_some(),
+            "Callback should have received a frame"
+        );
 
         let callback_frame = callback_frame_data.unwrap();
         assert_eq!(callback_frame.device_id, "test_callback");

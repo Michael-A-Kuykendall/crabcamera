@@ -1,6 +1,6 @@
 //! Recording configuration types
 
-use crate::constants::{AUDIO_SAMPLE_RATE, AUDIO_CHANNELS, AUDIO_BITRATE, VIDEO_BITRATE_HD};
+use crate::constants::{AUDIO_BITRATE, AUDIO_CHANNELS, AUDIO_SAMPLE_RATE, VIDEO_BITRATE_HD};
 use serde::{Deserialize, Serialize};
 
 /// Audio configuration for recording
@@ -245,7 +245,9 @@ impl RecordingStats {
     /// Calculate the average bitrate achieved
     pub fn avg_bitrate(&self) -> f64 {
         if self.duration_secs > 0.0 {
-            (self.bytes_written as f64 * 8.0) / self.duration_secs
+            #[allow(clippy::cast_precision_loss)]
+            let bytes_written = self.bytes_written as f64;
+            (bytes_written * 8.0) / self.duration_secs
         } else {
             0.0
         }

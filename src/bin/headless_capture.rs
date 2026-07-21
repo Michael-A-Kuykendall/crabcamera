@@ -80,7 +80,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // Pick first available audio device
-    let audio_device = list_audio_devices().ok().and_then(|devs| devs.first().cloned());
+    let audio_device = list_audio_devices()
+        .ok()
+        .and_then(|devs| devs.first().cloned());
     let audio_device_id = audio_device.map(|d| d.id);
 
     // Step 3: Create capture config

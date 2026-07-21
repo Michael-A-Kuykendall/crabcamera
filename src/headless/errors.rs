@@ -119,6 +119,8 @@ impl HeadlessError {
     }
 
     /// Wraps a backend camera error.
+    // By-value is required so this can be passed as a `map_err(HeadlessError::backend)` fn pointer.
+    #[allow(clippy::needless_pass_by_value)]
     #[must_use]
     pub fn backend(error: CameraError) -> Self {
         Self {
@@ -153,9 +155,21 @@ mod tests {
     #[test]
     fn test_error_constructors_set_expected_kind_and_message() {
         let cases = vec![
-            (HeadlessError::timeout(), HeadlessErrorKind::Timeout, "timeout"),
-            (HeadlessError::closed(), HeadlessErrorKind::Closed, "session is closed"),
-            (HeadlessError::stopped(), HeadlessErrorKind::Stopped, "session is stopped"),
+            (
+                HeadlessError::timeout(),
+                HeadlessErrorKind::Timeout,
+                "timeout",
+            ),
+            (
+                HeadlessError::closed(),
+                HeadlessErrorKind::Closed,
+                "session is closed",
+            ),
+            (
+                HeadlessError::stopped(),
+                HeadlessErrorKind::Stopped,
+                "session is stopped",
+            ),
             (
                 HeadlessError::already_started(),
                 HeadlessErrorKind::AlreadyStarted,
@@ -202,7 +216,8 @@ mod tests {
 
     #[test]
     fn test_backend_wraps_camera_error() {
-        let backend = HeadlessError::backend(CameraError::CaptureError("camera exploded".to_string()));
+        let backend =
+            HeadlessError::backend(CameraError::CaptureError("camera exploded".to_string()));
         assert_eq!(backend.kind, HeadlessErrorKind::Backend);
         assert!(backend.message.contains("Capture error"));
         assert!(backend.message.contains("camera exploded"));

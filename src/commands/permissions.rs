@@ -1,7 +1,7 @@
 #[cfg(target_os = "macos")]
-use crate::constants::PERMISSION_REQUEST_TIMEOUT_SECS;
-#[cfg(target_os = "macos")]
 use crate::constants::AV_MEDIA_TYPE_VIDEO;
+#[cfg(target_os = "macos")]
+use crate::constants::PERMISSION_REQUEST_TIMEOUT_SECS;
 use crate::permissions::{check_permission_detailed, PermissionInfo, PermissionStatus};
 use tauri::command;
 
@@ -182,7 +182,7 @@ mod tests {
         let result = check_camera_permission_status().await;
         assert!(result.is_ok());
 
-        let info = result.unwrap();
+        let info = result.expect("permission status expected");
         println!("Permission status: {:?}", info.status);
         println!("Message: {}", info.message);
     }

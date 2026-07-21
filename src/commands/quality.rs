@@ -314,10 +314,14 @@ pub async fn analyze_quality_trends(
     let blur_scores: Vec<f32> = reports.iter().map(|r| r.score.blur).collect();
     let exposure_scores: Vec<f32> = reports.iter().map(|r| r.score.exposure).collect();
 
+    #[allow(clippy::cast_precision_loss)]
     let avg_quality = scores.iter().sum::<f32>() / scores.len() as f32;
+    #[allow(clippy::cast_precision_loss)]
     let avg_blur = blur_scores.iter().sum::<f32>() / blur_scores.len() as f32;
+    #[allow(clippy::cast_precision_loss)]
     let avg_exposure = exposure_scores.iter().sum::<f32>() / exposure_scores.len() as f32;
 
+    #[allow(clippy::cast_precision_loss)]
     let quality_variance = scores
         .iter()
         .map(|&x| (x - avg_quality).powi(2))
@@ -326,8 +330,15 @@ pub async fn analyze_quality_trends(
 
     let stability_score = (1.0 - quality_variance.sqrt()).clamp(0.0, 1.0);
 
+    let samples_analyzed = u32::try_from(reports.len()).unwrap_or(u32::MAX);
+    #[allow(clippy::cast_precision_loss)]
+    let acceptable_count = reports.iter().filter(|r| r.is_acceptable).count() as f32;
+    #[allow(clippy::cast_precision_loss)]
+    let total_reports = reports.len() as f32;
+    let acceptable_ratio = acceptable_count / total_reports;
+
     Ok(QualityTrendAnalysis {
-        samples_analyzed: reports.len() as u32,
+        samples_analyzed,
         average_quality: avg_quality,
         average_blur_score: avg_blur,
         average_exposure_score: avg_exposure,
@@ -335,8 +346,7 @@ pub async fn analyze_quality_trends(
         stability_score,
         best_score: scores.iter().fold(0.0f32, |a, &b| a.max(b)),
         worst_score: scores.iter().fold(1.0f32, |a, &b| a.min(b)),
-        acceptable_ratio: reports.iter().filter(|r| r.is_acceptable).count() as f32
-            / reports.len() as f32,
+        acceptable_ratio,
     })
 }
 
@@ -408,7 +418,7 @@ mod tests {
         let result = validate_provided_frame(frame).await;
         assert!(result.is_ok());
 
-        let report = result.unwrap();
+        let report = result.expect("validation report expected");
         assert!(report.score.overall >= 0.0 && report.score.overall <= 1.0);
     }
 
@@ -426,7 +436,7 @@ mod tests {
         let result = update_quality_config(config.clone()).await;
         assert!(result.is_ok());
 
-        let retrieved_config = get_quality_config().await.unwrap();
+        let retrieved_config = get_quality_config().await.expect("quality config expected");
         // Verify the config was actually stored and retrieved correctly
         assert!((retrieved_config.blur_threshold - 0.8).abs() < 0.001);
         assert!((retrieved_config.exposure_threshold - 0.8).abs() < 0.001);

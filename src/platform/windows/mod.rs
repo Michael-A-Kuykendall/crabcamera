@@ -12,7 +12,9 @@ pub mod controls;
 use self::controls::MediaFoundationControls;
 use crate::errors::CameraError;
 use crate::platform::metrics::PerfTracker;
-use crate::types::{CameraCapabilities, CameraControls, ControlApplicationResult, CameraFormat, CameraFrame};
+use crate::types::{
+    CameraCapabilities, CameraControls, CameraFormat, CameraFrame, ControlApplicationResult,
+};
 use nokhwa::Camera;
 use std::sync::Arc;
 
@@ -40,10 +42,8 @@ impl WindowsCamera {
     /// Returns a [`CameraError::InitializationError`] if the `device_id`
     /// cannot be parsed, or propagates any error from the `nokhwa` camera
     /// initialization or the `MediaFoundation` controls creation.
-    pub fn new(device_id: String, format: CameraFormat) -> Result<Self, CameraError> {
-        log::info!(
-            "Initializing Windows camera {device_id} with MediaFoundation controls"
-        );
+    pub fn new(device_id: String, format: &CameraFormat) -> Result<Self, CameraError> {
+        log::info!("Initializing Windows camera {device_id} with MediaFoundation controls");
 
         // Initialize nokhwa camera for capture
         let nokhwa_camera = capture::initialize_camera(&device_id, format)?;
@@ -84,7 +84,11 @@ impl WindowsCamera {
 
         let process_start = std::time::Instant::now();
         // Call callback if set
-        if let Some(ref cb) = *self.callback.lock().map_err(|_| CameraError::InitializationError("Mutex poisoned".to_string()))? {
+        if let Some(ref cb) = *self
+            .callback
+            .lock()
+            .map_err(|_| CameraError::InitializationError("Mutex poisoned".to_string()))?
+        {
             cb(frame.clone());
         }
         let processing_ms = process_start.elapsed().as_secs_f32() * 1000.0;
@@ -200,7 +204,11 @@ impl WindowsCamera {
     where
         F: Fn(CameraFrame) + Send + 'static,
     {
-        *self.callback.lock().map_err(|_| CameraError::InitializationError("Mutex poisoned".to_string()))? = Some(Box::new(callback));
+        *self
+            .callback
+            .lock()
+            .map_err(|_| CameraError::InitializationError("Mutex poisoned".to_string()))? =
+            Some(Box::new(callback));
         Ok(())
     }
 }
@@ -214,13 +222,13 @@ mod tests {
 
     #[test]
     fn test_windows_camera_new_rejects_invalid_device_id() {
-        let result = WindowsCamera::new("invalid-device-id".to_string(), CameraFormat::standard());
+        let result = WindowsCamera::new("invalid-device-id".to_string(), &CameraFormat::standard());
         assert!(result.is_err());
     }
 
     #[test]
     fn test_windows_capture_helpers_are_callable() {
-        let init = initialize_camera("not-a-number", CameraFormat::standard());
+        let init = initialize_camera("not-a-number", &CameraFormat::standard());
         assert!(init.is_err());
 
         let cams = list_cameras();

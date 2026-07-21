@@ -4,9 +4,16 @@
 //! different platforms (Windows, macOS, Linux) while maintaining platform-specific
 //! optimizations and features.
 
+use crate::constants::{
+    DEFAULT_RESOLUTION_HEIGHT, DEFAULT_RESOLUTION_WIDTH, HIGH_FPS, MAX_ISO, MIN_ISO,
+    MOCK_CAPTURE_LATENCY_MS, MOCK_FPS, MOCK_MEMORY_USAGE_MB, MOCK_PROCESSING_TIME_MS,
+    MOCK_QUALITY_SCORE, MOCK_SLOW_CAPTURE_DELAY_MS,
+};
 use crate::errors::CameraError;
-use crate::constants::{MOCK_SLOW_CAPTURE_DELAY_MS, DEFAULT_RESOLUTION_WIDTH, DEFAULT_RESOLUTION_HEIGHT, HIGH_FPS, MIN_ISO, MAX_ISO, MOCK_CAPTURE_LATENCY_MS, MOCK_PROCESSING_TIME_MS, MOCK_MEMORY_USAGE_MB, MOCK_FPS, MOCK_QUALITY_SCORE};
-use crate::types::{CameraDeviceInfo, CameraFormat, CameraFrame, CameraInitParams, ControlApplicationResult, Platform};
+use crate::types::{
+    CameraDeviceInfo, CameraFormat, CameraFrame, CameraInitParams, ControlApplicationResult,
+    Platform,
+};
 
 // Type alias for frame callback to reduce complexity
 type FrameCallback = Box<dyn Fn(CameraFrame) + Send + 'static>;
@@ -69,7 +76,6 @@ impl MockCamera {
         }
     }
 
-
     /// Capture a single frame from the mock camera.
     ///
     /// # Errors
@@ -126,7 +132,6 @@ impl MockCamera {
         Ok(())
     }
 
-
     /// Register a callback for new frames.
     ///
     /// # Errors
@@ -164,21 +169,52 @@ impl MockCamera {
         }
         // Mock accepts every control requested
         let mut applied = Vec::new();
-        if controls.auto_focus.is_some() { applied.push("auto_focus".to_string()); }
-        if controls.focus_distance.is_some() { applied.push("focus_distance".to_string()); }
-        if controls.auto_exposure.is_some() { applied.push("auto_exposure".to_string()); }
-        if controls.exposure_time.is_some() { applied.push("exposure_time".to_string()); }
-        if controls.iso_sensitivity.is_some() { applied.push("iso_sensitivity".to_string()); }
-        if controls.white_balance.is_some() { applied.push("white_balance".to_string()); }
-        if controls.aperture.is_some() { applied.push("aperture".to_string()); }
-        if controls.zoom.is_some() { applied.push("zoom".to_string()); }
-        if controls.brightness.is_some() { applied.push("brightness".to_string()); }
-        if controls.contrast.is_some() { applied.push("contrast".to_string()); }
-        if controls.saturation.is_some() { applied.push("saturation".to_string()); }
-        if controls.sharpness.is_some() { applied.push("sharpness".to_string()); }
-        if controls.noise_reduction.is_some() { applied.push("noise_reduction".to_string()); }
-        if controls.image_stabilization.is_some() { applied.push("image_stabilization".to_string()); }
-        Ok(ControlApplicationResult { applied, rejected: vec![] })
+        if controls.auto_focus.is_some() {
+            applied.push("auto_focus".to_string());
+        }
+        if controls.focus_distance.is_some() {
+            applied.push("focus_distance".to_string());
+        }
+        if controls.auto_exposure.is_some() {
+            applied.push("auto_exposure".to_string());
+        }
+        if controls.exposure_time.is_some() {
+            applied.push("exposure_time".to_string());
+        }
+        if controls.iso_sensitivity.is_some() {
+            applied.push("iso_sensitivity".to_string());
+        }
+        if controls.white_balance.is_some() {
+            applied.push("white_balance".to_string());
+        }
+        if controls.aperture.is_some() {
+            applied.push("aperture".to_string());
+        }
+        if controls.zoom.is_some() {
+            applied.push("zoom".to_string());
+        }
+        if controls.brightness.is_some() {
+            applied.push("brightness".to_string());
+        }
+        if controls.contrast.is_some() {
+            applied.push("contrast".to_string());
+        }
+        if controls.saturation.is_some() {
+            applied.push("saturation".to_string());
+        }
+        if controls.sharpness.is_some() {
+            applied.push("sharpness".to_string());
+        }
+        if controls.noise_reduction.is_some() {
+            applied.push("noise_reduction".to_string());
+        }
+        if controls.image_stabilization.is_some() {
+            applied.push("image_stabilization".to_string());
+        }
+        Ok(ControlApplicationResult {
+            applied,
+            rejected: vec![],
+        })
     }
 
     /// Get current camera controls.
@@ -199,15 +235,17 @@ impl MockCamera {
     /// This function currently always returns `Ok` and never returns an `Err`.
     pub fn test_capabilities(&self) -> Result<crate::types::CameraCapabilities, CameraError> {
         Ok(crate::types::CameraCapabilities {
-            supports_auto_focus: true,
-            supports_manual_focus: true,
-            supports_auto_exposure: true,
-            supports_manual_exposure: true,
-            supports_white_balance: true,
-            supports_zoom: true,
-            supports_flash: false,
-            supports_burst_mode: true,
-            supports_hdr: true,
+            supports: crate::types::CameraCapabilityFlags {
+                auto_focus: true,
+                manual_focus: true,
+                auto_exposure: true,
+                manual_exposure: true,
+                white_balance: true,
+                zoom: true,
+                flash: false,
+                burst_mode: true,
+                hdr: true,
+            },
             max_resolution: (DEFAULT_RESOLUTION_WIDTH, DEFAULT_RESOLUTION_HEIGHT),
             max_fps: HIGH_FPS,
             exposure_range: Some((0.001, 10.0)),
@@ -283,7 +321,7 @@ impl PlatformCamera {
         match Platform::current() {
             #[cfg(target_os = "windows")]
             Platform::Windows => {
-                let camera = windows::WindowsCamera::new(params.device_id, params.format)?;
+                let camera = windows::WindowsCamera::new(params.device_id, &params.format)?;
                 Ok(PlatformCamera::Windows(camera))
             }
 
@@ -744,7 +782,7 @@ pub enum CameraTestResult {
 
 /// Platform-specific optimizations and utilities
 pub mod optimizations {
-    use super::{CameraFormat, Platform, CameraInitParams};
+    use super::{CameraFormat, CameraInitParams, Platform};
 
     /// Get recommended format for high-quality photography on current platform
     pub fn get_photography_format() -> CameraFormat {
@@ -819,8 +857,10 @@ mod tests {
     fn test_platform_camera_mock_end_to_end() {
         std::env::set_var("CRABCAMERA_USE_MOCK", "1");
 
-        let params = CameraInitParams::new("pcam-1".to_string()).with_format(CameraFormat::standard());
-        let mut camera = PlatformCamera::new(params).expect("mock platform camera should initialize");
+        let params =
+            CameraInitParams::new("pcam-1".to_string()).with_format(CameraFormat::standard());
+        let mut camera =
+            PlatformCamera::new(params).expect("mock platform camera should initialize");
 
         camera.start_stream().expect("start should work");
         let frame = camera.capture_frame().expect("capture should work");
@@ -842,7 +882,7 @@ mod tests {
         assert_eq!(current.brightness, Some(0.1));
 
         let caps = camera.test_capabilities().expect("caps should work");
-        assert!(caps.supports_auto_focus);
+        assert!(caps.supports.auto_focus);
 
         let metrics = camera
             .get_performance_metrics()

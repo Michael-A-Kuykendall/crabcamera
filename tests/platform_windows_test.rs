@@ -120,7 +120,7 @@ mod platform_windows_tests {
         let format = CameraFormat::new(640, 480, 30.0);
 
         // Test with invalid device ID (non-numeric)
-        let result = initialize_camera("invalid", format.clone());
+        let result = initialize_camera("invalid", &format);
         assert!(result.is_err());
 
         if let Err(CameraError::InitializationError(msg)) = result {
@@ -130,7 +130,7 @@ mod platform_windows_tests {
         }
 
         // Test with out-of-range device ID
-        let result = initialize_camera("999", format);
+        let result = initialize_camera("999", &format);
         // This might succeed or fail depending on system, but should not panic
         match result {
             Ok(_) => {}                                    // Camera might exist
@@ -144,7 +144,7 @@ mod platform_windows_tests {
         let format = CameraFormat::new(640, 480, 30.0);
 
         // Try with device ID "0" (most common default camera)
-        let result = initialize_camera("0", format);
+        let result = initialize_camera("0", &format);
 
         // This may succeed or fail depending on hardware, but should be handled gracefully
         match result {
@@ -209,7 +209,7 @@ mod platform_windows_tests {
         // Test error message formatting
         let format = CameraFormat::new(640, 480, 30.0);
 
-        let result = initialize_camera("invalid_id", format);
+        let result = initialize_camera("invalid_id", &format);
         if let Err(CameraError::InitializationError(msg)) = result {
             assert!(!msg.is_empty(), "Error message should not be empty");
             assert!(
@@ -231,7 +231,7 @@ mod platform_windows_tests {
 
         for format in test_formats {
             let params = CameraInitParams::new("0".to_string()).with_format(format.clone());
-            let result = WindowsCamera::new(params.device_id, params.format);
+            let result = WindowsCamera::new(params.device_id, &params.format);
 
             match result {
                 Ok(camera) => {
@@ -251,13 +251,13 @@ mod platform_windows_tests {
     fn test_windows_camera_stream_lifecycle() {
         let params = create_test_params("0");
 
-        match WindowsCamera::new(params.device_id, params.format) {
+        match WindowsCamera::new(params.device_id, &params.format) {
             Ok(mut camera) => {
-                // Test initial state
+                // Test initial state (camera exists but stream is not yet open)
                 let initial_available = camera.is_available();
                 assert!(
-                    initial_available,
-                    "Windows camera should be available initially"
+                    !initial_available,
+                    "Windows camera should be unavailable before the stream starts"
                 );
 
                 // Test starting stream
@@ -266,6 +266,8 @@ mod platform_windows_tests {
                     Ok(()) => {
                         // Stream started successfully
                         assert!(camera.is_stream_open(), "Stream should be open");
+                        // Availability tracks the open stream across platforms
+                        assert!(camera.is_available(), "Camera should be available while streaming");
 
                         // Test stopping stream
                         let stop_result = camera.stop_stream();
@@ -291,7 +293,7 @@ mod platform_windows_tests {
     fn test_windows_camera_capture_frame_functionality() {
         let params = create_test_params("0");
 
-        match WindowsCamera::new(params.device_id, params.format) {
+        match WindowsCamera::new(params.device_id, &params.format) {
             Ok(mut camera) => {
                 // Start stream first
                 if camera.start_stream().is_ok() {
@@ -335,7 +337,7 @@ mod platform_windows_tests {
     fn test_windows_media_foundation_controls() {
         let params = create_test_params("0");
 
-        match WindowsCamera::new(params.device_id, params.format) {
+        match WindowsCamera::new(params.device_id, &params.format) {
             Ok(mut camera) => {
                 // Test MediaFoundation controls interface
                 let test_controls = CameraControls {
@@ -392,7 +394,7 @@ mod platform_windows_tests {
     fn test_windows_camera_capabilities() {
         let params = create_test_params("0");
 
-        match WindowsCamera::new(params.device_id, params.format) {
+        match WindowsCamera::new(params.device_id, &params.format) {
             Ok(camera) => {
                 let capabilities_result = camera.test_capabilities();
 
@@ -411,23 +413,23 @@ mod platform_windows_tests {
 
                         // Windows should typically support burst mode
                         assert!(
-                            capabilities.supports_burst_mode,
+                            capabilities.supports.burst_mode,
                             "Windows should support burst mode"
                         );
 
                         // Log Windows-specific capabilities
                         println!("Windows camera capabilities:");
-                        println!("  Auto Focus: {}", capabilities.supports_auto_focus);
-                        println!("  Manual Focus: {}", capabilities.supports_manual_focus);
-                        println!("  Auto Exposure: {}", capabilities.supports_auto_exposure);
+                        println!("  Auto Focus: {}", capabilities.supports.auto_focus);
+                        println!("  Manual Focus: {}", capabilities.supports.manual_focus);
+                        println!("  Auto Exposure: {}", capabilities.supports.auto_exposure);
                         println!(
                             "  Manual Exposure: {}",
-                            capabilities.supports_manual_exposure
+                            capabilities.supports.manual_exposure
                         );
-                        println!("  White Balance: {}", capabilities.supports_white_balance);
-                        println!("  Zoom: {}", capabilities.supports_zoom);
-                        println!("  Flash: {}", capabilities.supports_flash);
-                        println!("  HDR: {}", capabilities.supports_hdr);
+                        println!("  White Balance: {}", capabilities.supports.white_balance);
+                        println!("  Zoom: {}", capabilities.supports.zoom);
+                        println!("  Flash: {}", capabilities.supports.flash);
+                        println!("  HDR: {}", capabilities.supports.hdr);
                     }
                     Err(e) => {
                         println!("Could not retrieve capabilities (expected): {:?}", e);
@@ -459,7 +461,7 @@ mod platform_windows_tests {
             let params = CameraInitParams::new(invalid_id.to_string())
                 .with_format(CameraFormat::new(640, 480, 30.0));
 
-            let result = WindowsCamera::new(params.device_id, params.format);
+            let result = WindowsCamera::new(params.device_id, &params.format);
 
             match result {
                 Err(CameraError::InitializationError(msg)) => {
@@ -521,7 +523,7 @@ mod platform_windows_tests {
         // Test Windows-specific MJPEG to RGB8 conversion
         let params = create_test_params("0");
 
-        match WindowsCamera::new(params.device_id, params.format) {
+        match WindowsCamera::new(params.device_id, &params.format) {
             Ok(mut camera) => {
                 if camera.start_stream().is_ok() {
                     let capture_result = camera.capture_frame();
@@ -567,7 +569,7 @@ mod platform_windows_tests {
 
         let params = create_test_params("0");
 
-        match WindowsCamera::new(params.device_id, params.format) {
+        match WindowsCamera::new(params.device_id, &params.format) {
             Ok(camera) => {
                 let camera_arc = Arc::new(Mutex::new(camera));
                 let mut handles = vec![];
@@ -608,7 +610,7 @@ mod platform_windows_tests {
     fn test_windows_camera_drop_cleanup() {
         let params = create_test_params("0");
 
-        match WindowsCamera::new(params.device_id, params.format) {
+        match WindowsCamera::new(params.device_id, &params.format) {
             Ok(mut camera) => {
                 // Start stream to test cleanup
                 let _ = camera.start_stream();
@@ -631,7 +633,7 @@ mod platform_windows_tests {
         let invalid_params =
             CameraInitParams::new("invalid".to_string()).with_format(CameraFormat::new(0, 0, 0.0));
 
-        let result = WindowsCamera::new(invalid_params.device_id, invalid_params.format);
+        let result = WindowsCamera::new(invalid_params.device_id, &invalid_params.format);
 
         if let Err(CameraError::InitializationError(msg)) = result {
             assert!(!msg.is_empty(), "Error message should not be empty");
@@ -653,7 +655,7 @@ mod platform_windows_tests {
     fn test_windows_camera_state_consistency() {
         let params = create_test_params("0");
 
-        match WindowsCamera::new(params.device_id, params.format) {
+        match WindowsCamera::new(params.device_id, &params.format) {
             Ok(camera) => {
                 // Test consistent device ID
                 let device_id1 = camera.get_device_id();
@@ -723,7 +725,7 @@ mod platform_windows_tests {
         // Test Windows-specific control range normalization
         let params = create_test_params("0");
 
-        match WindowsCamera::new(params.device_id, params.format) {
+        match WindowsCamera::new(params.device_id, &params.format) {
             Ok(mut camera) => {
                 // Test normalized control values (0.0-1.0)
                 let normalized_controls = CameraControls {

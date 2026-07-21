@@ -210,6 +210,8 @@ pub const LUMA_B: f32 = 0.114;
 /// Size of pooling window
 pub const PYRAMID_POOLING_SIZE: usize = 2;
 /// Area of pooling window
+#[allow(clippy::cast_possible_truncation)]
+// usize→u32: product is always 4, well within u32 range
 pub const PYRAMID_POOLING_AREA: u32 = (PYRAMID_POOLING_SIZE * PYRAMID_POOLING_SIZE) as u32;
 
 /// Image Processing - Alignment

@@ -449,7 +449,7 @@ fn test_merge_dimension_mismatch() {
 fn test_merge_dimension_mismatch_invariants() {
     // Clear invariants so we don't pollute other tests if they share state (though they shouldn't)
     crabcamera::invariant_ppt::clear_invariant_log();
-    
+
     let frame1 = create_test_frame_with_focus(100, 100, "uniform_sharp");
     let frame2 = create_test_frame_with_focus(50, 50, "uniform_sharp");
 

@@ -7,19 +7,21 @@ use std::sync::{Arc, LazyLock, Mutex as SyncMutex};
 use tauri::command;
 use tokio::sync::RwLock;
 
+#[cfg(feature = "audio")]
+use crate::constants::{AUDIO_BITRATE, AUDIO_CHANNELS, AUDIO_DEVICE_DEFAULT, AUDIO_SAMPLE_RATE};
 use crate::constants::{
     DEFAULT_CAMERA_ID, RECORDING_QUALITY_PRESET_1080P, RECORDING_QUALITY_PRESET_4K,
     RECORDING_QUALITY_PRESET_720P, RECORDING_QUALITY_PRESET_HIGH, RECORDING_QUALITY_PRESET_LOW,
     RECORDING_QUALITY_PRESET_MEDIUM, RECORDING_SESSION_PREFIX,
 };
-#[cfg(feature = "audio")]
-use crate::constants::{AUDIO_BITRATE, AUDIO_CHANNELS, AUDIO_DEVICE_DEFAULT, AUDIO_SAMPLE_RATE};
 use crate::platform::PlatformCamera;
 use crate::recording::{Recorder, RecordingConfig, RecordingQuality, RecordingStats};
 use crate::types::CameraFormat;
 
 // Global recorder registry
-static RECORDER_REGISTRY: LazyLock<Arc<RwLock<HashMap<String, Arc<SyncMutex<RecordingSession>>>>>> =
+type RecorderRegistry = LazyLock<Arc<RwLock<HashMap<String, Arc<SyncMutex<RecordingSession>>>>>>;
+
+static RECORDER_REGISTRY: RecorderRegistry =
     LazyLock::new(|| Arc::new(RwLock::new(HashMap::new())));
 
 /// Active recording session combining camera and recorder
@@ -29,25 +31,35 @@ struct RecordingSession {
     is_running: bool,
 }
 
+/// Options for [`start_recording`].
+///
+/// Grouped into a single struct so the Tauri command takes one argument
+/// (satisfying clippy's `too_many_arguments` limit); the JS `invoke` call
+/// passes a single options object.
+pub struct RecordingStartOptions {
+    /// Camera device ID (or `None` for the default camera).
+    pub device_id: Option<String>,
+    /// Path to save the MP4 file.
+    pub output_path: String,
+    /// Video width in pixels.
+    pub width: u32,
+    /// Video height in pixels.
+    pub height: u32,
+    /// Target frame rate.
+    pub fps: f64,
+    /// Recording quality preset (optional).
+    pub quality: Option<String>,
+    /// Metadata title (optional).
+    pub title: Option<String>,
+    /// Audio device ID for recording (optional, enables audio when provided).
+    #[cfg(feature = "audio")]
+    pub audio_device_id: Option<String>,
+}
+
 /// Start recording from a camera to a file
 ///
 /// # Arguments
-/// * `device_id` - Camera device ID (or "0" for default)
-/// * `output_path` - Path to save the MP4 file
-/// * `width` - Video width in pixels
-/// * `height` - Video height in pixels
-///
-/// # Note on argument count
-/// This command has more arguments than clippy's default threshold because Tauri `#[command]`
-/// functions must receive all parameters as flat primitives — Tauri's JS-to-Rust invoke bridge
-/// does not support deserializing a wrapper struct from `invoke()` without an explicit
-/// `serde` workaround. Until a `RecordingRequest` newtype is threaded through both the Rust
-/// command signature and the frontend `invoke` call (changing the public JS API surface),
-/// the flat signature is intentional. The suppression is scoped to this one function.
-/// * `fps` - Target frame rate
-/// * `quality` - Recording quality preset (optional)
-/// * `title` - Metadata title (optional)
-/// * `audio_device_id` - Audio device ID for recording (optional, enables audio when provided)
+/// * `options` - Recording configuration (see [`RecordingStartOptions`])
 ///
 /// # Returns
 /// * Session ID for tracking the recording
@@ -56,18 +68,19 @@ struct RecordingSession {
 /// Returns an `Err` if the camera cannot be initialized or its stream cannot
 /// be started, if the camera mutex is poisoned, or if the [`Recorder`] cannot
 /// be created.
-#[allow(clippy::too_many_arguments)]
 #[command]
-pub async fn start_recording(
-    device_id: Option<String>,
-    output_path: String,
-    width: u32,
-    height: u32,
-    fps: f64,
-    quality: Option<String>,
-    title: Option<String>,
-    #[cfg(feature = "audio")] audio_device_id: Option<String>,
-) -> Result<String, String> {
+pub async fn start_recording(options: RecordingStartOptions) -> Result<String, String> {
+    let RecordingStartOptions {
+        device_id,
+        output_path,
+        width,
+        height,
+        fps,
+        quality,
+        title,
+        #[cfg(feature = "audio")]
+        audio_device_id,
+    } = options;
     let camera_id = device_id.unwrap_or_else(|| DEFAULT_CAMERA_ID.to_string());
 
     #[cfg(feature = "audio")]
@@ -77,9 +90,7 @@ pub async fn start_recording(
                 "Starting recording from camera {camera_id} with audio {audio_id} to {output_path}"
             );
         } else {
-            log::info!(
-                "Starting recording from camera {camera_id} (no audio) to {output_path}"
-            );
+            log::info!("Starting recording from camera {camera_id} (no audio) to {output_path}");
         }
     }
     #[cfg(not(feature = "audio"))]
@@ -131,9 +142,12 @@ pub async fn start_recording(
     }
 
     // Initialize camera
+    #[allow(clippy::cast_possible_truncation)]
+    // f64→f32: fps values (typically ≤ 240) are exact in f32
+    let fps_f32 = fps as f32;
     let camera = super::capture::get_or_create_camera(
         camera_id.clone(),
-        CameraFormat::new(config.width, config.height, fps as f32),
+        CameraFormat::new(config.width, config.height, fps_f32),
     )
     .await
     .map_err(|e| format!("Failed to initialize camera: {e}"))?;
@@ -382,7 +396,7 @@ mod tests {
             }),
         };
 
-        let json = serde_json::to_string(&status).unwrap();
+        let json = serde_json::to_string(&status).expect("serialize recording status");
         assert!(json.contains("test_123"));
         assert!(json.contains("100"));
         // JSON serialization uses camelCase for frontend compatibility
@@ -396,7 +410,7 @@ mod tests {
     async fn test_write_frame_to_missing_session_returns_error() {
         let result = record_frame("nonexistent_session_xyz".to_string()).await;
         assert!(result.is_err());
-        let msg = result.unwrap_err();
+        let msg = result.expect_err("missing session error expected");
         assert!(
             msg.contains("nonexistent_session_xyz"),
             "error should identify the missing session, got: {msg}"
@@ -407,7 +421,7 @@ mod tests {
     async fn test_get_recording_status_missing_session_returns_error() {
         let result = get_recording_status("no_such_session_abc".to_string()).await;
         assert!(result.is_err());
-        let msg = result.unwrap_err();
+        let msg = result.expect_err("missing session error expected");
         assert!(
             msg.contains("no_such_session_abc"),
             "error should identify the missing session, got: {msg}"
@@ -418,7 +432,7 @@ mod tests {
     async fn test_stop_recording_missing_session_returns_error() {
         let result = stop_recording("ghost_session_999".to_string()).await;
         assert!(result.is_err());
-        let msg = result.unwrap_err();
+        let msg = result.expect_err("missing session error expected");
         assert!(
             msg.contains("ghost_session_999"),
             "error should identify the missing session, got: {msg}"

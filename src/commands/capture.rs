@@ -75,15 +75,25 @@ pub async fn capture(options: CaptureOptions) -> Result<CaptureResult, String> {
         }
         CaptureMode::Sequence { count, interval_ms } => {
             let device_id = options.device_id.unwrap_or_else(|| "0".to_string());
-            let frames = capture_photo_sequence(device_id, count, interval_ms, options.format).await?;
+            let frames =
+                capture_photo_sequence(device_id, count, interval_ms, options.format).await?;
             Ok(CaptureResult {
                 frames,
                 mode: "sequence".to_string(),
                 quality_score: None,
             })
         }
-        CaptureMode::QualityRetry { max_attempts, min_quality_score } => {
-            let frame = capture_with_quality_retry(options.device_id, max_attempts, min_quality_score, options.format).await?;
+        CaptureMode::QualityRetry {
+            max_attempts,
+            min_quality_score,
+        } => {
+            let frame = capture_with_quality_retry(
+                options.device_id,
+                max_attempts,
+                min_quality_score,
+                options.format,
+            )
+            .await?;
             Ok(CaptureResult {
                 frames: vec![frame],
                 mode: "quality_retry".to_string(),
@@ -146,9 +156,7 @@ pub async fn capture_photo_sequence(
     interval_ms: u32,
     format: Option<CameraFormat>,
 ) -> Result<Vec<CameraFrame>, String> {
-    log::info!(
-        "Capturing {count} photos from camera {device_id} with {interval_ms}ms interval"
-    );
+    log::info!("Capturing {count} photos from camera {device_id} with {interval_ms}ms interval");
 
     if count == 0 || count > 20 {
         return Err("Invalid photo count (must be 1-20)".to_string());
@@ -315,7 +323,9 @@ pub async fn capture_with_quality_retry(
 /// Propagates any error from [`crate::platform::release_camera`].
 #[command]
 pub async fn release_camera(device_id: String) -> Result<String, String> {
-    crate::platform::release_camera(&device_id).await.map_err(|e| e.to_string())
+    crate::platform::release_camera(&device_id)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// Set a callback for real-time frame processing
@@ -355,11 +365,9 @@ pub async fn set_frame_callback(
             .lock()
             .map_err(|_| "Mutex poisoned".to_string())?;
 
-        camera_guard.frame_callback(callback).map_err(|e| {
-            format!(
-                "Failed to set frame callback for device {device_id_clone}: {e}"
-            )
-        })
+        camera_guard
+            .frame_callback(callback)
+            .map_err(|e| format!("Failed to set frame callback for device {device_id_clone}: {e}"))
     })
     .await
     .map_err(|e| format!("Task join error: {e}"))??;
@@ -454,7 +462,6 @@ pub async fn get_capture_stats(device_id: String) -> Result<CaptureStats, String
         let camera_clone = camera.clone();
         let device_id_clone = device_id.clone();
         let stats = tokio::task::spawn_blocking(move || {
-
             let camera_guard = camera_clone
                 .lock()
                 .map_err(|_| "Mutex poisoned".to_string())?;
@@ -578,8 +585,6 @@ pub async fn save_frame_compressed(
 
 // Helper functions (moved to platform::manager)
 
-
-
 /// Capture statistics structure
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CaptureStats {
@@ -652,7 +657,10 @@ mod tests {
         let seq = capture(CaptureOptions {
             device_id: Some("0".to_string()),
             format: None,
-            mode: CaptureMode::Sequence { count: 3, interval_ms: 0 },
+            mode: CaptureMode::Sequence {
+                count: 3,
+                interval_ms: 0,
+            },
         })
         .await
         .expect("consolidated sequence capture should work");
@@ -700,7 +708,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_stop_preview_and_stats_for_missing_camera() {
-        let missing_id = format!("missing-cam-{}", chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default());
+        let missing_id = format!(
+            "missing-cam-{}",
+            chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
+        );
         let _ = release_camera(missing_id.clone()).await;
 
         let missing_preview = stop_camera_preview(missing_id.clone()).await;
@@ -714,9 +725,9 @@ mod tests {
     #[test]
     fn test_quality_threshold_clamping() {
         // Verify quality threshold is properly clamped
-        assert_eq!(1.5_f32.clamp(0.0, 1.0), 1.0);
-        assert_eq!((-0.5_f32).clamp(0.0, 1.0), 0.0);
-        assert_eq!(0.75_f32.clamp(0.0, 1.0), 0.75);
+        assert!((1.5_f32.clamp(0.0, 1.0) - 1.0).abs() < 1e-6);
+        assert!(((-0.5_f32).clamp(0.0, 1.0) - 0.0).abs() < 1e-6);
+        assert!((0.75_f32.clamp(0.0, 1.0) - 0.75).abs() < 1e-6);
     }
 
     #[test]

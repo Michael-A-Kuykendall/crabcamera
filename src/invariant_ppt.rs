@@ -14,8 +14,7 @@ use std::collections::VecDeque;
 use std::thread_local;
 
 /// Categories of invariants for granular analysis
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum InvariantType {
     /// Correctness of data structures and algorithms
     #[default]
@@ -27,7 +26,6 @@ pub enum InvariantType {
     /// API Contracts and State consistency
     State,
 }
-
 
 /// A record of a checked invariant
 #[derive(Debug, Clone)]
@@ -59,10 +57,20 @@ thread_local! {
 #[macro_export]
 macro_rules! assert_invariant {
     ($condition:expr, $message:expr) => {
-        $crate::invariant_ppt::__assert_invariant_impl($condition, $message, None, $crate::invariant_ppt::InvariantType::Correctness)
+        $crate::invariant_ppt::__assert_invariant_impl(
+            $condition,
+            $message,
+            None,
+            $crate::invariant_ppt::InvariantType::Correctness,
+        )
     };
     ($condition:expr, $message:expr, $context:expr) => {
-        $crate::invariant_ppt::__assert_invariant_impl($condition, $message, Some($context), $crate::invariant_ppt::InvariantType::Correctness)
+        $crate::invariant_ppt::__assert_invariant_impl(
+            $condition,
+            $message,
+            Some($context),
+            $crate::invariant_ppt::InvariantType::Correctness,
+        )
     };
 }
 
@@ -72,10 +80,10 @@ pub fn __assert_invariant_impl(
     condition: bool,
     message: &str,
     context: Option<&str>,
-    type_: InvariantType
+    type_: InvariantType,
 ) {
     let ctx = context.unwrap_or("unknown");
-    
+
     let record = InvariantRecord {
         message: message.to_string(),
         invariant_type: type_,
@@ -154,16 +162,16 @@ pub struct PerfSnapshot {
 pub fn assert_performance_invariant(
     snapshot: &PerfSnapshot,
     baseline_latency: f64,
-    tolerance_factor: f64
+    tolerance_factor: f64,
 ) {
     let max_latency = baseline_latency * (1.0 + tolerance_factor);
-    
+
     // Log the check so contract tests know we validated performance
     __assert_invariant_impl(
-        snapshot.latency_ms <= max_latency, 
+        snapshot.latency_ms <= max_latency,
         &format!("PERF: {} latency within predicted envelope", snapshot.label),
         Some("performance"),
-        InvariantType::Performance
+        InvariantType::Performance,
     );
 }
 

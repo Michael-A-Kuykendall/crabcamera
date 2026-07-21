@@ -196,7 +196,7 @@ mod tests {
         let result = get_config().await;
         assert!(result.is_ok());
 
-        let config = result.unwrap();
+        let config = result.expect("config should load");
         assert_eq!(config.camera.default_fps, 30);
     }
 
@@ -205,7 +205,7 @@ mod tests {
         let result = reset_config().await;
         assert!(result.is_ok());
 
-        let config = result.unwrap();
+        let config = result.expect("config should reset");
         assert_eq!(config.camera.default_resolution, [1920, 1080]);
     }
 
@@ -214,7 +214,7 @@ mod tests {
         let result = get_camera_config().await;
         assert!(result.is_ok());
 
-        let camera_config = result.unwrap();
+        let camera_config = result.expect("camera config expected");
         assert!(camera_config.auto_reconnect);
     }
 

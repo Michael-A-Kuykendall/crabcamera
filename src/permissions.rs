@@ -153,9 +153,9 @@ fn check_permission_macos() -> PermissionInfo {
 
 #[cfg(target_os = "linux")]
 fn check_permission_linux() -> PermissionInfo {
+    use crate::constants::LINUX_VIDEO_DEVICE_PREFIX;
     use std::fs;
     use std::path::Path;
-    use crate::constants::LINUX_VIDEO_DEVICE_PREFIX;
 
     // Check if any video devices exist
     let video_devices: Vec<_> = (0..10)
@@ -226,7 +226,10 @@ mod tests {
     fn test_permission_status_display_values() {
         assert_eq!(PermissionStatus::Granted.to_string(), "granted");
         assert_eq!(PermissionStatus::Denied.to_string(), "denied");
-        assert_eq!(PermissionStatus::NotDetermined.to_string(), "not_determined");
+        assert_eq!(
+            PermissionStatus::NotDetermined.to_string(),
+            "not_determined"
+        );
         assert_eq!(PermissionStatus::Restricted.to_string(), "restricted");
     }
 

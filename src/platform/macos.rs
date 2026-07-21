@@ -11,8 +11,8 @@ use nokhwa::{
 use std::sync::{Arc, Mutex};
 
 // Objective-C imports for AVFoundation integration
+use objc::runtime::{Class, Object, NO, YES};
 use objc::{msg_send, sel, sel_impl};
-use objc::runtime::{Object, Class, YES, NO};
 
 /// List available cameras on macOS
 pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
@@ -46,8 +46,16 @@ pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
 
         // Add common macOS camera formats
         let formats = vec![
-            CameraFormat::new(DEFAULT_RESOLUTION_WIDTH, DEFAULT_RESOLUTION_HEIGHT, DEFAULT_FPS),
-            CameraFormat::new(FALLBACK_RESOLUTION_WIDTH, FALLBACK_RESOLUTION_HEIGHT, DEFAULT_FPS),
+            CameraFormat::new(
+                DEFAULT_RESOLUTION_WIDTH,
+                DEFAULT_RESOLUTION_HEIGHT,
+                DEFAULT_FPS,
+            ),
+            CameraFormat::new(
+                FALLBACK_RESOLUTION_WIDTH,
+                FALLBACK_RESOLUTION_HEIGHT,
+                DEFAULT_FPS,
+            ),
             CameraFormat::new(MIN_RESOLUTION_WIDTH, MIN_RESOLUTION_HEIGHT, DEFAULT_FPS),
         ];
         device = device.with_formats(formats);
@@ -123,7 +131,7 @@ trait AVCaptureDeviceExt {
     // We omit it for this iteration to ensure stability.
 }
 
-// Wrapper struct for raw pointer to impl methods 
+// Wrapper struct for raw pointer to impl methods
 struct AVDeviceWrapper(*mut Object);
 
 impl AVDeviceWrapper {
@@ -133,10 +141,11 @@ impl AVDeviceWrapper {
             // Convert device_id string to NSString
             let ns_string_cls = Class::get("NSString")?;
             let utf8_str = std::ffi::CString::new(device_id).ok()?;
-            let ns_uuid: *mut Object = msg_send![ns_string_cls, stringWithUTF8String: utf8_str.as_ptr()];
-            
+            let ns_uuid: *mut Object =
+                msg_send![ns_string_cls, stringWithUTF8String: utf8_str.as_ptr()];
+
             let device: *mut Object = msg_send![cls, deviceWithUniqueID: ns_uuid];
-            
+
             if device.is_null() {
                 None
             } else {
@@ -155,7 +164,9 @@ impl AVCaptureDeviceExt for AVDeviceWrapper {
             if success {
                 Ok(())
             } else {
-                Err(CameraError::InitializationError("Failed to lock device configuration".to_string()))
+                Err(CameraError::InitializationError(
+                    "Failed to lock device configuration".to_string(),
+                ))
             }
         }
     }
@@ -184,14 +195,14 @@ impl AVCaptureDeviceExt for AVDeviceWrapper {
     fn set_exposure_mode(&self, mode: i64) -> Result<(), CameraError> {
         let device = self.0;
         unsafe {
-             let supported: bool = msg_send![device, isExposureModeSupported: mode];
-             if supported {
-                 let _: () = msg_send![device, setExposureMode: mode];
-                 Ok(())
-             } else {
-                 log::warn!("Exposure mode {} not supported by device", mode);
-                 Ok(())
-             }
+            let supported: bool = msg_send![device, isExposureModeSupported: mode];
+            if supported {
+                let _: () = msg_send![device, setExposureMode: mode];
+                Ok(())
+            } else {
+                log::warn!("Exposure mode {} not supported by device", mode);
+                Ok(())
+            }
         }
     }
 
@@ -315,14 +326,14 @@ impl MacOSCamera {
                 Some(w) => w,
                 None => return Ok(crate::types::CameraControls::default()),
             };
-            
+
             let device = wrapper.0;
 
             let focus_mode: i64 = msg_send![device, focusMode];
             let exposure_mode: i64 = msg_send![device, exposureMode];
             let lens_position: f32 = msg_send![device, lensPosition];
             let iso: f32 = msg_send![device, ISO];
-            
+
             Ok(crate::types::CameraControls {
                 auto_focus: Some(focus_mode == 1 || focus_mode == 2),
                 focus_distance: Some(lens_position),
@@ -349,7 +360,11 @@ impl MacOSCamera {
     ) -> Result<crate::types::ControlApplicationResult, CameraError> {
         let wrapper = match AVDeviceWrapper::new(&self.device_id) {
             Some(w) => w,
-            None => return Err(CameraError::InitializationError("Device not found".to_string())),
+            None => {
+                return Err(CameraError::InitializationError(
+                    "Device not found".to_string(),
+                ))
+            }
         };
 
         wrapper.lock_for_configuration()?;
@@ -359,7 +374,11 @@ impl MacOSCamera {
 
         // Focus
         if let Some(af) = controls.auto_focus {
-            let mode = if af { AV_CAPTURE_FOCUS_MODE_CONTINUOUS_AUTO } else { AV_CAPTURE_FOCUS_MODE_LOCKED };
+            let mode = if af {
+                AV_CAPTURE_FOCUS_MODE_CONTINUOUS_AUTO
+            } else {
+                AV_CAPTURE_FOCUS_MODE_LOCKED
+            };
             match wrapper.set_focus_mode(mode) {
                 Ok(_) => applied.push("auto_focus".to_string()),
                 Err(e) => {
@@ -381,7 +400,11 @@ impl MacOSCamera {
 
         // Exposure
         if let Some(ae) = controls.auto_exposure {
-            let mode = if ae { AV_CAPTURE_EXPOSURE_MODE_CONTINUOUS_AUTO } else { AV_CAPTURE_EXPOSURE_MODE_LOCKED };
+            let mode = if ae {
+                AV_CAPTURE_EXPOSURE_MODE_CONTINUOUS_AUTO
+            } else {
+                AV_CAPTURE_EXPOSURE_MODE_LOCKED
+            };
             match wrapper.set_exposure_mode(mode) {
                 Ok(_) => applied.push("auto_exposure".to_string()),
                 Err(e) => {
@@ -400,28 +423,34 @@ impl MacOSCamera {
     pub fn test_capabilities(&self) -> Result<crate::types::CameraCapabilities, CameraError> {
         let wrapper = match AVDeviceWrapper::new(&self.device_id) {
             Some(w) => w,
-            None => return Err(CameraError::InitializationError("Device not found".to_string())),
+            None => {
+                return Err(CameraError::InitializationError(
+                    "Device not found".to_string(),
+                ))
+            }
         };
-        
+
         // Default capabilities structure
         let mut caps = crate::types::CameraCapabilities::default();
-        
+
         unsafe {
             let device = wrapper.0;
-            
+
             // Focus Checks
-            caps.supports_manual_focus = msg_send![device, isFocusModeSupported: AV_CAPTURE_FOCUS_MODE_LOCKED];
-            caps.supports_auto_focus = msg_send![device, isFocusModeSupported: AV_CAPTURE_FOCUS_MODE_CONTINUOUS_AUTO] 
-                                    || msg_send![device, isFocusModeSupported: AV_CAPTURE_FOCUS_MODE_AUTO];
-            
+            caps.supports.manual_focus =
+                msg_send![device, isFocusModeSupported: AV_CAPTURE_FOCUS_MODE_LOCKED];
+            caps.supports.auto_focus = msg_send![device, isFocusModeSupported: AV_CAPTURE_FOCUS_MODE_CONTINUOUS_AUTO]
+                || msg_send![device, isFocusModeSupported: AV_CAPTURE_FOCUS_MODE_AUTO];
+
             // Exposure Checks
-            caps.supports_manual_exposure = msg_send![device, isExposureModeSupported: AV_CAPTURE_EXPOSURE_MODE_LOCKED];
-            caps.supports_auto_exposure = msg_send![device, isExposureModeSupported: AV_CAPTURE_EXPOSURE_MODE_CONTINUOUS_AUTO]
-                                       || msg_send![device, isExposureModeSupported: AV_CAPTURE_EXPOSURE_MODE_AUTO];
-            
+            caps.supports.manual_exposure =
+                msg_send![device, isExposureModeSupported: AV_CAPTURE_EXPOSURE_MODE_LOCKED];
+            caps.supports.auto_exposure = msg_send![device, isExposureModeSupported: AV_CAPTURE_EXPOSURE_MODE_CONTINUOUS_AUTO]
+                || msg_send![device, isExposureModeSupported: AV_CAPTURE_EXPOSURE_MODE_AUTO];
+
             // Format support is currently limited to default resolutions
         }
-        
+
         Ok(caps)
     }
 

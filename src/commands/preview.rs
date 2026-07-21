@@ -36,16 +36,14 @@ pub async fn start_preview_stream<R: Runtime>(
     .await
     .map_err(|e| format!("Failed to get camera: {e}"))?;
 
-    stream
-        .start(
-            camera.clone(),
-            config,
-            crate::quality::smart_trigger::SmartTrigger::new(
-                crate::quality::smart_trigger::TriggerConfig::default(),
-            ),
-            Some(app),
-        )
-        .await?;
+    stream.start(
+        camera.clone(),
+        config,
+        crate::quality::smart_trigger::SmartTrigger::new(
+            crate::quality::smart_trigger::TriggerConfig::default(),
+        ),
+        Some(app),
+    )?;
 
     let mut guard = PREVIEW_HANDLE.write().await;
     *guard = Some(Arc::new(stream));

@@ -701,7 +701,6 @@ mod commands_init_tests {
             // These should be lightweight calls that don't accumulate resources
         }
 
-        // If we get here without OOM, test passes
-        assert!(true, "No memory issues detected");
+        // If we get here without OOM/panic, the test passes.
     }
 }

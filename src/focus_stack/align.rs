@@ -1,5 +1,8 @@
 use super::FocusStackError;
-use crate::constants::{ALIGNMENT_SIGNIFICANT_ROTATION, ALIGNMENT_SIGNIFICANT_SCALE, ALIGNMENT_SAMPLING_STEP, LUMA_R, LUMA_G, LUMA_B};
+use crate::constants::{
+    ALIGNMENT_SAMPLING_STEP, ALIGNMENT_SIGNIFICANT_ROTATION, ALIGNMENT_SIGNIFICANT_SCALE, LUMA_B,
+    LUMA_G, LUMA_R,
+};
 /// Image alignment module for focus stacking
 ///
 /// Aligns images to compensate for camera movement between captures.
@@ -73,7 +76,7 @@ pub fn align_frames(frames: &[CameraFrame]) -> Result<Vec<AlignmentResult>, Focu
 
         // Compute alignment using center-of-mass
         // This is a simplified approach - production would use feature matching
-        let alignment = compute_alignment_simple(reference, frame)?;
+        let alignment = compute_alignment_simple(reference, frame);
 
         log::debug!(
             "Frame {} alignment: translation=({:.2}, {:.2}), error={:.3}",
@@ -123,7 +126,9 @@ pub fn apply_alignment(
 
     // Apply translation
     // Simple implementation: shift pixels by integer translation
+    #[allow(clippy::cast_possible_truncation)] // translation values fit in i32 range
     let tx = alignment.translation.0.round() as i32;
+    #[allow(clippy::cast_possible_truncation)] // translation values fit in i32 range
     let ty = alignment.translation.1.round() as i32;
 
     if tx != 0 || ty != 0 {
@@ -144,10 +149,7 @@ pub fn apply_alignment(
 }
 
 /// Compute simple alignment using center-of-mass
-fn compute_alignment_simple(
-    reference: &CameraFrame,
-    frame: &CameraFrame,
-) -> Result<AlignmentResult, FocusStackError> {
+fn compute_alignment_simple(reference: &CameraFrame, frame: &CameraFrame) -> AlignmentResult {
     // Compute center of mass for both images
     let ref_com = compute_center_of_mass(reference);
     let frame_com = compute_center_of_mass(frame);
@@ -158,12 +160,12 @@ fn compute_alignment_simple(
     // Compute alignment error (simplified)
     let error = (translation.0.powi(2) + translation.1.powi(2)).sqrt();
 
-    Ok(AlignmentResult {
+    AlignmentResult {
         translation,
         rotation: 0.0,
         scale: 1.0,
         error,
-    })
+    }
 }
 
 /// Compute center of mass of image (weighted by brightness)
@@ -187,8 +189,12 @@ fn compute_center_of_mass(frame: &CameraFrame) -> (f32, f32) {
                 let b = f32::from(frame.data[idx + 2]);
                 let weight = LUMA_R * r + LUMA_G * g + LUMA_B * b;
 
-                sum_x += x as f32 * weight;
-                sum_y += y as f32 * weight;
+                #[allow(clippy::cast_precision_loss)] // pixel indices fit in f32 mantissa
+                let x_f32 = x as f32;
+                #[allow(clippy::cast_precision_loss)] // pixel indices fit in f32 mantissa
+                let y_f32 = y as f32;
+                sum_x += x_f32 * weight;
+                sum_y += y_f32 * weight;
                 sum_weight += weight;
             }
         }
@@ -197,7 +203,11 @@ fn compute_center_of_mass(frame: &CameraFrame) -> (f32, f32) {
     if sum_weight > 0.0 {
         (sum_x / sum_weight, sum_y / sum_weight)
     } else {
-        (width as f32 / 2.0, height as f32 / 2.0)
+        #[allow(clippy::cast_precision_loss)] // image dimensions fit in f32 mantissa
+        let w = width as f32 / 2.0;
+        #[allow(clippy::cast_precision_loss)] // image dimensions fit in f32 mantissa
+        let h = height as f32 / 2.0;
+        (w, h)
     }
 }
 
@@ -207,11 +217,8 @@ fn apply_translation(frame: &mut CameraFrame, tx: i32, ty: i32) {
         return;
     }
 
-    // Safe: camera dimensions never exceed i32::MAX (max realistic dimension is ~16K pixels)
-    #[allow(clippy::cast_possible_wrap)]
-    let width = frame.width as i32;
-    #[allow(clippy::cast_possible_wrap)]
-    let height = frame.height as i32;
+    let width = i32::try_from(frame.width).unwrap_or(i32::MAX);
+    let height = i32::try_from(frame.height).unwrap_or(i32::MAX);
 
     // Create new buffer for shifted data
     let mut new_data = vec![0u8; frame.data.len()];
@@ -224,8 +231,8 @@ fn apply_translation(frame: &mut CameraFrame, tx: i32, ty: i32) {
 
             // Check if source is in bounds
             if src_x >= 0 && src_x < width && src_y >= 0 && src_y < height {
-                let src_idx = ((src_y * width + src_x) * 3) as usize;
-                let dst_idx = ((y * width + x) * 3) as usize;
+                let src_idx = usize::try_from((src_y * width + src_x) * 3).unwrap_or(0);
+                let dst_idx = usize::try_from((y * width + x) * 3).unwrap_or(0);
 
                 if src_idx + 2 < frame.data.len() && dst_idx + 2 < new_data.len() {
                     new_data[dst_idx..dst_idx + 3]
@@ -249,7 +256,9 @@ fn apply_rotation(frame: &mut CameraFrame, rotation: f32) {
     let width = frame.width as i32;
     #[allow(clippy::cast_possible_wrap)]
     let height = frame.height as i32;
+    #[allow(clippy::cast_precision_loss)] // dimensions fit in f32 mantissa
     let cx = width as f32 / 2.0;
+    #[allow(clippy::cast_precision_loss)] // dimensions fit in f32 mantissa
     let cy = height as f32 / 2.0;
 
     let cos_theta = rotation.cos();
@@ -260,15 +269,19 @@ fn apply_rotation(frame: &mut CameraFrame, rotation: f32) {
     for y in 0..height {
         for x in 0..width {
             // Rotate around center
+            #[allow(clippy::cast_precision_loss)] // pixel coords fit in f32 mantissa
             let x_centered = x as f32 - cx;
+            #[allow(clippy::cast_precision_loss)] // pixel coords fit in f32 mantissa
             let y_centered = y as f32 - cy;
 
+            #[allow(clippy::cast_possible_truncation)] // clamped by bounds check below
             let src_x = (x_centered * cos_theta - y_centered * sin_theta + cx).round() as i32;
+            #[allow(clippy::cast_possible_truncation)] // clamped by bounds check below
             let src_y = (x_centered * sin_theta + y_centered * cos_theta + cy).round() as i32;
 
             if src_x >= 0 && src_x < width && src_y >= 0 && src_y < height {
-                let src_idx = ((src_y * width + src_x) * 3) as usize;
-                let dst_idx = ((y * width + x) * 3) as usize;
+                let src_idx = usize::try_from((src_y * width + src_x) * 3).unwrap_or(0);
+                let dst_idx = usize::try_from((y * width + x) * 3).unwrap_or(0);
 
                 if src_idx + 2 < frame.data.len() && dst_idx + 2 < new_data.len() {
                     new_data[dst_idx..dst_idx + 3]
@@ -298,12 +311,14 @@ fn apply_scale(frame: &mut CameraFrame, scale: f32) {
 
     for y in 0..height {
         for x in 0..width {
+            #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)] // pixel coords fit in f32 mantissa, clamped by bounds check
             let src_x = (x as f32 * inv_scale).round() as i32;
+            #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)] // pixel coords fit in f32 mantissa, clamped by bounds check
             let src_y = (y as f32 * inv_scale).round() as i32;
 
             if src_x >= 0 && src_x < width && src_y >= 0 && src_y < height {
-                let src_idx = ((src_y * width + src_x) * 3) as usize;
-                let dst_idx = ((y * width + x) * 3) as usize;
+                let src_idx = usize::try_from((src_y * width + src_x) * 3).unwrap_or(0);
+                let dst_idx = usize::try_from((y * width + x) * 3).unwrap_or(0);
 
                 if src_idx + 2 < frame.data.len() && dst_idx + 2 < new_data.len() {
                     new_data[dst_idx..dst_idx + 3]
@@ -332,10 +347,10 @@ mod tests {
     #[test]
     fn test_alignment_result_default() {
         let result = AlignmentResult::default();
-        assert_eq!(result.translation, (0.0, 0.0));
-        assert_eq!(result.rotation, 0.0);
-        assert_eq!(result.scale, 1.0);
-        assert_eq!(result.error, 0.0);
+        assert!(result.translation.0.abs() < 1e-6 && result.translation.1.abs() < 1e-6);
+        assert!(result.rotation.abs() < 1e-6);
+        assert!((result.scale - 1.0).abs() < 1e-6);
+        assert!(result.error.abs() < 1e-6);
     }
 
     #[test]
@@ -345,7 +360,7 @@ mod tests {
         let height = 100;
         let data = vec![128u8; width * height * 3];
 
-        let frame = CameraFrame::new(data, width as u32, height as u32, "test_device".to_string());
+        let frame = CameraFrame::new(data, u32::try_from(width).unwrap_or(u32::MAX), u32::try_from(height).unwrap_or(u32::MAX), "test_device".to_string());
 
         let com = compute_center_of_mass(&frame);
 
@@ -361,7 +376,7 @@ mod tests {
         let data = vec![128u8; width * height * 3];
 
         let mut frame =
-            CameraFrame::new(data, width as u32, height as u32, "test_device".to_string());
+            CameraFrame::new(data, u32::try_from(width).unwrap_or(u32::MAX), u32::try_from(height).unwrap_or(u32::MAX), "test_device".to_string());
 
         apply_translation(&mut frame, 2, 2);
 
@@ -386,7 +401,10 @@ mod tests {
         let b = test_frame(9, 8, 120);
         let result = align_frames(&[a, b]);
 
-        assert!(matches!(result, Err(FocusStackError::DimensionMismatch { .. })));
+        assert!(matches!(
+            result,
+            Err(FocusStackError::DimensionMismatch { .. })
+        ));
     }
 
     #[test]
@@ -396,9 +414,9 @@ mod tests {
         let result = align_frames(&[a, b]).expect("alignment should succeed");
 
         assert_eq!(result.len(), 2);
-        assert_eq!(result[0].translation, (0.0, 0.0));
-        assert_eq!(result[0].rotation, 0.0);
-        assert_eq!(result[0].scale, 1.0);
+        assert!(result[0].translation.0.abs() < 1e-6 && result[0].translation.1.abs() < 1e-6);
+        assert!(result[0].rotation.abs() < 1e-6);
+        assert!((result[0].scale - 1.0).abs() < 1e-6);
     }
 
     #[test]

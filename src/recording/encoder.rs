@@ -133,15 +133,17 @@ fn rgb_to_yuv420(rgb: &[u8], width: u32, height: u32) -> Vec<u8> {
 
             // BT.601 conversion
             let y_val = ((66 * red + 129 * green + 25 * blue + 128) >> 8) + 16;
-            y_plane[y * width_usize + x] = y_val.clamp(0, 255) as u8;
+            // i32→u8: clamped to 0-255 before cast, always in range
+            y_plane[y * width_usize + x] = u8::try_from(y_val.clamp(0, 255)).unwrap_or(u8::MAX);
 
             // Subsample U and V (2x2 blocks)
             if y % 2 == 0 && x % 2 == 0 {
                 let uv_idx = (y / 2) * (width_usize / 2) + (x / 2);
                 let u_val = ((-38 * red - 74 * green + 112 * blue + 128) >> 8) + 128;
                 let v_val = ((112 * red - 94 * green - 18 * blue + 128) >> 8) + 128;
-                u_plane[uv_idx] = u_val.clamp(0, 255) as u8;
-                v_plane[uv_idx] = v_val.clamp(0, 255) as u8;
+                // i32→u8: clamped to 0-255 before cast, always in range
+                u_plane[uv_idx] = u8::try_from(u_val.clamp(0, 255)).unwrap_or(u8::MAX);
+                v_plane[uv_idx] = u8::try_from(v_val.clamp(0, 255)).unwrap_or(u8::MAX);
             }
         }
     }
@@ -183,17 +185,23 @@ mod tests {
         let result = encoder.encode_rgb(&rgb);
         assert!(result.is_ok(), "Encoding should succeed");
 
-        let encoded = result.unwrap();
-        assert!(!encoded.data.is_empty(), "Encoded data should not be empty");
+        let encoded_frame = result.expect("encoding should succeed");
+        assert!(
+            !encoded_frame.data.is_empty(),
+            "Encoded data should not be empty"
+        );
 
         // First bytes should be start code (0x00 0x00 0x00 0x01 or 0x00 0x00 0x01)
         assert!(
-            encoded.data.starts_with(&[0x00, 0x00, 0x00, 0x01])
-                || encoded.data.starts_with(&[0x00, 0x00, 0x01]),
+            encoded_frame.data.starts_with(&[0x00, 0x00, 0x00, 0x01])
+                || encoded_frame.data.starts_with(&[0x00, 0x00, 0x01]),
             "Should start with Annex B start code"
         );
 
         // First frame should be a keyframe
-        assert!(encoded.is_keyframe, "First frame should be a keyframe");
+        assert!(
+            encoded_frame.is_keyframe,
+            "First frame should be a keyframe"
+        );
     }
 }

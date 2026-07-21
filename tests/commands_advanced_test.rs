@@ -12,10 +12,10 @@
 //! - Performance testing for advanced operations
 
 use crabcamera::commands::advanced::{
-    apply_camera_settings, CameraSettingsInput,
-    capture_burst_sequence, capture_focus_stack_legacy, capture_hdr_sequence,
-    get_camera_controls, get_camera_performance, set_camera_controls, set_manual_exposure,
-    set_manual_focus, set_white_balance, test_camera_capabilities as test_capabilities,
+    apply_camera_settings, capture_burst_sequence, capture_focus_stack_legacy,
+    capture_hdr_sequence, get_camera_controls, get_camera_performance, set_camera_controls,
+    set_manual_exposure, set_manual_focus, set_white_balance,
+    test_camera_capabilities as test_capabilities, CameraSettingsInput,
 };
 use crabcamera::types::{BurstConfig, CameraControls, WhiteBalance};
 use std::time::{Duration, Instant};
@@ -53,7 +53,7 @@ fn create_test_controls() -> CameraControls {
 async fn test_set_get_camera_controls() {
     // Acquire async lock to prevent concurrent camera control modifications
     let _lock = TEST_LOCK.lock().await;
-    
+
     let controls = create_test_controls();
     let device_id = TEST_DEVICE_ID.to_string();
 
@@ -69,7 +69,10 @@ async fn test_set_get_camera_controls() {
         }
         Err(e) => {
             // In CI environment, camera might not be available
-            println!("Warning: Camera control test failed (expected in CI): {}", e);
+            println!(
+                "Warning: Camera control test failed (expected in CI): {}",
+                e
+            );
             return;
         }
     }
@@ -77,13 +80,16 @@ async fn test_set_get_camera_controls() {
     // Give hardware time to apply the settings
     tokio::time::sleep(Duration::from_millis(100)).await;
 
-    // Get controls back  
+    // Get controls back
     let get_result = get_camera_controls(device_id.clone()).await;
     match get_result {
         Ok(retrieved_controls) => {
             // In mock/test environments, controls may not be perfectly stored
             // Just verify the operation succeeded and we got some controls back
-            assert!(retrieved_controls.auto_focus.is_some(), "auto_focus should be set");
+            assert!(
+                retrieved_controls.auto_focus.is_some(),
+                "auto_focus should be set"
+            );
             // Note: Hardware cameras may not support all control changes,
             // so we don't assert exact matches in test environments
         }
@@ -91,7 +97,7 @@ async fn test_set_get_camera_controls() {
             println!("Warning: Get controls test failed (expected in CI): {}", e);
         }
     }
-    
+
     // Cleanup: Reset controls to defaults for next test
     let default_controls = CameraControls::default();
     let _ = set_camera_controls(device_id, default_controls).await;
@@ -104,7 +110,7 @@ async fn test_manual_focus_control() {
 
     // Test valid focus distances
     let valid_distances = [0.0, 0.25, 0.5, 0.75, 1.0];
-    
+
     for distance in valid_distances.iter() {
         let result = set_manual_focus(device_id.clone(), *distance).await;
         match result {
@@ -124,7 +130,7 @@ async fn test_manual_focus_control() {
 
     // Test invalid focus distances
     let invalid_distances = [-0.1, 1.1, 2.0, -1.0];
-    
+
     for distance in invalid_distances.iter() {
         let result = set_manual_focus(device_id.clone(), *distance).await;
         assert!(result.is_err());
@@ -141,10 +147,10 @@ async fn test_manual_exposure_settings() {
 
     // Test valid exposure combinations
     let valid_combinations = [
-        (1.0 / 1000.0, 100),  // Fast shutter, low ISO
-        (1.0 / 125.0, 400),   // Standard settings
-        (1.0 / 30.0, 800),    // Slow shutter, higher ISO
-        (1.0 / 4.0, 3200),    // Very slow, high ISO
+        (1.0 / 1000.0, 100), // Fast shutter, low ISO
+        (1.0 / 125.0, 400),  // Standard settings
+        (1.0 / 30.0, 800),   // Slow shutter, higher ISO
+        (1.0 / 4.0, 3200),   // Very slow, high ISO
     ];
 
     for (exposure_time, iso) in valid_combinations.iter() {
@@ -277,13 +283,15 @@ async fn test_exposure_bracketing() {
     match result {
         Ok(frames) => {
             assert_eq!(frames.len(), 3);
-            
+
             // Verify frames have metadata indicating different exposures
             for (i, frame) in frames.iter().enumerate() {
                 assert!(frame.is_valid());
                 if let Some(ref settings) = frame.metadata.capture_settings {
                     // Check that exposure was varied for bracketing
-                    assert!(settings.exposure_time.is_some() || settings.auto_exposure == Some(false));
+                    assert!(
+                        settings.exposure_time.is_some() || settings.auto_exposure == Some(false)
+                    );
                 }
                 println!("Bracketed frame {}: {} bytes", i + 1, frame.size_bytes);
             }
@@ -304,7 +312,7 @@ async fn test_focus_stacking_legacy() {
 
     // Test valid stack counts
     let valid_counts = [3, 5, 10, 20];
-    
+
     for count in valid_counts.iter() {
         let result = capture_focus_stack_legacy(device_id.clone(), *count).await;
         match result {
@@ -327,7 +335,7 @@ async fn test_focus_stacking_legacy() {
 
     // Test invalid stack counts
     let invalid_counts = [1, 2, 21, 50];
-    
+
     for count in invalid_counts.iter() {
         let result = capture_focus_stack_legacy(device_id.clone(), *count).await;
         assert!(result.is_err());
@@ -348,7 +356,7 @@ async fn test_hdr_capture() {
             // HDR should capture multiple frames (typically 3-5)
             assert!(frames.len() >= 3);
             assert!(frames.len() <= 7);
-            
+
             for frame in frames {
                 assert!(frame.is_valid());
                 assert!(frame.size_bytes > 0);
@@ -374,14 +382,19 @@ async fn test_camera_capabilities() {
             // Verify capabilities structure
             assert!(capabilities.max_resolution.0 > 0);
             assert!(capabilities.max_resolution.1 > 0);
-            
+
             println!("Camera capabilities:");
-            println!("  Manual focus: {}", capabilities.supports_manual_focus);
-            println!("  Manual exposure: {}", capabilities.supports_manual_exposure);
-            println!("  White balance: {}", capabilities.supports_white_balance);
-            println!("  Max resolution: {}x{}", 
-                capabilities.max_resolution.0, capabilities.max_resolution.1);
-            println!("  Manual focus: {}", capabilities.supports_manual_focus);
+            println!("  Manual focus: {}", capabilities.supports.manual_focus);
+            println!(
+                "  Manual exposure: {}",
+                capabilities.supports.manual_exposure
+            );
+            println!("  White balance: {}", capabilities.supports.white_balance);
+            println!(
+                "  Max resolution: {}x{}",
+                capabilities.max_resolution.0, capabilities.max_resolution.1
+            );
+            println!("  Manual focus: {}", capabilities.supports.manual_focus);
         }
         Err(e) if e.contains("mutex") || e.contains("camera") => {
             println!("Warning: Capabilities test failed (expected in CI): {}", e);
@@ -404,7 +417,7 @@ async fn test_performance_metrics() {
             assert!(metrics.capture_latency_ms >= 0.0);
             assert!(metrics.fps_actual >= 0.0);
             assert!(metrics.fps_actual >= 0.0);
-            
+
             println!("Performance metrics:");
             println!("  Capture latency: {:.2}ms", metrics.capture_latency_ms);
             println!("  Actual FPS: {:.2}", metrics.fps_actual);
@@ -466,12 +479,12 @@ async fn test_advanced_operations_performance() {
     // Benchmark controls setting speed
     let start = Instant::now();
     let controls = create_test_controls();
-    
+
     match set_camera_controls(device_id.clone(), controls).await {
         Ok(_) => {
             let controls_time = start.elapsed();
             println!("Camera controls setting took: {:?}", controls_time);
-            
+
             // Should be reasonably fast (under 1 second)
             assert!(controls_time < Duration::from_secs(1));
         }
@@ -498,12 +511,16 @@ async fn test_advanced_operations_performance() {
     match capture_burst_sequence(device_id, burst_config).await {
         Ok(frames) => {
             let burst_time = start.elapsed();
-            println!("Burst capture ({} frames) took: {:?}", frames.len(), burst_time);
-            
+            println!(
+                "Burst capture ({} frames) took: {:?}",
+                frames.len(),
+                burst_time
+            );
+
             // Calculate effective FPS
             let fps = frames.len() as f32 / burst_time.as_secs_f32();
             println!("Effective burst FPS: {:.2}", fps);
-            
+
             // Should maintain reasonable performance
             assert!(fps >= 1.0); // At least 1 FPS
         }
@@ -571,22 +588,24 @@ async fn test_concurrent_advanced_operations() {
     let device_id = TEST_DEVICE_ID.to_string();
 
     // Test concurrent control setting (should handle properly)
-    let handles = (0..3).map(|i| {
-        let device_id = device_id.clone();
-        tokio::spawn(async move {
-            let controls = CameraControls {
-                focus_distance: Some(i as f32 * 0.3),
-                ..CameraControls::default()
-            };
-            set_camera_controls(device_id, controls).await
+    let handles = (0..3)
+        .map(|i| {
+            let device_id = device_id.clone();
+            tokio::spawn(async move {
+                let controls = CameraControls {
+                    focus_distance: Some(i as f32 * 0.3),
+                    ..CameraControls::default()
+                };
+                set_camera_controls(device_id, controls).await
+            })
         })
-    }).collect::<Vec<_>>();
+        .collect::<Vec<_>>();
 
     let results = futures::future::join_all(handles).await;
-    
+
     let mut success_count = 0;
     let mut expected_failures = 0;
-    
+
     for result in results {
         match result {
             Ok(Ok(_)) => success_count += 1,
@@ -606,7 +625,10 @@ async fn test_concurrent_advanced_operations() {
     if success_count > 0 {
         println!("Concurrent operations succeeded: {}", success_count);
     } else {
-        println!("Concurrent operations failed (expected in CI): {}", expected_failures);
+        println!(
+            "Concurrent operations failed (expected in CI): {}",
+            expected_failures
+        );
     }
 }
 
@@ -628,8 +650,12 @@ async fn test_resource_management() {
 
         match capture_burst_sequence(device_id.clone(), config).await {
             Ok(frames) => {
-                println!("Resource test iteration {}: {} frames captured", i + 1, frames.len());
-                
+                println!(
+                    "Resource test iteration {}: {} frames captured",
+                    i + 1,
+                    frames.len()
+                );
+
                 // Verify frames are properly allocated
                 for frame in frames {
                     assert!(!frame.data.is_empty());
@@ -660,5 +686,7 @@ async fn test_apply_camera_settings_rejects_invalid_focus() {
     })
     .await;
     assert!(result.is_err());
-    assert!(result.unwrap_err().contains("Focus distance must be between 0.0"));
+    assert!(result
+        .unwrap_err()
+        .contains("Focus distance must be between 0.0"));
 }

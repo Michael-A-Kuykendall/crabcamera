@@ -288,7 +288,7 @@ async fn main() {
             println!("✅");
             println!(
                 "       Auto Focus:     {}",
-                if caps.supports_auto_focus {
+                if caps.supports.auto_focus {
                     "✓"
                 } else {
                     "✗"
@@ -296,7 +296,7 @@ async fn main() {
             );
             println!(
                 "       Manual Focus:   {}",
-                if caps.supports_manual_focus {
+                if caps.supports.manual_focus {
                     "✓"
                 } else {
                     "✗"
@@ -304,7 +304,7 @@ async fn main() {
             );
             println!(
                 "       Auto Exposure:  {}",
-                if caps.supports_auto_exposure {
+                if caps.supports.auto_exposure {
                     "✓"
                 } else {
                     "✗"
@@ -312,7 +312,7 @@ async fn main() {
             );
             println!(
                 "       Manual Exposure:{}",
-                if caps.supports_manual_exposure {
+                if caps.supports.manual_exposure {
                     "✓"
                 } else {
                     "✗"
@@ -320,7 +320,7 @@ async fn main() {
             );
             println!(
                 "       White Balance:  {}",
-                if caps.supports_white_balance {
+                if caps.supports.white_balance {
                     "✓"
                 } else {
                     "✗"

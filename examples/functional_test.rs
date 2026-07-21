@@ -518,11 +518,7 @@ impl TestResults {
         println!("╚══════════════════════════════════════════════════════════════════╝\n");
 
         let total = self.passed.len() + self.failed.len();
-        let pct = if total > 0 {
-            (self.passed.len() * 100) / total
-        } else {
-            0
-        };
+        let pct = (self.passed.len() * 100).checked_div(total).unwrap_or(0);
 
         println!(
             "  Total: {}  |  ✅ Passed: {}  |  ❌ Failed: {}  |  Rate: {}%\n",

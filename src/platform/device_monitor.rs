@@ -3,9 +3,9 @@
 //! Provides cross-platform device monitoring to detect camera connect/disconnect events
 //! and enable automatic reconnection.
 
+use crate::constants::DEVICE_MONITOR_POLL_INTERVAL_MS;
 use crate::errors::CameraError;
 use crate::types::{CameraDeviceInfo, Platform};
-use crate::constants::DEVICE_MONITOR_POLL_INTERVAL_MS;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
@@ -344,6 +344,8 @@ impl DeviceMonitor {
     }
 
     #[cfg(not(target_os = "windows"))]
+    // Stub returns `Result` to match the platform-dispatched `scan_devices_sync` signature.
+    #[allow(clippy::unnecessary_wraps)]
     fn scan_devices_windows() -> Result<Vec<CameraDeviceInfo>, CameraError> {
         Ok(Vec::new())
     }
@@ -369,6 +371,8 @@ impl DeviceMonitor {
     }
 
     #[cfg(not(target_os = "macos"))]
+    // Stub returns `Result` to match the platform-dispatched `scan_devices_sync` signature.
+    #[allow(clippy::unnecessary_wraps)]
     fn scan_devices_macos() -> Result<Vec<CameraDeviceInfo>, CameraError> {
         Ok(Vec::new())
     }
@@ -394,6 +398,8 @@ impl DeviceMonitor {
     }
 
     #[cfg(not(target_os = "linux"))]
+    // Stub returns `Result` to match the platform-dispatched `scan_devices_sync` signature.
+    #[allow(clippy::unnecessary_wraps)]
     fn scan_devices_linux() -> Result<Vec<CameraDeviceInfo>, CameraError> {
         Ok(Vec::new())
     }

@@ -155,3 +155,9 @@ required-features = ["recording"]
 name = "headless"
 path = "tests/headless/mod.rs"
 required-features = ["headless"]
+
+# block 0.1.6 has `enum Class {}` (uninhabited), which will be a hard
+# error in future Rust. Patch replaces with `#[repr(C)] struct Class(u8)`
+# (inhabited, FFI-safe). Remove when upstream is fixed or migrate to block2.
+[patch.crates-io]
+block = { path = "patches/block/block-0.1.6" }

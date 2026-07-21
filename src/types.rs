@@ -1,7 +1,10 @@
+use crate::constants::{
+    DEFAULT_FPS, DEFAULT_RESOLUTION_HEIGHT, DEFAULT_RESOLUTION_WIDTH, FALLBACK_RESOLUTION_HEIGHT,
+    FALLBACK_RESOLUTION_WIDTH, FORMAT_RGB, MIN_RESOLUTION_HEIGHT, MIN_RESOLUTION_WIDTH,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use crate::constants::{FORMAT_RGB, DEFAULT_RESOLUTION_WIDTH, DEFAULT_RESOLUTION_HEIGHT, DEFAULT_FPS, FALLBACK_RESOLUTION_WIDTH, FALLBACK_RESOLUTION_HEIGHT, MIN_RESOLUTION_WIDTH, MIN_RESOLUTION_HEIGHT};
 
 /// Platform enumeration
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -72,18 +75,21 @@ impl CameraDeviceInfo {
     }
 
     /// Set description
+    #[must_use]
     pub fn with_description(mut self, description: String) -> Self {
         self.description = Some(description);
         self
     }
 
     /// Set supported formats
+    #[must_use]
     pub fn with_formats(mut self, formats: Vec<CameraFormat>) -> Self {
         self.supports_formats = formats;
         self
     }
 
     /// Set availability
+    #[must_use]
     pub fn with_availability(mut self, available: bool) -> Self {
         self.is_available = available;
         self
@@ -116,12 +122,20 @@ impl CameraFormat {
 
     /// Create high resolution format
     pub fn hd() -> Self {
-        Self::new(DEFAULT_RESOLUTION_WIDTH, DEFAULT_RESOLUTION_HEIGHT, DEFAULT_FPS)
+        Self::new(
+            DEFAULT_RESOLUTION_WIDTH,
+            DEFAULT_RESOLUTION_HEIGHT,
+            DEFAULT_FPS,
+        )
     }
 
     /// Create standard resolution format
     pub fn standard() -> Self {
-        Self::new(FALLBACK_RESOLUTION_WIDTH, FALLBACK_RESOLUTION_HEIGHT, DEFAULT_FPS)
+        Self::new(
+            FALLBACK_RESOLUTION_WIDTH,
+            FALLBACK_RESOLUTION_HEIGHT,
+            DEFAULT_FPS,
+        )
     }
 
     /// Create low resolution format
@@ -130,6 +144,7 @@ impl CameraFormat {
     }
 
     /// Set format type
+    #[must_use]
     pub fn with_format_type(mut self, format_type: String) -> Self {
         self.format_type = format_type;
         self
@@ -183,6 +198,7 @@ impl CameraFrame {
     }
 
     /// Set format
+    #[must_use]
     pub fn with_format(mut self, format: String) -> Self {
         self.format = format;
         self
@@ -190,7 +206,11 @@ impl CameraFrame {
 
     /// Get frame aspect ratio
     pub fn aspect_ratio(&self) -> f32 {
-        self.width as f32 / self.height as f32
+        #[allow(clippy::cast_precision_loss)]
+        let w = self.width as f32;
+        #[allow(clippy::cast_precision_loss)]
+        let h = self.height as f32;
+        w / h
     }
 
     /// Check if frame is valid
@@ -361,27 +381,37 @@ impl BurstConfig {
     }
 }
 
+/// Boolean hardware-capability flags for a [`CameraCapabilities`] instance.
+// A flat set of capability booleans is the natural representation; bitflags would
+// obscure field access (e.g. `supports.auto_focus`) across the crate.
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CameraCapabilityFlags {
+    /// Supports auto-focus.
+    pub auto_focus: bool,
+    /// Supports manual focus.
+    pub manual_focus: bool,
+    /// Supports auto-exposure.
+    pub auto_exposure: bool,
+    /// Supports manual exposure.
+    pub manual_exposure: bool,
+    /// Supports white balance adjustment.
+    pub white_balance: bool,
+    /// Supports zoom (optical or digital).
+    pub zoom: bool,
+    /// Supports flash.
+    pub flash: bool,
+    /// Supports burst mode capture.
+    pub burst_mode: bool,
+    /// Supports HDR mode.
+    pub hdr: bool,
+}
+
 /// Camera hardware capabilities
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CameraCapabilities {
-    /// Supports auto-focus.
-    pub supports_auto_focus: bool,
-    /// Supports manual focus.
-    pub supports_manual_focus: bool,
-    /// Supports auto-exposure.
-    pub supports_auto_exposure: bool,
-    /// Supports manual exposure.
-    pub supports_manual_exposure: bool,
-    /// Supports white balance adjustment.
-    pub supports_white_balance: bool,
-    /// Supports zoom (optical or digital).
-    pub supports_zoom: bool,
-    /// Supports flash.
-    pub supports_flash: bool,
-    /// Supports burst mode capture.
-    pub supports_burst_mode: bool,
-    /// Supports HDR mode.
-    pub supports_hdr: bool,
+    /// Supported feature flags.
+    pub supports: CameraCapabilityFlags,
     /// Maximum supported resolution (width, height).
     pub max_resolution: (u32, u32),
     /// Maximum supported framerate.
@@ -397,15 +427,17 @@ pub struct CameraCapabilities {
 impl Default for CameraCapabilities {
     fn default() -> Self {
         Self {
-            supports_auto_focus: true,
-            supports_manual_focus: false,
-            supports_auto_exposure: true,
-            supports_manual_exposure: false,
-            supports_white_balance: true,
-            supports_zoom: false,
-            supports_flash: false,
-            supports_burst_mode: true,
-            supports_hdr: false,
+            supports: CameraCapabilityFlags {
+                auto_focus: true,
+                manual_focus: false,
+                auto_exposure: true,
+                manual_exposure: false,
+                white_balance: true,
+                zoom: false,
+                flash: false,
+                burst_mode: true,
+                hdr: false,
+            },
             max_resolution: (1920, 1080),
             max_fps: 30.0,
             exposure_range: None,
@@ -573,7 +605,7 @@ mod tests {
         let mjpeg = CameraFormat::new(800, 600, 24.0).with_format_type("MJPEG".to_string());
         assert_eq!(mjpeg.width, 800);
         assert_eq!(mjpeg.height, 600);
-        assert_eq!(mjpeg.fps, 24.0);
+        assert!((mjpeg.fps - 24.0).abs() < 1e-6);
         assert_eq!(mjpeg.format_type, "MJPEG");
     }
 
@@ -589,7 +621,7 @@ mod tests {
         assert_eq!(frame.device_id, "dev-0");
         assert!(!frame.id.is_empty());
         assert!(frame.is_valid());
-        assert_eq!(frame.aspect_ratio(), 2.0);
+        assert!((frame.aspect_ratio() - 2.0).abs() < 1e-6);
 
         let yuyv = frame.clone().with_format("YUYV".to_string());
         assert_eq!(yuyv.format, "YUYV");
@@ -626,7 +658,7 @@ mod tests {
         assert_eq!(pro.auto_exposure, Some(false));
         assert_eq!(pro.iso_sensitivity, Some(100));
         assert_eq!(pro.white_balance, Some(WhiteBalance::Daylight));
-        assert_eq!(pro.aperture, Some(8.0));
+        assert!(matches!(pro.aperture, Some(v) if (v - 8.0).abs() < 1e-6));
     }
 
     #[test]
@@ -639,14 +671,17 @@ mod tests {
         assert_eq!(burst.save_directory.as_deref(), Some("hdr_captures"));
 
         let bracketing = burst.bracketing.expect("hdr_burst should set bracketing");
-        assert_eq!(bracketing.stops, vec![-1.0, 0.0, 1.0]);
+        assert_eq!(bracketing.stops.len(), 3);
+        assert!((bracketing.stops[0] - -1.0).abs() < 1e-6);
+        assert!((bracketing.stops[1] - 0.0).abs() < 1e-6);
+        assert!((bracketing.stops[2] - 1.0).abs() < 1e-6);
         assert!(bracketing.base_exposure > 0.0);
 
         let caps = CameraCapabilities::default();
-        assert!(caps.supports_auto_focus);
-        assert!(caps.supports_auto_exposure);
+        assert!(caps.supports.auto_focus);
+        assert!(caps.supports.auto_exposure);
         assert_eq!(caps.max_resolution, (1920, 1080));
-        assert_eq!(caps.max_fps, 30.0);
+        assert!((caps.max_fps - 30.0).abs() < 1e-6);
     }
 
     #[test]
@@ -657,11 +692,11 @@ mod tests {
         assert!(meta.capture_settings.is_none());
 
         let perf = CameraPerformanceMetrics::default();
-        assert_eq!(perf.capture_latency_ms, 0.0);
-        assert_eq!(perf.processing_time_ms, 0.0);
-        assert_eq!(perf.memory_usage_mb, 0.0);
-        assert_eq!(perf.fps_actual, 0.0);
-        assert_eq!(perf.quality_score, 0.0);
+        assert!(perf.capture_latency_ms.abs() < 1e-6);
+        assert!(perf.processing_time_ms.abs() < 1e-6);
+        assert!(perf.memory_usage_mb.abs() < 1e-6);
+        assert!(perf.fps_actual.abs() < 1e-6);
+        assert!(perf.quality_score.abs() < 1e-6);
     }
 
     #[test]
@@ -687,7 +722,7 @@ mod tests {
         assert_eq!(pro.device_id, "9");
         assert_eq!(pro.format.width, 2592);
         assert_eq!(pro.format.height, 1944);
-        assert_eq!(pro.format.fps, 15.0);
+        assert!((pro.format.fps - 15.0).abs() < 1e-6);
         assert_eq!(pro.controls, CameraControls::professional());
     }
 }
