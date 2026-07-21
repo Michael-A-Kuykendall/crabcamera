@@ -23,7 +23,7 @@ type FrameCallback = Box<dyn Fn(CameraFrame) + Send + 'static>;
 #[cfg(target_os = "windows")]
 pub mod windows;
 
-/// macOS-specific camera backend (AVFoundation).
+/// macOS-specific camera backend (`AVFoundation`).
 #[cfg(target_os = "macos")]
 pub mod macos;
 
@@ -282,7 +282,7 @@ pub enum PlatformCamera {
     #[cfg(target_os = "windows")]
     Windows(windows::WindowsCamera),
 
-    /// MacOS AVFoundation backend.
+    /// `MacOS` `AVFoundation` backend.
     #[cfg(target_os = "macos")]
     MacOS(macos::MacOSCamera),
 

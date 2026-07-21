@@ -62,6 +62,7 @@ pub async fn request_camera_permission() -> Result<PermissionInfo, String> {
 }
 
 #[cfg(target_os = "macos")]
+#[allow(clippy::unused_async)]
 async fn request_permission_macos() -> Result<PermissionInfo, String> {
     use block::ConcreteBlock;
     use objc::runtime::{Class, Object};

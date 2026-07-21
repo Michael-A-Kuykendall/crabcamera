@@ -363,7 +363,7 @@ pub const RECORDING_SESSION_PREFIX: &str = "rec_";
 /// Permission request timeout
 pub const PERMISSION_REQUEST_TIMEOUT_SECS: u64 = 60;
 #[cfg(target_os = "macos")]
-/// macOS AVMediaTypeVideo
+/// macOS `AVMediaTypeVideo`
 pub const AV_MEDIA_TYPE_VIDEO: &str = "vide";
 
 /// Recording - Frame Drop Log Interval

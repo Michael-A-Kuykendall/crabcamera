@@ -117,6 +117,13 @@ impl PerfTracker {
 /// - Linux: `RSS` field of `/proc/self/statm`.
 /// - macOS: `task_info` with `MACH_TASK_BASIC_INFO` (`resident_size`).
 /// - Windows: `GetProcessMemoryInfo` working-set size.
+#[allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::cast_precision_loss,
+    clippy::borrow_as_ptr,
+    clippy::items_after_statements
+)]
 pub fn current_process_memory_mb() -> f32 {
     #[cfg(target_os = "linux")]
     {

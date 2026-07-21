@@ -23,7 +23,7 @@ type FrameCallback = Box<dyn Fn(CameraFrame) + Send + 'static>;
 /// List available cameras on macOS.
 ///
 /// # Errors
-/// Returns [`CameraError::InitializationError`] if querying the AVFoundation backend fails.
+/// Returns [`CameraError::InitializationError`] if querying the `AVFoundation` backend fails.
 pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
     // system_profiler reads IORegistry (safe, no AVFoundation hardware init)
     // Use it as a gate before touching nokhwa, which can C-abort on headless CI.
@@ -75,9 +75,9 @@ pub fn list_cameras() -> Result<Vec<CameraDeviceInfo>, CameraError> {
     Ok(device_list)
 }
 
-/// Initialize camera on macOS with AVFoundation backend
+/// Initialize camera on macOS with `AVFoundation` backend
 ///
-/// Uses nokhwa's CameraFormat API (0.10.x) with MJPEG frame format
+/// Uses nokhwa's `CameraFormat` API (0.10.x) with MJPEG frame format
 /// for broad compatibility across macOS camera hardware.
 ///
 /// # Errors
@@ -234,11 +234,11 @@ impl AVCaptureDeviceExt for AVDeviceWrapper {
 }
 
 impl MacOSCamera {
-    /// Capture frame from macOS camera using AVFoundation.
+    /// Capture frame from macOS camera using `AVFoundation`.
     ///
     /// # Errors
     /// Returns [`CameraError::CaptureError`] if the camera mutex is poisoned or the
-    /// underlying AVFoundation capture fails.
+    /// underlying `AVFoundation` capture fails.
     pub fn capture_frame(&self) -> Result<CameraFrame, CameraError> {
         let mut camera = self
             .camera
@@ -348,7 +348,7 @@ impl MacOSCamera {
     /// Get camera controls.
     ///
     /// # Errors
-    /// Returns [`CameraError`] if reading AVFoundation controls fails. Returns default
+    /// Returns [`CameraError`] if reading `AVFoundation` controls fails. Returns default
     /// controls when the device cannot be found.
     pub fn get_controls(&self) -> Result<crate::types::CameraControls, CameraError> {
         unsafe {
@@ -452,7 +452,7 @@ impl MacOSCamera {
         Ok(crate::types::ControlApplicationResult { applied, rejected })
     }
 
-    /// Test camera capabilities (macOS AVFoundation).
+    /// Test camera capabilities (macOS `AVFoundation`).
     ///
     /// # Errors
     /// Returns [`CameraError::InitializationError`] if the device cannot be found.
