@@ -351,6 +351,7 @@ pub struct CameraSummary {
 /// Get list of Cargo features compiled into this build.
 fn get_enabled_features() -> Vec<String> {
     [
+        ("tauri", cfg!(feature = "tauri")),
         ("recording", cfg!(feature = "recording")),
         ("audio", cfg!(feature = "audio")),
         ("headless", cfg!(feature = "headless")),

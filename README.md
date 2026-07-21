@@ -7,7 +7,7 @@
 [![Crates.io](https://img.shields.io/crates/v/crabcamera.svg)](https://crates.io/crates/crabcamera)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/rust-stable-brightgreen.svg)](https://rustup.rs/)
-[![Tests](https://img.shields.io/badge/tests-196%2F196-brightgreen.svg)](https://github.com/Michael-A-Kuykendall/crabcamera)
+[![Tests](https://img.shields.io/badge/tests-332%20passed-brightgreen.svg)](https://github.com/Michael-A-Kuykendall/crabcamera)
 [![Sponsor](https://img.shields.io/badge/%E2%9D%A4%EF%B8%8F-Sponsor-ea4aaa?logo=github)](https://github.com/sponsors/Michael-A-Kuykendall)
 
 CrabCamera is the first production-ready desktop camera + audio plugin for Tauri—unified camera and audio access across Windows, macOS, and Linux with professional controls, synchronized A/V recording, and zero-config setup.

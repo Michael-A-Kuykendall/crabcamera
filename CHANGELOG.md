@@ -40,6 +40,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Flaky timing-dependent audio PTS test** ignored under CI load; run manually.
 - **Security audit**: cleared reported advisory vulnerabilities.
 
+### Documentation
+- **Sponsor support section added to README** and `SPONSORS.md` standardized:
+  the 💝 Support CrabCamera section plus a consistent sponsors list
+  (ZephyrCloudIO = Corporate Backer, alistairheath = Coffee Hero) matching the
+  rest of the account's repos.
+
 ### CI
 - **`cargo publish --dry-run` job now installs the GTK/glib system dependencies**
   it needs to build the default `tauri` feature on Linux. This job was previously
