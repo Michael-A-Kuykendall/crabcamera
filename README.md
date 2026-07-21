@@ -14,6 +14,19 @@ CrabCamera is the first production-ready desktop camera + audio plugin for Tauri
 
 **Free forever. MIT license. No asterisks.**
 
+### 💝 Support CrabCamera
+
+🚀 **If CrabCamera helps you, consider [sponsoring](https://github.com/sponsors/Michael-A-Kuykendall) — 100% of support goes to keeping it free forever.**
+
+- **$5/month**: Coffee Hero ☕ — Eternal gratitude + name in [SPONSORS.md](SPONSORS.md)
+- **$25/month**: Developer Supporter 🐛 — Priority bug response + roadmap influence
+- **$100/month**: Corporate Backer 🏢 — Logo in README + release-note recognition
+- **$500/month**: Enterprise Partner 🚀 — Prominent logo + monthly office hours + roadmap input
+
+[**🎯 Become a Sponsor**](https://github.com/sponsors/Michael-A-Kuykendall) | See our amazing [sponsors](SPONSORS.md) 🙏
+
+**Thank you to our sponsors:** [ZephyrCloudIO](https://github.com/ZephyrCloudIO) (Corporate Backer) · alistairheath (Coffee Hero)
+
 ---
 
 ## Quick Start
@@ -315,7 +328,7 @@ cargo check --all-features
 
 [MIT](LICENSE-MIT)—forever.
 
-If CrabCamera saves you time, [sponsoring](https://github.com/sponsors/Michael-A-Kuykendall) keeps it moving forward.
+> 💝 If CrabCamera saves you time, consider [sponsoring for $5/month](https://github.com/sponsors/Michael-A-Kuykendall) — it keeps the project free forever and moving forward. See our [sponsors](SPONSORS.md) 🙏
 
 ---
 
