@@ -14,6 +14,15 @@ tauri-plugin = { version = "2.0", features = ["build"], optional = true }
 
 [workspace]
 
+[lints.rust]
+# The `objc` 0.2 crate's `msg_send!`/`sel_impl!` macros expand to the legacy
+# clippy-detection form `#[cfg_attr(feature = "cargo-clippy", ...)]`. Newer
+# toolchains' `unexpected_cfgs` lint flags `cargo-clippy` as an unknown feature
+# value, which becomes a hard error under CI's `-D warnings` on the macOS target
+# (the only target where the objc code compiles). Declare it as an expected cfg
+# so the third-party macro stops tripping the lint.
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("cargo-clippy"))'] }
+
 [lib]
 name = "crabcamera"
 path = "src/lib.rs"
