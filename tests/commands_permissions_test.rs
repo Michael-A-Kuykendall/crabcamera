@@ -127,6 +127,10 @@ mod commands_permissions_tests {
     }
 
     #[tokio::test]
+    #[cfg_attr(
+        target_os = "macos",
+        ignore = "Invokes interactive AVFoundation TCC dialog; never gets a callback on headless CI and times out - run manually"
+    )]
     async fn test_permission_request_timeout() {
         // Test that permission requests don't hang
         let timeout_duration = Duration::from_secs(60); // Longer for permission dialogs
@@ -271,6 +275,10 @@ mod commands_permissions_tests {
     }
 
     #[tokio::test]
+    #[cfg_attr(
+        target_os = "macos",
+        ignore = "Invokes interactive AVFoundation TCC dialog; never gets a callback on headless CI and times out - run manually"
+    )]
     async fn test_permission_request_idempotency() {
         // Test multiple permission requests
         let mut results = Vec::new();
@@ -383,6 +391,10 @@ mod commands_permissions_tests {
     }
 
     #[tokio::test]
+    #[cfg_attr(
+        target_os = "macos",
+        ignore = "Invokes interactive AVFoundation TCC dialog; never gets a callback on headless CI and times out - run manually"
+    )]
     async fn test_platform_specific_behavior() {
         // Test platform-specific permission behavior
         let result = request_camera_permission().await;
