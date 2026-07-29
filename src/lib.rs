@@ -24,7 +24,7 @@
 //! Add this to your `Cargo.toml`:
 //! ```toml
 //! [dependencies]
-//! crabcamera = { version = "0.9", features = ["recording", "audio"] }
+//! crabcamera = { version = "0.9.3", features = ["recording", "audio"] }
 //! ```
 //!
 //! Then access the camera API directly:

@@ -12,8 +12,49 @@ permissions:
   contents: write
 
 jobs:
+  validate:
+    name: Validate Release
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📦 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🦀 Setup Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+
+    - name: 💾 Cache cargo registry
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: 🔍 Check formatting
+      run: cargo fmt -- --check
+
+    - name: 🔍 Run clippy
+      run: cargo clippy --all-features -- -D warnings
+
+    - name: 📋 Verify Cargo.toml version matches tag
+      id: get_version
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/v}
+        CARGO_VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "Cargo.toml version: $CARGO_VERSION"
+        echo "Git tag version: $VERSION"
+        if [ "$CARGO_VERSION" != "$VERSION" ]; then
+          echo "❌ Version mismatch! Cargo.toml has $CARGO_VERSION but tag is v$VERSION"
+          exit 1
+        fi
+        echo "✅ Versions match"
+
   publish:
-    name: Publish to crates.io
+    name: 🚀 Publish to crates.io & Create Release
+    needs: validate
     runs-on: ubuntu-latest
     
     steps:
@@ -29,22 +70,9 @@ jobs:
         sudo apt-get install -y libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.1-dev
 
     - name: Extract version from tag
-      id: get_version
-      run: |
-        echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-        
-    - name: 📋 Verify Cargo.toml version matches tag
-      run: |
-        CARGO_VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
-        TAG_VERSION=${{ steps.get_version.outputs.VERSION }}
-        echo "Cargo.toml version: $CARGO_VERSION"
-        echo "Git tag version: $TAG_VERSION"
-        if [ "$CARGO_VERSION" != "$TAG_VERSION" ]; then
-          echo "❌ Version mismatch! Cargo.toml has $CARGO_VERSION but tag is v$TAG_VERSION"
-          exit 1
-        fi
-        echo "✅ Versions match"
-        
+      id: version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
     - name: 🚀 Publish to crates.io
       run: cargo publish --token ${{ secrets.CRATES_IO_TOKEN }}
       

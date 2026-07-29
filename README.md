@@ -1,18 +1,23 @@
+<div align="center">
+
 # CrabCamera 🦀
 
-**Production-ready cross-platform camera capture and recording library for Rust.**
+### Production-Ready Cross-Platform Camera Capture and Recording Library for Rust
 
 ![CrabCamera Logo](https://raw.githubusercontent.com/Michael-A-Kuykendall/crabcamera/main/assets/logo.png)
 
 [![Crates.io](https://img.shields.io/crates/v/crabcamera.svg)](https://crates.io/crates/crabcamera)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/rust-stable-brightgreen.svg)](https://rustup.rs/)
-[![Tests](https://img.shields.io/badge/tests-332%20passed-brightgreen.svg)](https://github.com/Michael-A-Kuykendall/crabcamera)
+[![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)](https://github.com/Michael-A-Kuykendall/crabcamera)
 [![Sponsor](https://img.shields.io/badge/%E2%9D%A4%EF%B8%8F-Sponsor-ea4aaa?logo=github)](https://github.com/sponsors/Michael-A-Kuykendall)
 
-CrabCamera is a production-ready camera capture and recording library for Rust — unified access across Windows, macOS, and Linux with professional controls, synchronized A/V recording, and zero-config setup. Includes optional Tauri plugin integration and a standalone headless mode for server and CLI usage.
+[![💝 Sponsor this project](https://img.shields.io/badge/💝_Sponsor_this_project-ea4aaa?style=for-the-badge&logo=github&logoColor=white)](https://github.com/sponsors/Michael-A-Kuykendall)
 
-**Free forever. MIT license. No asterisks.**
+**Languages:** [简体中文](docs/zh-CN/README.md) · [繁體中文](docs/zh-TW/README.md)
+</div>
+
+**CrabCamera will be free forever.** No asterisks. No "free for now." No pivot to paid.
 
 ### 💝 Support CrabCamera
 
@@ -35,7 +40,7 @@ CrabCamera is a production-ready camera capture and recording library for Rust �
 
 ```toml
 [dependencies]
-crabcamera = "0.9"
+crabcamera = "0.9.3"
 ```
 
 ```rust
@@ -54,7 +59,7 @@ Add features as needed:
 
 ```toml
 [dependencies]
-crabcamera = { version = "0.9", features = ["tauri"] }
+crabcamera = { version = "0.9.3", features = ["tauri"] }
 tauri = { version = "2.11" }
 ```
 

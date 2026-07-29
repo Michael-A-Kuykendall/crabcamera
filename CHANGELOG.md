@@ -5,9 +5,48 @@ All notable changes to CrabCamera will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.3] - 2026-07-29
+
+### Changed
+- **Default feature set flipped**: `default = ["tauri"]` → `default = ["headless"]`
+  CrabCamera is now a general-purpose Rust camera library by default, with Tauri plugin
+  integration as an opt-in feature. This removes the webkit2gtk/glib transitive dependency
+  from Linux default builds and makes the library accessible to any Rust project.
+  Existing Tauri users add `features = ["tauri"]` explicitly.
+- **`default` feature set now `["headless"]`** — standalone Rust camera library is the
+  default mode; Tauri plugin is opt-in via `features = ["tauri"]`
+- **Cargo.toml keywords updated** from `["tauri", "camera", ...]` to
+  `["camera", "capture", "cross-platform", "desktop", "recording", "rust"]`
+- **Description updated** to reflect dual-identity: a Rust camera library with optional
+  Tauri plugin integration
+- **Dependabot security alerts resolved** — updated tauri (2.0→2.11), openssl (0.10.75→0.10.81),
+  serde_with (3.16→3.21), rand (pinned to 0.9.5), native-tls (0.2.14→0.2.18)
+- **glib RUSTSEC-2024-0429 suppressed** — webkit2gtk 2.0.2 pins glib `^0.18.0`; no
+  compatible update exists; glib unsoundness affects `VariantStrIter` methods not used
+  by crabcamera's webview code path
+
+### Fixed
+- **Feature-gating gaps exposed by new default**: gated `use tauri::Runtime` and
+  `use tauri::Emitter` in `src/preview/stream.rs` behind `#[cfg(feature = "tauri")]`
+- **`registry.rs verify_linkage()`**: now gated behind `#[cfg(feature = "tauri")]` since
+  it references `crate::commands` which only exists with the tauri feature
+- **`headless/mod.rs` test**: added missing `use crate::CameraFormat` import for
+  standalone (non-tauri) feature combination
+
+### Added
+- **Chinese documentation** (`docs/zh-CN/` and `docs/zh-TW/`):
+  - `README.md` — Chinese introduction and quick start
+  - `USER_MANUAL.zh-CN.md` — Full Chinese (Simplified) user manual
+  - `USER_MANUAL.zh-TW.md` — Full Chinese (Traditional) user manual
+- **`.github/dependabot.yml`** — Dependabot configuration with glib suppression
+  documentation and weekly update schedule
+- **`SECURITY.md`** documentation for glib RUSTSEC-2024-0429 suppression rationale
+- **`keywords` metadata** — added `"capture"` and `"recording"` to Cargo.toml
+
 ## [0.9.2] - 2026-07-21
 
 ### Changed
+- **Dropped `lazy_static` dependency**: migrated all `lazy_static!` usages to
 - **Dropped `lazy_static` dependency**: migrated all `lazy_static!` usages to
   `std::sync::LazyLock` (stabilized in Rust 1.80) and removed the direct
   `lazy_static` dependency from `Cargo.toml`.
