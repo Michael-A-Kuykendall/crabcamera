@@ -7,25 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.9.3] - 2026-07-29
 
-### Changed
+### 🔒 Security
+- **Dependabot vulnerability alerts resolved** — updated tauri (2.0 → 2.11),
+  openssl (0.10.75 → 0.10.81), serde_with (3.16 → 3.21), rand (0.9.5),
+  native-tls (0.2.14 → 0.2.18), anyhow (1.0.100 → 1.0.104)
+- `cargo audit` passes with zero vulnerabilities (was 13+ before this update)
+- Added `.github/dependabot.yml` configuration with weekly update schedule
+
+### 🏗️ Architecture
 - **Default feature set flipped**: `default = ["tauri"]` → `default = ["headless"]`
   CrabCamera is now a general-purpose Rust camera library by default, with Tauri plugin
   integration as an opt-in feature. This removes the webkit2gtk/glib transitive dependency
   from Linux default builds and makes the library accessible to any Rust project.
   Existing Tauri users add `features = ["tauri"]` explicitly.
-- **`default` feature set now `["headless"]`** — standalone Rust camera library is the
-  default mode; Tauri plugin is opt-in via `features = ["tauri"]`
-- **Cargo.toml keywords updated** from `["tauri", "camera", ...]` to
-  `["camera", "capture", "cross-platform", "desktop", "recording", "rust"]`
-- **Description updated** to reflect dual-identity: a Rust camera library with optional
-  Tauri plugin integration
-- **Dependabot security alerts resolved** — updated tauri (2.0→2.11), openssl (0.10.75→0.10.81),
-  serde_with (3.16→3.21), rand (pinned to 0.9.5), native-tls (0.2.14→0.2.18)
-- **glib RUSTSEC-2024-0429 suppressed** — webkit2gtk 2.0.2 pins glib `^0.18.0`; no
-  compatible update exists; glib unsoundness affects `VariantStrIter` methods not used
-  by crabcamera's webview code path
+- Cargo keywords updated: `["camera", "capture", "cross-platform", "desktop", "recording", "rust"]`
+- Description updated to reflect dual-identity: Rust camera library + Tauri plugin
 
-### Fixed
+### 📝 Documentation
+- **Chinese documentation** (`docs/zh-CN/` and `docs/zh-TW/`):
+  - `README.md` — Chinese introduction and quick start with language selector
+  - `USER_MANUAL.zh-CN.md` — Full Chinese (Simplified) user manual
+  - `USER_MANUAL.zh-TW.md` — Full Chinese (Traditional) user manual
+- **`SECURITY.md`** updated with glib RUSTSEC-2024-0429 suppression rationale
+- **`.github/dependabot.yml`** — Dependabot configuration with suppression documentation
+
+### 🔧 Fixed
 - **Feature-gating gaps exposed by new default**: gated `use tauri::Runtime` and
   `use tauri::Emitter` in `src/preview/stream.rs` behind `#[cfg(feature = "tauri")]`
 - **`registry.rs verify_linkage()`**: now gated behind `#[cfg(feature = "tauri")]` since
@@ -33,15 +39,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`headless/mod.rs` test**: added missing `use crate::CameraFormat` import for
   standalone (non-tauri) feature combination
 
-### Added
-- **Chinese documentation** (`docs/zh-CN/` and `docs/zh-TW/`):
-  - `README.md` — Chinese introduction and quick start
-  - `USER_MANUAL.zh-CN.md` — Full Chinese (Simplified) user manual
-  - `USER_MANUAL.zh-TW.md` — Full Chinese (Traditional) user manual
-- **`.github/dependabot.yml`** — Dependabot configuration with glib suppression
-  documentation and weekly update schedule
-- **`SECURITY.md`** documentation for glib RUSTSEC-2024-0429 suppression rationale
-- **`keywords` metadata** — added `"capture"` and `"recording"` to Cargo.toml
+### ⚙️ CI
+- **`publish.yml`** — added CI validation gate: `cargo fmt -- --check` and
+  `cargo clippy --all-features -- -D warnings` run before crates.io publish
+- `publish.yml` — version extraction step moved to `validate` job with proper
+  `$GITHUB_OUTPUT` export
 
 ## [0.9.2] - 2026-07-21
 
