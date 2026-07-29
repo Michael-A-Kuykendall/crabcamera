@@ -38,7 +38,7 @@ path = "src/bin/headless_capture.rs"
 required-features = ["headless", "audio"]
 
 [dependencies]
-tauri = { version = "2.0", features = ["protocol-asset"], optional = true }
+tauri = { version = "2.11", features = ["protocol-asset"], optional = true }
 nokhwa = { version = "0.10.10", features = ["input-native", "output-threaded"] }
 tokio = { version = "1.40", features = ["full"] }
 tokio-util = "0.7"
