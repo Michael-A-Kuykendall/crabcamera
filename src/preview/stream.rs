@@ -6,6 +6,7 @@ use tokio_util::sync::CancellationToken;
 
 #[cfg(feature = "tauri")]
 use tauri::Emitter;
+#[cfg(feature = "tauri")]
 use tauri::Runtime;
 
 use crate::platform::PlatformCamera;
@@ -45,6 +46,7 @@ impl PreviewStream {
     /// `expect("camera lock")`).
     // `config` must be owned: it is moved into a `tokio::spawn` `'static` closure.
     #[allow(clippy::needless_pass_by_value)]
+    #[cfg(feature = "tauri")]
     pub fn start<R: Runtime>(
         &self,
         camera: Arc<StdMutex<PlatformCamera>>,

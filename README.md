@@ -1,6 +1,6 @@
 # CrabCamera 🦀
 
-**Production-ready desktop camera & audio plugin for Tauri applications.**
+**Production-ready cross-platform camera capture and recording library for Rust.**
 
 ![CrabCamera Logo](https://raw.githubusercontent.com/Michael-A-Kuykendall/crabcamera/main/assets/logo.png)
 
@@ -10,7 +10,7 @@
 [![Tests](https://img.shields.io/badge/tests-332%20passed-brightgreen.svg)](https://github.com/Michael-A-Kuykendall/crabcamera)
 [![Sponsor](https://img.shields.io/badge/%E2%9D%A4%EF%B8%8F-Sponsor-ea4aaa?logo=github)](https://github.com/sponsors/Michael-A-Kuykendall)
 
-CrabCamera is the first production-ready desktop camera + audio plugin for Tauri—unified camera and audio access across Windows, macOS, and Linux with professional controls, synchronized A/V recording, and zero-config setup.
+CrabCamera is a production-ready camera capture and recording library for Rust — unified access across Windows, macOS, and Linux with professional controls, synchronized A/V recording, and zero-config setup. Includes optional Tauri plugin integration and a standalone headless mode for server and CLI usage.
 
 **Free forever. MIT license. No asterisks.**
 
@@ -31,12 +31,31 @@ CrabCamera is the first production-ready desktop camera + audio plugin for Tauri
 
 ## Quick Start
 
-### Installation
+### From Rust (standalone)
 
 ```toml
 [dependencies]
-crabcamera = { version = "0.9", features = ["recording", "audio"] }
-tauri = { version = "2.0" }
+crabcamera = "0.9"
+```
+
+```rust
+use crabcamera::headless::HeadlessSession;
+
+let session = HeadlessSession::new(config)?;
+session.start()?;
+let frame = session.get_frame()?;
+```
+
+Add features as needed:
+- `recording` — MP4 recording (H.264 + Muxide)
+- `audio` — OPUS audio capture and encoding
+
+### Tauri plugin integration
+
+```toml
+[dependencies]
+crabcamera = { version = "0.9", features = ["tauri"] }
+tauri = { version = "2.11" }
 ```
 
 ### Register the plugin
@@ -74,7 +93,7 @@ For vanilla JS (no bundler), enable `withGlobalTauri: true` in `tauri.conf.json`
 
 ## Using CrabCamera from Rust
 
-CrabCamera is not Tauri-only. Three additional entry points exist for direct Rust usage:
+CrabCamera works as a standalone Rust library — no Tauri required. The Quick Start above shows the fastest path.
 
 ```rust
 // Direct platform camera (no Tauri required)
@@ -283,22 +302,23 @@ check_camera_permission_status() -> Result<PermissionStatus>
 
 ```
 crabcamera/
-├── src/commands/        Tauri command handlers (capture, recording, advanced, init)
+├── src/headless/       Standalone HeadlessSession API (default, no Tauri required)
+├── src/commands/       Tauri command handlers (capture, recording, advanced, init)
 ├── src/platform/        Platform-specific camera backends (Windows, macOS, Linux)
 ├── src/quality/         Blur, exposure, and composition scoring; Smart Trigger
 ├── src/recording/       H.264 + Opus encoding; MP4 mux via Muxide
 ├── src/audio/           CPAL-based audio capture and encoding
 ├── src/focus_stack/     Laplacian pyramid blend for focus stacking
-├── src/headless/        Non-Tauri HeadlessSession API
 ├── src/bin/             crabcamera-cli binary
 ├── src/invariant_ppt.rs Runtime invariant assertion framework
 └── src/registry.rs      Feature status registry
 ```
 
 Cargo features:
+- `headless` — enables HeadlessSession API for server/CLI/Rust usage (default)
+- `tauri` — enables Tauri plugin integration (`crabcamera::init()`)
 - `recording`—enables MP4 recording commands (openh264 + Muxide)
 - `audio`—enables audio capture and encoding (Opus via CPAL)
-- `headless`—enables HeadlessSession API for server/CLI usage
 
 ---
 

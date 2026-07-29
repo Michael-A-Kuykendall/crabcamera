@@ -2,10 +2,10 @@
 name = "crabcamera"
 version = "0.9.2"
 edition = "2021"
-description = "Advanced cross-platform camera integration for Tauri applications"
+description = "Advanced cross-platform camera capture and recording library for Rust. Provides a Tauri plugin integration and a standalone headless mode."
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/Michael-A-Kuykendall/crabcamera"
-keywords = ["tauri", "camera", "cross-platform", "desktop", "rust"]
+keywords = ["camera", "cross-platform", "desktop", "capture", "rust", "recording"]
 categories = ["multimedia", "gui"]
 links = "tauri_plugin_crabcamera"
 
@@ -82,7 +82,7 @@ contextlite-client = { version = "2.0.7", optional = true }
 # webrtc-util = "0.12.0"
 
 [features]
-default = ["tauri"]
+default = ["headless"]
 tauri = ["dep:tauri", "dep:tauri-plugin"]
 recording = ["dep:muxide", "dep:openh264"]
 audio = ["dep:cpal", "dep:libopus_sys", "dep:crossbeam-channel"]

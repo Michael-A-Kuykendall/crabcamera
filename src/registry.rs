@@ -206,6 +206,7 @@ impl SystemRegistry {
 
     /// Verify that all registered features point to valid code paths
     /// (This acts as a compile-time check if we link symbols directly)
+    #[cfg(feature = "tauri")]
     pub fn verify_linkage() {
         // This function doesn't run logic, but referencing symbols ensures they exist
         // at compile time. If a function is deleted, this registry will fail to compile.
@@ -236,6 +237,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(feature = "tauri")]
     fn test_registry_integrity() {
         // Ensure manifest generates without error
         let manifest = SystemRegistry::get_manifest();

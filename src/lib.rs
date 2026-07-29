@@ -24,21 +24,12 @@
 //! Add this to your `Cargo.toml`:
 //! ```toml
 //! [dependencies]
-//! crabcamera = { version = "0.8", features = ["recording", "audio"] }
-//! tauri = { version = "2.0", features = ["protocol-asset"] }
+//! crabcamera = { version = "0.9", features = ["recording", "audio"] }
 //! ```
 //!
-//! Then in your Tauri app:
+//! Then access the camera API directly:
 //! ```rust,ignore
-//! use crabcamera;
-//!
-//! fn main() {
-//!     tauri::Builder::default()
-//!         .plugin(crabcamera::init())
-//!         .run(tauri::generate_context!())
-//!         .expect("error while running tauri application");
-//! }
-//! ```
+//! use crabcamera::headless::HeadlessSession;
 
 #![warn(missing_docs)]
 #![warn(clippy::pedantic)]
