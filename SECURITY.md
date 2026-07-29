@@ -85,7 +85,13 @@ We believe in recognizing security researchers who help keep CrabCamera secure:
 - **CVE Assignment**: For qualifying vulnerabilities
 - **Acknowledgment**: Credit in release notes
 
-*Note: We currently do not offer monetary bug bounties, but we deeply appreciate responsible disclosure.*
+## Known Dependency Limitations
+
+### glib (RUSTSEC-2024-0429 — Unsoundness tolerated)
+
+`glib` 0.18.5 carries advisory GHSA-wrw7-89jp-8q8g (medium severity, unsoundness in `VariantStrIter` iterator impls). This dependency is a transitive requirement of `webkit2gtk` 2.0.2, which pins glib to `"^0.18.0"`. No updated release of `webkit2gtk` that supports `glib >= 0.20` is available on crates.io.
+
+**Mitigation**: The `VariantStrIter` code path is exercised only when iterating variant child values. CrabCamera's webview usage on Linux (webkit2gtk) does not pass variant strings through the affected iterator methods. The alert is dismissed as a tolerable risk. Track the upstream issue: https://github.com/gtk-rs/webkit2gtk-rs/issues/162
 
 ### :rotating_light: Emergency Contact
 

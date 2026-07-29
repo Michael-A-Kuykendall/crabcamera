@@ -1,0 +1,16 @@
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: glib
+        reason: >
+          glib 0.18.5 is affected by RUSTSEC-2024-0429 (unsoundness in
+          VariantStrIter iterator impls), but the webkit2gtk 2.0.2 crate
+          (the Linux webview backend used by wry/tauri) pins glib to "^0.18.0".
+          No compatible webkit2gtk release supporting glib >= 0.20 exists on
+          crates.io. The unsoundness affects VariantStrIter next/next_back/nth
+          methods which are not used through crabcamera's webview path.
+          The alert is dismissed as tolerable risk.
