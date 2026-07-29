@@ -319,6 +319,10 @@ mod commands_permissions_tests {
     }
 
     #[tokio::test]
+    #[cfg_attr(
+        target_os = "macos",
+        ignore = "Invokes interactive AVFoundation TCC dialog; never gets a callback on headless CI and times out - run manually"
+    )]
     async fn test_permission_error_handling() {
         // Test that permission functions handle errors gracefully
         // These tests don't expect errors, but verify proper error handling if they occur
