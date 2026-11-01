@@ -19,17 +19,18 @@
 
 **CrabCamera will be free forever.** No asterisks. No "free for now." No pivot to paid.
 
-### 💝 Support CrabCamera
+### Support
 
-🚀 **If CrabCamera helps you, consider [sponsoring](https://github.com/sponsors/Michael-A-Kuykendall) — 100% of support goes to keeping it free forever.**
+This project is independently maintained and free forever. Sponsorship helps fund ongoing development, certification, compatibility work, and releases.
 
-- **$5/month**: Coffee Hero ☕ — Eternal gratitude + name in [SPONSORS.md](SPONSORS.md)
-- **$25/month**: Developer Supporter 🐛 — Priority bug response + roadmap influence
-- **$100/month**: Corporate Backer 🏢 — Logo in README + release-note recognition
-- **$500/month**: Enterprise Partner 🚀 — Prominent logo + monthly office hours + roadmap input
+[Sponsor on GitHub](https://github.com/sponsors/Michael-A-Kuykendall) · [Buy Me a Coffee](https://www.buymeacoffee.com/michaelakuykendall)
 
-[**🎯 Become a Sponsor**](https://github.com/sponsors/Michael-A-Kuykendall) | See our amazing [sponsors](SPONSORS.md) 🙏
+Any amount is appreciated. Suggested tiers:
 
+- **$5/month** — Thanks
+- **$15/month** — Supporter
+- **$50/month** — Backer
+- **Custom** — [Email for invoicing](mailto:michaelallenkuykendall@gmail.com)
 
 ---
 
@@ -352,8 +353,6 @@ cargo check --all-features
 
 [MIT](LICENSE-MIT)—forever.
 
-> 💝 If CrabCamera saves you time, consider [sponsoring for $5/month](https://github.com/sponsors/Michael-A-Kuykendall) — it keeps the project free forever and moving forward. See our [sponsors](SPONSORS.md) 🙏
-
 ---
 
 *Made with Rust 🦀*
@@ -367,4 +366,3 @@ If you or someone you love needs support:
 - [The Trevor Project](https://www.thetrevorproject.org/) — 24/7 for LGBTQ+ young people. Call 1-866-488-7386 or text START to 678-678
 - [Trans Lifeline](https://translifeline.org/) — peer support run by and for trans people. US: 877-565-8860
 - [988 Suicide & Crisis Lifeline](https://988lifeline.org/) — call or text 988
-
