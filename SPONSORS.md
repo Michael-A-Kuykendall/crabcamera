@@ -9,9 +9,7 @@ Thank you to all our sponsors who help keep CrabCamera free forever!
 
 ### Corporate Backers ($100+/month)
 
-[![ZephyrCloudIO](https://github.com/ZephyrCloudIO.png?size=80)](https://github.com/ZephyrCloudIO)
-
-**[ZephyrCloudIO](https://github.com/ZephyrCloudIO)** - Corporate Backer (joined December 25th, 2025)
+*Be the first!*
 
 ### Developer Supporters ($25+/month)
 *Be the first!*
